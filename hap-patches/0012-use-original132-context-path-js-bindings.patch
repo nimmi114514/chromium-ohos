@@ -1,0 +1,56 @@
+diff --git a/web_engine/src/main/ets/application/WebAbilityStage.ets b/web_engine/src/main/ets/application/WebAbilityStage.ets
+index 5b505dd..3233acc 100644
+--- a/web_engine/src/main/ets/application/WebAbilityStage.ets
++++ b/web_engine/src/main/ets/application/WebAbilityStage.ets
+@@ -121,7 +121,6 @@ export class WebAbilityStage extends AbilityStage {
+       import('../jsbindings/JsBindingMethod').then((ns:ESObject) => {
+         ns.JsBindingMethod.bind();
+         this.nativeThemeAdapter = Inject.get(NativeThemeAdapter);
+-        JsBindingUtils.SetContextPaths();
+       }).catch(()=>{
+         LogUtil.error(TAG, 'runTaskAsync: import JsBindingMethod failed');
+       });
+diff --git a/web_engine/src/main/ets/utils/JsBindingUtils.ets b/web_engine/src/main/ets/utils/JsBindingUtils.ets
+index 64c35a6..bbdb7cd 100644
+--- a/web_engine/src/main/ets/utils/JsBindingUtils.ets
++++ b/web_engine/src/main/ets/utils/JsBindingUtils.ets
+@@ -3,11 +3,8 @@
+ // found in the LICENSE file.
+ 
+ import adapter from 'libadapter.so';
+-import Inject from '../common/InjectModule';
+-import { ContextPathAdapter } from '../adapter/ContextPathAdapter';
+ import { ContextType } from '../common/Constants';
+ import { NativeContext } from '../interface/CommonInterface';
+-import LogUtil from './LogUtil';
+ 
+ export default class JsBindingUtils {
+   private static currentContext: NativeContext;
+@@ -36,27 +33,4 @@ export default class JsBindingUtils {
+     return adapter.getNativeContext(contextType);
+   }
+ 
+-  static SetContextPaths() {
+-    const contextPathAdapter = Inject.get(ContextPathAdapter);
+-    if (!contextPathAdapter) {
+-      LogUtil.error('JsBindingUtils', 'SetContextPaths: ContextPathAdapter not available');
+-      return;
+-    }
+-    const safeGet = (fn: () => string, defaultValue: string = ''): string => {
+-      try { return fn(); } catch (e) { return defaultValue; }
+-    };
+-    const paths: Record<string, string> = {
+-      "cacheDir": safeGet(() => contextPathAdapter.getCacheDir()),
+-      "filesDir": safeGet(() => contextPathAdapter.getFilesDir()),
+-      "tempDir": safeGet(() => contextPathAdapter.getTempDir()),
+-      "userDocumentDir": safeGet(() => contextPathAdapter.getUserDocumentDir()),
+-      "userDesktopDir": safeGet(() => contextPathAdapter.getUserDesktopDir()),
+-      "userDownloadDir": safeGet(() => contextPathAdapter.getUserDownloadDir()),
+-    };
+-    if (adapter.SetContextPaths) {
+-      adapter.SetContextPaths(paths);
+-    } else {
+-      LogUtil.error('JsBindingUtils', 'SetContextPaths: adapter.SetContextPaths not found in C++ module');
+-    }
+-  }
+ }

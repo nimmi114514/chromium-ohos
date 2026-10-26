@@ -1,0 +1,8 @@
+{
+  "provider": "OpenHarmony official MediaCollections DTA demonstration",
+  "source": "https://github.com/openharmony/applications_app_samples/tree/master/code/SystemFeature/FileManagement/MediaCollections",
+  "manifest": "https://hwposter-inland.hwcloudtest.cn/rem/DTA/ChinaDRMLab-264-30-1080P-10000K-TS-CBC1/playlist.m3u8",
+  "license": "http://license.dev.trustdta.com:8080/drmproxy/v3/getLicense",
+  "initDataBase64": "AAAAi3Bzc2gAAAAAPV5tNZuaQei4Q908bnLELAAAAGt7InZlcnNpb24iOiJWMS4wIiwiY29udGVudElEIjoiZEhNdE1qWTBMVEV3T0RBdFlXVnoiLCJraWRzIjpbIkcrRWsvK1htVWtwQkhRZ1hZV1FRSWc9PSJdLCJlbnNjaGVtYSI6ImNiYzEifQ==",
+  "tracks": []
+}

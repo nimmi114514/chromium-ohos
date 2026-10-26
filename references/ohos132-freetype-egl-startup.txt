@@ -1,0 +1,95 @@
+ohos132-skia/include/ports/SkFontMgr_ohos.h
+#ifndef SkFontMgr_ohos_DEFINED
+#define SkFontMgr_ohos_DEFINED
+
+#include "include/core/SkFontMgr.h"
+#include "include/core/SkFontScanner.h"
+#include "include/core/SkFontStyle.h"
+#include "include/core/SkString.h"
+#include "include/private/base/SkTArray.h"
+#include "src/ports/SkFontScanner_FreeType_priv.h"
+#include "src/ports/SkTypeface_FreeType.h"
+
+#include <native_drawing/drawing_text_typography.h>
+#include <vector>
+
+class SkData;
+class SkFontDescriptor;
+class SkStreamAsset;
+class SkTypeface;
+
+
+ohos132-skia/src/ports/SkFontMgr_ohos.cpp
+void SkFontMgr_OHOS::SystemFontLoader_OHOS::parse_instance(
+        const std::unique_ptr<SkStreamAsset>& stream,
+        const char* filename,
+        SkFontMgr_OHOS::Families* families,
+        int faceIndex) const {
+    int numInstances;
+    if (!fScanner.scanFace(stream.get(), faceIndex, &numInstances)) {
+        SkDebugf("[parse_instance] Failed to parse font file stream, file name:%s", filename);
+        return;
+    }
+    for (int i = 0; i <= numInstances; ++i) {
+        bool isFixedPitch;
+        SkString realname;
+        SkFontStyle style = SkFontStyle();
+        SkFontScanner::AxisDefinitions axisDefs;
+        if (!fScanner.scanInstance(
+                    stream.get(), faceIndex, i, &realname, &style, &isFixedPitch, &axisDefs)) {
+            SkDebugf("[parse_instance] Failed to open file as a font, file name: %s", filename);
+            continue;
+        }
+        SkFontStyleSet_OHOS* addTo = find_family(*families, realname.c_str());
+        if (addTo == nullptr) {
+            addTo = new SkFontStyleSet_OHOS(realname);
+            families->push_back().reset(addTo);
+        }
+        AxisSet axisSet;
+        sk_sp<SkTypeface> typeface = sk_make_sp<SkTypeface_OHOS>(
+                style, isFixedPitch, true, realname, filename, (i << 16) + faceIndex, axisSet);
+        addTo->appendTypeface(typeface);
+
+        SkTypeface::LocalizedString localizedStr;
+        auto iter = typeface->createFamilyNameIterator();
+        if (!iter) {
+            continue;
+        }
+
+ohos132-src/ui/ozone/common/egl_util.cc
+const base::FilePath::CharType kDefaultEglSoname[] =
+    FILE_PATH_LITERAL("libEGL.so");
+const base::FilePath::CharType kDefaultGlesSoname[] =
+    FILE_PATH_LITERAL("libGLESv2.so");
+#elif BUILDFLAG(IS_OHOS)
+const base::FilePath::CharType kDefaultEglSoname[] =
+    FILE_PATH_LITERAL("libEGL.so");
+const base::FilePath::CharType kDefaultGlesSoname[] =
+    FILE_PATH_LITERAL("libGLESv3.so");
+#else  // BUILDFLAG(IS_FUCHSIA)
+const base::FilePath::CharType kDefaultEglSoname[] =
+    FILE_PATH_LITERAL("libEGL.so.1");
+const base::FilePath::CharType kDefaultGlesSoname[] =
+    FILE_PATH_LITERAL("libGLESv2.so.2");
+#endif
+#if BUILDFLAG(IS_OHOS)
+const base::FilePath::CharType kAngleEglSoname[] =
+    FILE_PATH_LITERAL("libEGL_angle.so");
+const base::FilePath::CharType kAngleGlesSoname[] =
+    FILE_PATH_LITERAL("libGLESv2_angle.so");
+#else
+const base::FilePath::CharType kAngleEglSoname[] =
+    FILE_PATH_LITERAL("libEGL.so");
+const base::FilePath::CharType kAngleGlesSoname[] =
+    FILE_PATH_LITERAL("libGLESv2.so");
+#endif
+
+bool LoadEGLGLES2Bindings(const base::FilePath& egl_library_path,
+                          const base::FilePath& gles_library_path) {
+  base::NativeLibraryLoadError error;
+  base::NativeLibrary gles_library =
+      base::LoadNativeLibrary(gles_library_path, &error);
+  if (!gles_library) {
+    LOG(ERROR) << "Failed to load GLES library: " << gles_library_path << ": "
+               << error.ToString();
+    return false;

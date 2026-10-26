@@ -1,0 +1,4852 @@
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index ce307f24f3..2cddfcab59 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -29,6 +29,7 @@ import("//build/config/compiler/compiler.gni")
+ import("//build/config/cronet/config.gni")
+ import("//build/config/dcheck_always_on.gni")
+ import("//build/config/logging.gni")
++import("//build/config/ohos/config.gni")
+ import("//build/config/profiling/profiling.gni")
+ import("//build/config/rust.gni")
+ import("//build/config/sanitizers/sanitizers.gni")
+@@ -88,6 +89,13 @@ declare_args() {
+   enable_rust_translit = false
+ }
+ 
++declare_args() {
++  # Enabling freeze detection mode will help identify if the system is frozen,
++  # but some functions may be affected, such as when loading large files or
++  # performing resource-intensive operations.
++  ohos_freeze_detection_mode = true
++}
++
+ # Mutex priority inheritance is disabled by default due to security
+ # vulnerabilities in older versions of Linux kernel and glibc. However,
+ # Chromecast builds have full control over the platform and ensure that
+@@ -166,13 +174,23 @@ if (is_fuchsia) {
+   }
+ }
+ 
++if (is_ohos) {
++  config("ohos_system_libs") {
++    libs = [
++      "hilog_ndk.z",
++      "ohhicollie",
++      "qos",
++    ]
++  }
++}
++
+ buildflag_header("ios_cronet_buildflags") {
+   header = "ios_cronet_buildflags.h"
+   header_dir = "base/message_loop"
+   flags = [ "CRONET_BUILD=$is_cronet_build" ]
+ }
+ 
+-use_epoll = is_linux || is_chromeos || is_android
++use_epoll = is_linux || is_chromeos || is_android || is_ohos
+ 
+ generate_allowlist_from_histograms_file("memory_dump_provider_name_variants") {
+   namespace = "trace_event_metrics"
+@@ -1091,7 +1109,13 @@ component("base") {
+     ]
+   }
+ 
+-  if (is_linux || is_chromeos) {
++  if (is_ohos) {
++    sources += [ "debug/stack_trace_ohos.cc" ]
++
++    public_configs = [ ":ohos_system_libs" ]
++  }
++
++  if (is_linux || is_chromeos || is_ohos) {
+     sources += [
+       "debug/proc_maps_linux.cc",
+       "debug/proc_maps_linux.h",
+@@ -1120,7 +1144,7 @@ component("base") {
+     ]
+   }
+ 
+-  if (is_linux || is_chromeos || is_android) {
++  if (is_linux || is_chromeos || is_android || is_ohos) {
+     sources += [
+       "files/file_path_watcher_inotify.cc",
+       "files/file_path_watcher_inotify.h",
+@@ -1134,6 +1158,12 @@ component("base") {
+   libs = []
+   frameworks = []
+ 
++  if (is_ohos) {
++    if (ohos_freeze_detection_mode) {
++      defines += [ "FREEZE_DETECTION_MODE" ]
++    }
++  }
++
+   configs += [
+     "//build/config:precompiled_headers",
+     "//build/config/compiler:prevent_unsafe_narrowing",
+@@ -1235,10 +1265,31 @@ component("base") {
+ 
+   # Allow more direct string conversions on platforms with native utf8
+   # strings
+-  if (is_apple || is_chromeos || is_castos || is_cast_android || is_fuchsia) {
++  if (is_apple || is_chromeos || is_castos || is_cast_android || is_fuchsia ||
++      is_ohos) {
+     defines += [ "SYSTEM_NATIVE_UTF8" ]
+   }
+ 
++  # OpenHarmony.
++  if (is_ohos) {
++    sources += [
++      "debug/elf_reader.cc",
++      "debug/elf_reader.h",
++      "memory/platform_shared_memory_mapper_ohos.cc",
++      "memory/platform_shared_memory_region_ohos.cc",
++      "ohos/task_scheduler/task_runner_ohos.cc",
++      "ohos/task_scheduler/task_runner_ohos.h",
++      "ohos/task_scheduler/task_traits_ohos.h",
++      "system/sys_info_linux.cc",
++    ]
++
++    deps += [
++      "//ohos/adapter",
++      "//third_party/ashmem",
++    ]
++    libs += [ "child_process" ]
++  }
++
+   # Android.
+   if (is_android) {
+     sources += [
+@@ -1772,7 +1823,7 @@ component("base") {
+     ]
+   }
+ 
+-  if (is_posix && !is_android) {
++  if (is_posix && !is_android && !is_ohos) {
+     sources += [ "debug/stack_trace_posix.cc" ]
+   }
+ 
+@@ -1819,6 +1870,13 @@ component("base") {
+       "stack_canary_linux.h",
+     ]
+   }
++  if (is_ohos) {
++    sources += [
++      "base_paths_ohos.cc",
++      "base_paths_ohos.h",
++    ]
++  }
++
+   if (use_partition_alloc) {
+     sources += [
+       "allocator/dispatcher/memory_tagging.cc",
+@@ -2428,7 +2486,7 @@ component("base") {
+       ]
+     }
+   } else {
+-    if (!is_android) {
++    if (!is_android && !is_ohos) {
+       sources -= [
+         "linux_util.cc",
+         "linux_util.h",
+@@ -2454,7 +2512,7 @@ component("base") {
+ 
+   # Android and MacOS have their own custom shared memory handle
+   # implementations. e.g. due to supporting both POSIX and native handles.
+-  if (is_posix && !is_android && !is_apple) {
++  if (is_posix && !is_android && !is_apple && !is_ohos) {
+     sources += [
+       "memory/platform_shared_memory_mapper_posix.cc",
+       "memory/platform_shared_memory_region_posix.cc",
+@@ -2507,10 +2565,15 @@ component("base") {
+     ]
+   }
+ 
+-  if ((is_posix && !is_apple && !is_android && !is_chromeos) || is_fuchsia) {
++  if ((is_posix && !is_apple && !is_android && !is_chromeos && !is_ohos) ||
++      is_fuchsia) {
+     sources += [ "power_monitor/power_monitor_device_source_stub.cc" ]
+   }
+ 
++  if (is_ohos) {
++    sources += [ "power_monitor/power_monitor_device_source_ohos.cc" ]
++  }
++
+   # On ARC++-enabled ChromeOS system, we need TimeTicks::FromUptimeMillis to
+   # interpret time values sent from Android container.
+   if (is_android || is_chromeos) {
+@@ -2625,6 +2688,17 @@ component("base") {
+     ]
+   }
+ 
++  if (is_ohos) {
++    sources += [
++      "trace_event/ohos_fix_buffer.cc",
++      "trace_event/ohos_fix_buffer.h",
++      "trace_event/ohos_hitrace_adapter.h",
++      "trace_event/ohos_hitrace_adapter_impl.cc",
++      "trace_event/ohos_hitrace_interceptor.cc",
++      "trace_event/ohos_hitrace_interceptor.h",
++    ]
++  }
++
+   if (use_partition_alloc_as_malloc) {
+     sources += [
+       "trace_event/address_space_dump_provider.cc",
+@@ -4495,7 +4569,8 @@ test("base_unittests") {
+ 
+   # Allow more direct string conversions on platforms with native utf8
+   # strings
+-  if (is_apple || is_chromeos || is_castos || is_cast_android || is_fuchsia) {
++  if (is_apple || is_chromeos || is_castos || is_cast_android || is_fuchsia ||
++      is_ohos) {
+     defines += [ "SYSTEM_NATIVE_UTF8" ]
+   }
+ 
+diff --git a/base/allocator/partition_allocator/src/partition_alloc/BUILD.gn b/base/allocator/partition_allocator/src/partition_alloc/BUILD.gn
+index 9e9f063efe..e593b13d4b 100644
+--- a/base/allocator/partition_allocator/src/partition_alloc/BUILD.gn
++++ b/base/allocator/partition_allocator/src/partition_alloc/BUILD.gn
+@@ -784,7 +784,7 @@ if (is_clang_or_gcc) {
+         "partition_alloc_base/time/time_conversion_posix.cc",
+       ]
+ 
+-      if (is_linux || is_chromeos) {
++      if (is_linux || is_chromeos || is_ohos) {
+         sources += [ "partition_alloc_base/debug/stack_trace_linux.cc" ]
+       }
+ 
+diff --git a/base/allocator/partition_allocator/src/partition_alloc/build_config.h b/base/allocator/partition_allocator/src/partition_alloc/build_config.h
+index a124902743..db92ace754 100644
+--- a/base/allocator/partition_allocator/src/partition_alloc/build_config.h
++++ b/base/allocator/partition_allocator/src/partition_alloc/build_config.h
+@@ -74,6 +74,8 @@
+ #else
+ #define PA_IS_MAC
+ #endif  // defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
++#elif defined(__OHOS__) || defined(OSOHOS)
++#define PA_IS_OHOS
+ #elif defined(__linux__)
+ #if !PA_BUILDFLAG(IS_CHROMEOS)
+ // Do not define PA_IS_LINUX on Chrome OS build.
+@@ -121,7 +123,8 @@
+     defined(PA_IS_IOS) || defined(PA_IS_LINUX) || defined(PA_IS_CHROMEOS) || \
+     defined(PA_IS_MAC) || defined(PA_IS_NETBSD) || defined(PA_IS_OPENBSD) || \
+     defined(PA_IS_QNX) || defined(PA_IS_SOLARIS) ||                          \
+-    PA_BUILDFLAG(IS_ANDROID) || PA_BUILDFLAG(IS_CHROMEOS)
++    PA_BUILDFLAG(IS_ANDROID) || PA_BUILDFLAG(IS_CHROMEOS) || \
++    defined(PA_IS_OHOS)
+ #define PA_IS_POSIX
+ #endif
+ 
+@@ -433,6 +436,13 @@
+ #endif
+ #undef PA_IS_IOS
+ 
++#if defined(PA_IS_OHOS)
++#define PA_BUILDFLAG_INTERNAL_IS_OHOS() (1)
++#else
++#define PA_BUILDFLAG_INTERNAL_IS_OHOS() (0)
++#endif
++#undef PA_IS_OHOS
++
+ #if defined(PA_IS_LINUX)
+ #define PA_BUILDFLAG_INTERNAL_IS_LINUX() (1)
+ #else
+diff --git a/base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/threading/platform_thread_posix.cc b/base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/threading/platform_thread_posix.cc
+index ff4bf714e4..0badcc1559 100644
+--- a/base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/threading/platform_thread_posix.cc
++++ b/base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/threading/platform_thread_posix.cc
+@@ -18,7 +18,7 @@
+ #include "partition_alloc/partition_alloc_base/logging.h"
+ #include "partition_alloc/partition_alloc_base/threading/platform_thread_internal_posix.h"
+ 
+-#if PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS)
++#if PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS) || PA_BUILDFLAG(IS_OHOS)
+ #include <sys/syscall.h>
+ #include <atomic>
+ #endif
+@@ -35,7 +35,7 @@ PlatformThreadId PlatformThread::CurrentId() {
+   // into the kernel.
+ #if PA_BUILDFLAG(IS_APPLE)
+   return pthread_mach_thread_np(pthread_self());
+-#elif PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS)
++#elif PA_BUILDFLAG(IS_LINUX) || PA_BUILDFLAG(IS_CHROMEOS) || PA_BUILDFLAG(IS_OHOS)
+   // Unlike base/threading/platform_thread_posix.cc, we avoid using thread_local
+   // for thread_id caching. This prevents reentrancy issues within
+   // PartitionAlloc, as reported in crbug.com/476192650. Since
+diff --git a/base/allocator/partition_allocator/src/partition_alloc/shim/allocator_shim_internals.h b/base/allocator/partition_allocator/src/partition_alloc/shim/allocator_shim_internals.h
+index 45dd817578..7444c77e3c 100644
+--- a/base/allocator/partition_allocator/src/partition_alloc/shim/allocator_shim_internals.h
++++ b/base/allocator/partition_allocator/src/partition_alloc/shim/allocator_shim_internals.h
+@@ -15,7 +15,9 @@
+ #endif
+ 
+ #ifndef __THROW   // Not a glibc system
+-#ifdef _NOEXCEPT  // LLVM libc++ uses noexcept instead
++#if defined(_NOEXCEPT) && !PA_BUILDFLAG(IS_OHOS)
++// OHOS musl declares its allocation functions without an exception
++// specification, even when libc++ has defined _NOEXCEPT.
+ #define __THROW _NOEXCEPT
+ #else
+ #define __THROW
+diff --git a/base/base_paths.h b/base/base_paths.h
+index c327c2e1af..6742e37795 100644
+--- a/base/base_paths.h
++++ b/base/base_paths.h
+@@ -18,6 +18,8 @@
+ #include "base/base_paths_ios.h"
+ #elif BUILDFLAG(IS_ANDROID)
+ #include "base/base_paths_android.h"
++#elif BUILDFLAG(IS_OHOS)
++#include "base/base_paths_ohos.h"
+ #endif
+ 
+ #if BUILDFLAG(IS_POSIX)
+diff --git a/base/base_switches.h b/base/base_switches.h
+index ceda2075cb..3297949483 100644
+--- a/base/base_switches.h
++++ b/base/base_switches.h
+@@ -186,6 +186,17 @@ inline constexpr char kForceDesktopAndroid[] = "force-desktop-android";
+ inline constexpr char kSchedulerBoostUrgent[] = "scheduler-boost-urgent";
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++inline constexpr char kBundleInstallationDir[] = "bundle-installation-dir";
++inline constexpr char KDisableBlinkFeatures[] = "disable-blink-features";
++inline constexpr char KDisableOcclusionFeature[] = "disable-occlusion-feature";
++inline constexpr char KDisablePartialSwap[] = "disable-partial-swap";
++inline constexpr char kDisablePagePolicy[] = "disable-page-policy";
++// indicate long tracing mode if present
++inline constexpr char kOhosTrace[] = "ohos-trace";
++inline constexpr char kOhosTempDir[] = "ohos-temp-dir";
++inline constexpr char kOhosProcessType[] = "type";
++#endif
+ }  // namespace switches
+ 
+ #endif  // BASE_BASE_SWITCHES_H_
+diff --git a/base/debug/debugger_posix.cc b/base/debug/debugger_posix.cc
+index c5591140dd..17a9738215 100644
+--- a/base/debug/debugger_posix.cc
++++ b/base/debug/debugger_posix.cc
+@@ -148,7 +148,7 @@ void VerifyDebugger() {
+ }
+ 
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ 
+ // We can look in /proc/self/status for TracerPid.  We are likely used in crash
+ // handling, so we are careful not to use the heap or have side effects.
+diff --git a/base/debug/proc_maps_linux.cc b/base/debug/proc_maps_linux.cc
+index 826feb7629..d8cd1cd262 100644
+--- a/base/debug/proc_maps_linux.cc
++++ b/base/debug/proc_maps_linux.cc
+@@ -20,7 +20,8 @@
+ #include "base/strings/string_split.h"
+ #include "build/build_config.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ #include <inttypes.h>
+ #endif
+ 
+diff --git a/base/debug/stack_trace.cc b/base/debug/stack_trace.cc
+index 77b1d88d99..1bc10b36b5 100644
+--- a/base/debug/stack_trace.cc
++++ b/base/debug/stack_trace.cc
+@@ -24,7 +24,7 @@
+ #if BUILDFLAG(CAN_UNWIND_WITH_FRAME_POINTERS)
+ #include <optional>
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ #include <pthread.h>
+ 
+ #include "base/process/process_handle.h"
+diff --git a/base/files/dir_reader_posix.h b/base/files/dir_reader_posix.h
+index 7fbda52ab4..63d858d2ea 100644
+--- a/base/files/dir_reader_posix.h
++++ b/base/files/dir_reader_posix.h
+@@ -17,7 +17,8 @@
+ // seems worse than falling back to enumerating all file descriptors so we will
+ // probably never implement this on the Mac.
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ #include "base/files/dir_reader_linux.h"
+ #else
+ #include "base/files/dir_reader_fallback.h"
+@@ -25,7 +26,8 @@
+ 
+ namespace base {
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ typedef DirReaderLinux DirReaderPosix;
+ #else
+ typedef DirReaderFallback DirReaderPosix;
+diff --git a/base/files/drive_info.h b/base/files/drive_info.h
+index d872b3f021..e7d5895cbc 100644
+--- a/base/files/drive_info.h
++++ b/base/files/drive_info.h
+@@ -48,7 +48,7 @@ struct BASE_EXPORT DriveInfo {
+   std::optional<bool> has_seek_penalty;
+ 
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+-    BUILDFLAG(IS_CHROMEOS)
++    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   // Whether the drive is a "removable" drive.
+   //
+   // In macOS's IOKit API, a drive is "removable" if "the media is removable
+diff --git a/base/files/drive_info_posix.cc b/base/files/drive_info_posix.cc
+index 486f8f93b2..98c67ccf29 100644
+--- a/base/files/drive_info_posix.cc
++++ b/base/files/drive_info_posix.cc
+@@ -17,7 +17,7 @@
+ #include "base/strings/stringprintf.h"
+ #include "build/build_config.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ #include <linux/kdev_t.h>
+ #include <linux/magic.h>
+ #include <sys/vfs.h>
+@@ -30,7 +30,7 @@ std::optional<DriveInfo> GetFileDriveInfo(const FilePath& file_path) {
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+   drive_info.has_seek_penalty = false;
+   return drive_info;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   constexpr char kRotationalFormat[] =
+       "/sys/dev/block/%lu:%lu/queue/rotational";
+   constexpr char kRemovableFormat[] = "/sys/dev/block/%lu:%lu/removable";
+diff --git a/base/files/file_path_watcher.cc b/base/files/file_path_watcher.cc
+index 6a73bcd55e..49cea603a1 100644
+--- a/base/files/file_path_watcher.cc
++++ b/base/files/file_path_watcher.cc
+@@ -25,7 +25,7 @@ FilePathWatcher::~FilePathWatcher() {
+ bool FilePathWatcher::RecursiveWatchAvailable() {
+ #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) ||        \
+     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_AIX) || \
+-    BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS)
+   return true;
+ #else
+   // FSEvents isn't available on iOS.
+diff --git a/base/files/file_path_watcher.h b/base/files/file_path_watcher.h
+index cf9c820cbc..2189b312b2 100644
+--- a/base/files/file_path_watcher.h
++++ b/base/files/file_path_watcher.h
+@@ -106,7 +106,7 @@ class BASE_EXPORT FilePathWatcher {
+     Type type = Type::kNonRecursive;
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS)
+     // The callback will return the full path to a changed file instead of
+     // the watched path supplied as |path| when Watch is called.
+     // So the full path can be different from the watched path when a folder is
+diff --git a/base/files/file_path_watcher_unittest.cc b/base/files/file_path_watcher_unittest.cc
+index 567d676fd6..feb275e7de 100644
+--- a/base/files/file_path_watcher_unittest.cc
++++ b/base/files/file_path_watcher_unittest.cc
+@@ -62,7 +62,7 @@ namespace {
+ AtomicSequenceNumber g_next_delegate_id;
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_WIN)
++    BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+ // inotify fires two events - one for each file creation + modification.
+ constexpr size_t kExpectedEventsForNewFileWrite = 2;
+ #else
+@@ -170,7 +170,8 @@ inline constexpr auto IsType =
+           testing::Field(&FilePathWatcher::ChangeInfo::change_type,
+                          change_type));
+     };
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ inline constexpr auto IsFile = [] {
+   return testing::Field(
+       &Event::change_info,
+@@ -191,7 +192,7 @@ inline constexpr auto IsUnknownPathType = [] {
+                      FilePathWatcher::FilePathType::kUnknown));
+ };
+ #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+-        // BUILDFLAG(IS_ANDROID)
++        // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ 
+ // Enables an accumulative, add-as-you-go pattern for expecting events:
+ //   - Do something that should fire `event1` on `delegate`
+@@ -902,13 +903,14 @@ TEST_F(FilePathWatcherTest, DisappearingDirectory) {
+ 
+   ASSERT_TRUE(DeletePathRecursively(dir));
+   event_expecter.AddExpectedEventForPath(file);
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+   // TODO(crbug.com/40263766): Figure out why this may fire two events on
+   // inotify. Only the file is being watched, so presumably there should only be
+   // one deletion event.
+   event_expecter.AddExpectedEventForPath(file);
+ #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+-        // BUILDFLAG(IS_ANDROID)
++        // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   delegate.RunUntilEventsMatch(event_expecter);
+ }
+ 
+@@ -1078,13 +1080,14 @@ TEST_F(FilePathWatcherTest, RecursiveWatch) {
+   FilePath subdir2b(subdir.AppendASCII("subdir2b"));
+   Move(subdir2, subdir2b);
+   event_expecter.AddExpectedEventForPath(dir);
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+   // inotify generates separate IN_MOVED_TO and IN_MOVED_FROM events for a
+   // rename. Since both the source and destination are within the scope of this
+   // watch, both events should be received.
+   event_expecter.AddExpectedEventForPath(dir);
+ #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+-        // BUILDFLAG(IS_ANDROID)
++        // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   delegate.RunUntilEventsMatch(event_expecter);
+ 
+ // Mac and Win don't generate events for Touch.
+@@ -2065,7 +2068,8 @@ TEST_F(FilePathWatcherTest, TrivialDirMove) {
+ 
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ // TODO(crbug.com/40263777): Ideally most all of the tests above would be
+ // parameterized in this way.
+ // TODO(crbug.com/40260973): ChangeInfo is currently only supported by
+@@ -3067,6 +3071,6 @@ TEST_F(FilePathWatcherTest, UseDummyChangeInfoIfNotSupported) {
+ }
+ 
+ #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+-        // BUILDFLAG(IS_ANDROID)
++        // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ 
+ }  // namespace base
+diff --git a/base/files/file_util_posix.cc b/base/files/file_util_posix.cc
+index 538fdbc604..d182b3708c 100644
+--- a/base/files/file_util_posix.cc
++++ b/base/files/file_util_posix.cc
+@@ -75,6 +75,11 @@
+ #include <grp.h>
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "base/command_line.h"
++#include "ohos/adapter/context_path/context_path_adapter.h"
++#endif
++
+ // We need to do this on AIX due to some inconsistencies in how AIX
+ // handles XOPEN_SOURCE and ALL_SOURCE.
+ #if BUILDFLAG(IS_AIX)
+@@ -1058,9 +1063,39 @@ bool ExecutableExistsInPath(Environment* env,
+ 
+ #endif  // !BUILDFLAG(IS_FUCHSIA)
+ 
++#if BUILDFLAG(IS_OHOS)
++bool IsBrowserProcess(const base::CommandLine& command_line) {
++  return command_line.GetSwitchValueASCII(switches::kOhosProcessType).empty();
++}
++#endif
++
+ #if !BUILDFLAG(IS_APPLE)
+ // This is implemented in file_util_apple.mm for Mac.
+ bool GetTempDir(FilePath* path) {
++#if BUILDFLAG(IS_OHOS)
++  const base::CommandLine* command_line =
++      base::CommandLine::InitializedForCurrentProcess()
++          ? base::CommandLine::ForCurrentProcess()
++          : nullptr;
++  if (command_line == nullptr) {
++    LOG(ERROR) << __func__ << ", can't get command line";
++    *path = FilePath(::ohos::adapter::ContextPathAdapter::kDefaultTempDir);
++    return true;
++  }
++
++  if (IsBrowserProcess(*command_line)) {
++    *path = FilePath(::ohos::adapter::ContextPathAdapter::GetTempDir());
++  } else if (command_line->HasSwitch(switches::kOhosTempDir)) {
++    *path = command_line->GetSwitchValuePath(switches::kOhosTempDir);
++  }
++
++  if (!path->empty()) {
++    return true;
++  }
++
++  *path = FilePath(::ohos::adapter::ContextPathAdapter::kDefaultTempDir);
++  return true;
++#else
+   const char* tmp = getenv("TMPDIR");
+   if (tmp && tmp[0]) {
+     *path = FilePath(tmp);
+@@ -1073,6 +1108,7 @@ bool GetTempDir(FilePath* path) {
+   *path = FilePath("/tmp");
+   return true;
+ #endif
++#endif  // BUILDFLAG(IS_OHOS)
+ }
+ #endif  // !BUILDFLAG(IS_APPLE)
+ 
+@@ -1860,7 +1896,8 @@ bool CopyFileContentsWithSendfile(File& infile,
+ 
+ }  // namespace internal
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX) || \
++    BUILDFLAG(IS_OHOS)
+ BASE_EXPORT bool IsPathExecutable(const FilePath& path) {
+   bool result = false;
+   FilePath tmp_file_path;
+diff --git a/base/files/file_util_unittest.cc b/base/files/file_util_unittest.cc
+index ba1f66c7a3..7c1ff0c93c 100644
+--- a/base/files/file_util_unittest.cc
++++ b/base/files/file_util_unittest.cc
+@@ -1231,6 +1231,8 @@ TEST_F(FileUtilTest, CopyFileFollowsSymlinks) {
+   EXPECT_EQ(file_contents, ReadTextFile(link_to));
+ }
+ 
++// ohos disable permission tests, for ohos unittest runs under root account
++#if !BUILDFLAG(IS_OHOS)
+ TEST_F(FileUtilTest, ChangeFilePermissionsAndRead) {
+   // Create a file path.
+   FilePath file_name =
+@@ -1690,7 +1692,12 @@ TEST_F(FileUtilTest, DeleteDeep) {
+     ASSERT_TRUE(fd.is_valid()) << strerror(errno);
+ 
+     for (char c = 'a'; c <= 'z'; ++c) {
++#if BUILDFLAG(IS_OHOS)
++      // On OHOS, the longest file path + file name can be 256 bytes.
++      const std::string name(1, c);
++#else
+       const std::string name(NAME_MAX, c);
++#endif
+       ASSERT_EQ(HANDLE_EINTR(mkdirat(fd.get(), name.c_str(), 0777)), 0)
+           << strerror(errno);
+ 
+diff --git a/base/files/important_file_writer.cc b/base/files/important_file_writer.cc
+index 11a32fb7d1..97cfaba975 100644
+--- a/base/files/important_file_writer.cc
++++ b/base/files/important_file_writer.cc
+@@ -314,6 +314,10 @@ bool ImportantFileWriter::WriteFileAtomicallyImpl(
+       path.DirName(), &tmp_file_path, /*additional_flags=*/0,
+       path.BaseName().value());
+   if (!tmp_file.IsValid()) {
++#if BUILDFLAG(IS_OHOS)
++    LOG(WARNING) << "ImportantFileWriter::WriteFileAtomicallyImpl, "
++                 << "Failed to create temporary file to update " << path;
++#endif
+     DPLOG(WARNING) << "Failed to create temporary file to update " << path;
+     return false;
+   }
+@@ -338,6 +342,10 @@ bool ImportantFileWriter::WriteFileAtomicallyImpl(
+   }
+ 
+   if (!tmp_file.Flush()) {
++#if BUILDFLAG(IS_OHOS)
++    LOG(WARNING) << "ImportantFileWriter::WriteFileAtomicallyImpl, "
++                 << "Failed to flush temp file to update " << path;
++#endif
+     DPLOG(WARNING) << "Failed to flush temp file to update " << path;
+     DeleteTmpFileWithRetry(std::move(tmp_file), tmp_file_path);
+     return false;
+@@ -400,6 +408,10 @@ bool ImportantFileWriter::WriteFileAtomicallyImpl(
+     // the log message, otherwise failures in SetCurrentThreadType may be
+     // reported instead.
+     ::SetLastError(last_error);
++#endif
++#if BUILDFLAG(IS_OHOS)
++    LOG(WARNING) << "ImportantFileWriter::WriteFileAtomicallyImpl, "
++                 << "Failed to replace " << path << " with " << tmp_file_path;
+ #endif
+     DPLOG(WARNING) << "Failed to replace " << path << " with " << tmp_file_path;
+     // Preserve the temp file as a recovery candidate if the target is missing.
+diff --git a/base/files/scoped_file.h b/base/files/scoped_file.h
+index 815e93c855..ffe5186596 100644
+--- a/base/files/scoped_file.h
++++ b/base/files/scoped_file.h
+@@ -17,7 +17,8 @@ namespace base {
+ 
+ namespace internal {
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || \
++    BUILDFLAG(IS_OHOS)
+ // Platforms for which it is possible to track ownership of file descriptors.
+ //
+ // On Android, fdsan is used.
+@@ -53,7 +54,7 @@ struct ScopedFILECloser {
+ 
+ }  // namespace internal
+ 
+-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ namespace subtle {
+ 
+ #if !defined(COMPONENT_BUILD)
+@@ -88,7 +89,7 @@ void BASE_EXPORT EnableFDOwnershipEnforcement(bool enabled);
+ void BASE_EXPORT ResetFDOwnership();
+ 
+ }  // namespace subtle
+-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ 
+ // -----------------------------------------------------------------------------
+ 
+@@ -110,11 +111,11 @@ using ScopedFD = ScopedGeneric<int, internal::ScopedFDCloseTraits>;
+ // Automatically closes `FILE*`s.
+ using ScopedFILE = std::unique_ptr<FILE, internal::ScopedFILECloser>;
+ 
+-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ // Queries the ownership status of an FD, i.e. whether it is currently owned by
+ // a ScopedFD in the calling process.
+ bool BASE_EXPORT IsFDOwned(int fd);
+-#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ 
+ }  // namespace base
+ 
+diff --git a/base/i18n/icu_util.cc b/base/i18n/icu_util.cc
+index ebcbcaade9..530646a442 100644
+--- a/base/i18n/icu_util.cc
++++ b/base/i18n/icu_util.cc
+@@ -64,10 +64,15 @@
+ #endif
+ 
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || \
+-    BUILDFLAG(IS_CHROMEOS) || (BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CASTOS))
++    BUILDFLAG(IS_CHROMEOS) || (BUILDFLAG(IS_LINUX) || \
++    BUILDFLAG(IS_OHOS) && !BUILDFLAG(IS_CASTOS))
+ #include "third_party/icu/source/i18n/unicode/timezone.h"
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/ohos_i18n/ohos_i18n.h"
++#endif
++
+ namespace base::i18n {
+ 
+ // Exposed to help debug https://crbug.com/40064988
+@@ -324,7 +329,13 @@ bool InitializeICUFromDataFile() {
+ // On some platforms, the time zone must be explicitly initialized zone rather
+ // than relying on ICU's internal initialization.
+ void InitializeIcuTimeZone() {
+-#if BUILDFLAG(IS_FUCHSIA)
++#if BUILDFLAG(IS_OHOS)
++  std::string zone_id = ::ohos::adapter::ohos_i18n::GetTimeZone();
++  if (!zone_id.empty()) {
++    icu::TimeZone::adoptDefault(
++        icu::TimeZone::createTimeZone(icu::UnicodeString::fromUTF8(zone_id)));
++  }
++#elif BUILDFLAG(IS_FUCHSIA)
+   // The platform-specific mechanisms used by ICU's detectHostTimeZone() to
+   // determine the default time zone will not work on Fuchsia. Therefore,
+   // proactively set the default system.
+diff --git a/base/linux_util.cc b/base/linux_util.cc
+index a6b4fce5d4..dfd03842a0 100644
+--- a/base/linux_util.cc
++++ b/base/linux_util.cc
+@@ -30,6 +30,10 @@
+ #include "base/strings/string_util.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "base/logging.h"
++#endif
++
+ namespace base {
+ 
+ namespace {
+diff --git a/base/logging.cc b/base/logging.cc
+index 7beceac45c..04ee9ca662 100644
+--- a/base/logging.cc
++++ b/base/logging.cc
+@@ -106,6 +106,10 @@ typedef FILE* FileHandle;
+ #include "base/android/jni_android.h"
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "hilog/log.h"
++#endif
++
+ #if BUILDFLAG(IS_CHROMEOS)
+ #include "base/files/scoped_file.h"
+ #endif
+@@ -840,6 +844,25 @@ void LogMessage::Flush() {
+     // The Android system may truncate the string if it's too long.
+     __android_log_write(priority, kAndroidLogTag, str_newline.c_str());
+ #endif
++#elif BUILDFLAG(IS_OHOS)
++    auto priority = (severity_ < 0) ? LogLevel::LOG_INFO : LogLevel::LOG_FATAL;
++
++    switch (severity_) {
++      case LOGGING_INFO:
++        priority = LogLevel::LOG_INFO;
++        break;
++      case LOGGING_WARNING:
++        priority = LogLevel::LOG_WARN;
++        break;
++      case LOGGING_ERROR:
++        priority = LogLevel::LOG_ERROR;
++        break;
++      case LOGGING_FATAL:
++        priority = LogLevel::LOG_FATAL;
++        break;
++    }
++    const char kOHOSLogTag[] = "chromium";
++    OH_LOG_Print(LOG_APP, (LogLevel)priority, LOG_DOMAIN, kOHOSLogTag, "%{public}s", str_newline.c_str());
+ #elif BUILDFLAG(IS_FUCHSIA)
+     // LogMessage() will silently drop the message if the logger is not valid.
+     // Skip the final character of |str_newline|, since LogMessage() will add
+diff --git a/base/memory/platform_shared_memory_handle.cc b/base/memory/platform_shared_memory_handle.cc
+index 3c1180d742..17a90a76fd 100644
+--- a/base/memory/platform_shared_memory_handle.cc
++++ b/base/memory/platform_shared_memory_handle.cc
+@@ -6,7 +6,7 @@
+ 
+ namespace base::subtle {
+ 
+-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_OHOS)
+ ScopedFDPair::ScopedFDPair() = default;
+ 
+ ScopedFDPair::ScopedFDPair(ScopedFDPair&&) = default;
+diff --git a/base/memory/platform_shared_memory_handle.h b/base/memory/platform_shared_memory_handle.h
+index 2eb9a4f39a..276c161ee2 100644
+--- a/base/memory/platform_shared_memory_handle.h
++++ b/base/memory/platform_shared_memory_handle.h
+@@ -24,7 +24,7 @@
+ 
+ namespace base::subtle {
+ 
+-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_OHOS)
+ // Helper structs to keep two descriptors on POSIX. It's needed to support
+ // ConvertToReadOnly().
+ struct BASE_EXPORT FDPair {
+@@ -62,7 +62,7 @@ using ScopedPlatformSharedMemoryHandle = zx::vmo;
+ #elif BUILDFLAG(IS_WIN)
+ using PlatformSharedMemoryHandle = HANDLE;
+ using ScopedPlatformSharedMemoryHandle = win::ScopedHandle;
+-#elif BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ using PlatformSharedMemoryHandle = int;
+ using ScopedPlatformSharedMemoryHandle = ScopedFD;
+ #else
+diff --git a/base/memory/platform_shared_memory_region.h b/base/memory/platform_shared_memory_region.h
+index 2208550e76..5d689734f9 100644
+--- a/base/memory/platform_shared_memory_region.h
++++ b/base/memory/platform_shared_memory_region.h
+@@ -95,7 +95,7 @@ class BASE_EXPORT PlatformSharedMemoryRegion {
+   enum class TakeError {
+     kExpectedReadOnlyButNot,
+     kExpectedWritableButNot,
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+     kFailedToGetAshmemRegionProtectionMask,
+ #endif
+ #if BUILDFLAG(IS_APPLE)
+@@ -142,8 +142,7 @@ class BASE_EXPORT PlatformSharedMemoryRegion {
+       Mode mode,
+       size_t size,
+       const UnguessableToken& guid);
+-
+-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE)
++#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_OHOS)
+   // Specialized version of Take() for POSIX that takes only one file descriptor
+   // instead of pair. Cannot be used with kWritable |mode|.
+   static PlatformSharedMemoryRegion Take(ScopedFD handle,
+diff --git a/base/memory/platform_shared_memory_region_unittest.cc b/base/memory/platform_shared_memory_region_unittest.cc
+index 2f7d5f4726..2557fd129a 100644
+--- a/base/memory/platform_shared_memory_region_unittest.cc
++++ b/base/memory/platform_shared_memory_region_unittest.cc
+@@ -372,7 +372,8 @@ TEST_F(PlatformSharedMemoryRegionTest, MapAtWithOverflowTest) {
+   EXPECT_FALSE(mapping.IsValid());
+ }
+ 
+-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE)
++#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_APPLE) && \
++    !BUILDFLAG(IS_OHOS)
+ // Tests that the second handle is closed after a conversion to read-only on
+ // POSIX.
+ TEST_F(PlatformSharedMemoryRegionTest,
+diff --git a/base/memory/shared_memory_switch.cc b/base/memory/shared_memory_switch.cc
+index 233e63dcc9..768dc3b5fc 100644
+--- a/base/memory/shared_memory_switch.cc
++++ b/base/memory/shared_memory_switch.cc
+@@ -162,7 +162,7 @@ std::string Serialize(HandleType shmem_handle,
+   // TODO(crbug.com/40109064): Get rid of |descriptor_to_share| and just
+   // populate |launch_options|. The caller should be responsible for translating
+   // between |launch_options| and zygote parameters as necessary.
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   shared_memory_switch->out_descriptor_to_share = std::move(shmem_handle);
+ #else
+   shared_memory_switch->out_descriptor_to_share = std::move(shmem_handle.fd);
+diff --git a/base/message_loop/fd_watch_controller_posix_unittest.cc b/base/message_loop/fd_watch_controller_posix_unittest.cc
+index 10d4bd96d6..1fcc4b7bef 100644
+--- a/base/message_loop/fd_watch_controller_posix_unittest.cc
++++ b/base/message_loop/fd_watch_controller_posix_unittest.cc
+@@ -19,7 +19,8 @@
+ #include "build/build_config.h"
+ #include "testing/gtest/include/gtest/gtest.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ #include "base/message_loop/message_pump_epoll.h"
+ #endif
+ 
+@@ -38,7 +39,8 @@ class FdWatchControllerPosixTest : public testing::Test,
+ 
+   // testing::Test interface.
+   void SetUp() override {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+     features_.InitWithFeatureStates(
+         {{kUsePollForMessagePumpEpoll, GetParam()}});
+     MessagePumpEpoll::InitializeFeatures();
+diff --git a/base/message_loop/message_pump_for_ui.h b/base/message_loop/message_pump_for_ui.h
+index e421d75201..c98388f28c 100644
+--- a/base/message_loop/message_pump_for_ui.h
++++ b/base/message_loop/message_pump_for_ui.h
+@@ -20,7 +20,8 @@
+ // No MessagePumpForUI, see below.
+ #elif defined(USE_GLIB)
+ #include "base/message_loop/message_pump_glib.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_BSD)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_BSD) || \
++      BUILDFLAG(IS_OHOS)
+ #include "base/message_loop/message_pump_epoll.h"
+ #elif BUILDFLAG(IS_FUCHSIA)
+ #include "base/message_loop/message_pump_fuchsia.h"
+@@ -43,7 +44,8 @@ using MessagePumpForUI = MessagePump;
+ // TODO(abarth): Figure out if we need this.
+ #elif defined(USE_GLIB)
+ using MessagePumpForUI = MessagePumpGlib;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_BSD)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_BSD) || \
++      BUILDFLAG(IS_OHOS)
+ using MessagePumpForUI = MessagePumpEpoll;
+ #elif BUILDFLAG(IS_FUCHSIA)
+ using MessagePumpForUI = MessagePumpFuchsia;
+diff --git a/base/path_service.cc b/base/path_service.cc
+index 1da6005749..7ef5e17bf6 100644
+--- a/base/path_service.cc
++++ b/base/path_service.cc
+@@ -42,6 +42,8 @@ bool PathProviderMac(int key, FilePath* result);
+ bool PathProviderIOS(int key, FilePath* result);
+ #elif BUILDFLAG(IS_ANDROID)
+ bool PathProviderAndroid(int key, FilePath* result);
++#elif BUILDFLAG(IS_OHOS)
++bool PathProviderOHOS(int key, FilePath* result);
+ #elif BUILDFLAG(IS_FUCHSIA)
+ bool PathProviderFuchsia(int key, FilePath* result);
+ #elif BUILDFLAG(IS_POSIX)
+@@ -114,6 +116,18 @@ Provider base_provider_android = {PathProviderAndroid, &base_provider,
+                                   true};
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++Provider base_provider_ohos = {
++    PathProviderOHOS,
++    &base_provider,
++#ifndef NDEBUG
++    PATH_OHOS_START,
++    PATH_OHOS_END,
++#endif
++    true
++};
++#endif
++
+ #if BUILDFLAG(IS_FUCHSIA)
+ Provider base_provider_fuchsia = {PathProviderFuchsia, &base_provider,
+ #ifndef NDEBUG
+@@ -122,7 +136,8 @@ Provider base_provider_fuchsia = {PathProviderFuchsia, &base_provider,
+                                   true};
+ #endif
+ 
+-#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID) && \
++    !BUILDFLAG(IS_OHOS)
+ Provider posix_provider = {PathProviderPosix, &base_provider,
+ #ifndef NDEBUG
+                            PATH_POSIX_START, PATH_POSIX_END,
+@@ -151,6 +166,8 @@ struct PathData {
+     providers = &base_provider_ios;
+ #elif BUILDFLAG(IS_ANDROID)
+     providers = &base_provider_android;
++#elif BUILDFLAG(IS_OHOS)
++    providers = &base_provider_ohos;
+ #elif BUILDFLAG(IS_FUCHSIA)
+     providers = &base_provider_fuchsia;
+ #elif BUILDFLAG(IS_POSIX)
+diff --git a/base/posix/unix_domain_socket.cc b/base/posix/unix_domain_socket.cc
+index 0490c59403..2834d0cfc4 100644
+--- a/base/posix/unix_domain_socket.cc
++++ b/base/posix/unix_domain_socket.cc
+@@ -71,6 +71,8 @@ bool UnixDomainSocket::SendMsg(int fd,
+     msg.msg_control = control_buffer;
+ #if BUILDFLAG(IS_APPLE)
+     msg.msg_controllen = checked_cast<socklen_t>(control_len);
++#elif BUILDFLAG(IS_OHOS)
++    msg.msg_controllen = static_cast<socklen_t>(control_len);
+ #else
+     msg.msg_controllen = control_len;
+ #endif
+@@ -79,6 +81,8 @@ bool UnixDomainSocket::SendMsg(int fd,
+     cmsg->cmsg_type = SCM_RIGHTS;
+ #if BUILDFLAG(IS_APPLE)
+     cmsg->cmsg_len = checked_cast<u_int>(CMSG_LEN(sizeof(int) * fds.size()));
++#elif BUILDFLAG(IS_OHOS)
++    cmsg->cmsg_len = static_cast<socklen_t>(CMSG_LEN(sizeof(int) * fds.size()));
+ #else
+     cmsg->cmsg_len = CMSG_LEN(sizeof(int) * fds.size());
+ #endif
+diff --git a/base/power_monitor/power_monitor_device_source.cc b/base/power_monitor/power_monitor_device_source.cc
+index ecda0cd77a..73895a492b 100644
+--- a/base/power_monitor/power_monitor_device_source.cc
++++ b/base/power_monitor/power_monitor_device_source.cc
+@@ -9,13 +9,13 @@
+ namespace base {
+ 
+ PowerMonitorDeviceSource::PowerMonitorDeviceSource() {
+-#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN)
++#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+   PlatformInit();
+ #endif
+ }
+ 
+ PowerMonitorDeviceSource::~PowerMonitorDeviceSource() {
+-#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN)
++#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+   PlatformDestroy();
+ #endif
+ }
+diff --git a/base/power_monitor/power_monitor_device_source.h b/base/power_monitor/power_monitor_device_source.h
+index c791858e98..6a95118aaf 100644
+--- a/base/power_monitor/power_monitor_device_source.h
++++ b/base/power_monitor/power_monitor_device_source.h
+@@ -34,6 +34,10 @@
+ #include <objc/runtime.h>
+ #endif  // BUILDFLAG(IS_IOS)
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/power_monitor/power_monitor.h"
++#endif
++
+ namespace base {
+ 
+ // A class used to monitor the power state change and notify the observers about
+@@ -70,6 +74,10 @@ class BASE_EXPORT PowerMonitorDeviceSource : public PowerMonitorSource {
+  private:
+   friend class PowerMonitorDeviceSourceTest;
+ 
++#if BUILDFLAG(IS_OHOS)
++  std::unique_ptr<::ohos::adapter::OhosPowerMonitor> impl = nullptr;
++#endif
++
+ #if BUILDFLAG(IS_WIN)
+   // Represents a message-only window for power message handling on Windows.
+   // Only allow PowerMonitor to create it.
+@@ -93,10 +101,10 @@ class BASE_EXPORT PowerMonitorDeviceSource : public PowerMonitorSource {
+   };
+ #endif  // BUILDFLAG(IS_WIN)
+ 
+-#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN)
++#if (BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_IOS_TVOS)) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+   void PlatformInit();
+   void PlatformDestroy();
+-#endif  // BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN)
++#endif  // BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+ 
+ #if BUILDFLAG(IS_MAC)
+   // Callback from IORegisterForSystemPower(). |refcon| is the |this| pointer.
+diff --git a/base/process/kill_posix.cc b/base/process/kill_posix.cc
+index 846605f502..6e80f9acb8 100644
+--- a/base/process/kill_posix.cc
++++ b/base/process/kill_posix.cc
+@@ -17,6 +17,10 @@
+ #include "base/threading/platform_thread.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/multiprocess/child_process_manager.h"
++#endif
++
+ namespace base {
+ 
+ namespace {
+@@ -27,8 +31,21 @@ TerminationStatus GetTerminationStatusImpl(ProcessHandle handle,
+   DCHECK(exit_code);
+ 
+   int status = 0;
++#if BUILDFLAG(IS_OHOS)
++  const pid_t result =
++      ohos::adapter::multiprocess::ChildProcessManager::GetInstance()
++          .WaitChildPid(handle, &status, can_block);
++  LOG(INFO) << "[ChildProcess] get termination status impl"
++            << ", can_block: " << can_block
++            << ", pid: " << handle << ", result: " << result
++            << ", status: " << status
++            << ", WIFSIGNALED(status): " << WIFSIGNALED(status)
++            << ", WTERMSIG(status): " << WTERMSIG(status);
++#else
+   const pid_t result =
+       HANDLE_EINTR(waitpid(handle, &status, can_block ? 0 : WNOHANG));
++#endif
++
+   if (result == -1) {
+     DPLOG(ERROR) << "waitpid(" << handle << ")";
+     *exit_code = 0;
+diff --git a/base/process/launch.h b/base/process/launch.h
+index b282410b47..6226180195 100644
+--- a/base/process/launch.h
++++ b/base/process/launch.h
+@@ -243,7 +243,7 @@ struct BASE_EXPORT LaunchOptions {
+   bool clear_environment = false;
+ #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   // If non-zero, start the process using clone(), using flags as provided.
+   // Unlike in clone, clone_flags may not contain a custom termination signal
+   // that is sent to the parent when the child dies. The termination signal will
+@@ -260,7 +260,7 @@ struct BASE_EXPORT LaunchOptions {
+   // File descriptors of the parent process with FD_CLOEXEC flag to be removed
+   // before calling exec*().
+   std::vector<int> fds_to_remove_cloexec;
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ 
+ #if BUILDFLAG(IS_MAC) || (BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
+ #if !BUILDFLAG(IS_IOS_TVOS)
+@@ -373,6 +373,26 @@ struct BASE_EXPORT LaunchOptions {
+   // process' controlling terminal.
+   int ctrl_terminal_fd = -1;
+ #endif  // BUILDFLAG(IS_CHROMEOS)
++
++#if BUILDFLAG(IS_OHOS)
++  // specified process entry point
++  // will be set to "<lib_name>:<function_name>".
++  // Example (including literal quotes)
++  //  process_entry_point = "libadapter.so:IsolateMain"
++  std::string process_entry_point;
++
++  // creating a process via native_spawn
++  bool enable_native_spawn = false;
++
++  // gpu process startup requires special handling to establish IPC channel
++  bool is_gpu_process = false;
++
++  // isolated process startup requires special handling to establish IPC channel
++  bool is_isolated_process = false;
++
++  // native message host process startup requires special handling
++  bool is_native_message = false;
++#endif  // BUILDFLAG(IS_OHOS)
+ };
+ 
+ // Launch a process via the command line |cmdline|.
+@@ -522,7 +542,7 @@ BASE_EXPORT void RaiseProcessToHighPriority();
+ // binary. This should not be called in production/released code.
+ BASE_EXPORT LaunchOptions LaunchOptionsForTest();
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ // A wrapper for clone with fork-like behavior, meaning that it returns the
+ // child's pid in the parent and 0 in the child. |flags|, |ptid|, and |ctid| are
+ // as in the clone system call (the CLONE_VM flag is not supported).
+diff --git a/base/process/launch_posix.cc b/base/process/launch_posix.cc
+index 99427d5301..d8acd5e9f9 100644
+--- a/base/process/launch_posix.cc
++++ b/base/process/launch_posix.cc
+@@ -48,6 +48,11 @@
+ #include "base/trace_event/trace_event.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/multiprocess/child_process_manager.h"
++#include "ohos/adapter/native_messaging/native_messaging_adapter.h"
++#endif
++
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
+ #include <sys/prctl.h>
+ #endif
+@@ -188,6 +193,57 @@ void ResetChildSignalHandlersToDefaults() {
+ }
+ #endif  // !BUILDFLAG(IS_LINUX) ||
+         // (!defined(__i386__) && !defined(__x86_64__) && !defined(__arm__))
++
++#if BUILDFLAG(IS_OHOS)
++Process LaunchProcessWithNativeSpawn(const CommandLine& cmdline,
++                                     const LaunchOptions& options) {
++  ohos::adapter::multiprocess::ChildProcessManager& manager =
++      ohos::adapter::multiprocess::ChildProcessManager::GetInstance();
++
++  std::vector<std::string> argv = cmdline.argv();
++  std::vector<std::pair<int, int>> fd_id_remap;
++  size_t file_count = options.fds_to_remap.size();
++  for (size_t i = 0; i < file_count; ++i) {
++    const FileHandleMappingVector::value_type& value =
++        options.fds_to_remap[i];
++    int fd = value.first;
++    PCHECK(0 <= fd);
++    int id = value.second;
++    fd_id_remap.push_back(std::make_pair(fd, id));
++  }
++
++  int pid = -1;
++  if (options.is_gpu_process) {
++    pid = manager.StartGpuProcess(argv, fd_id_remap);
++  } else {
++    pid = manager.StartChildProcess(argv,
++                                    fd_id_remap,
++                                    options.process_entry_point,
++                                    options.is_isolated_process);
++  }
++
++  if (pid < 0) {
++    RAW_LOG(ERROR, "start child process failed");
++    return Process();
++  }
++
++  return Process(pid);
++}
++
++Process LaunchProcessWithNativeMessage(const std::vector<std::string>& argv,
++                                       const LaunchOptions& options) {
++  ohos::adapter::nativemessaging::NativeMessagingAdapter &native_messaging_adapter =
++      ohos::adapter::nativemessaging::NativeMessagingAdapter::GetInstance();
++
++  int pid = native_messaging_adapter.ConnectNative(argv, options.fds_to_remap);
++  if (pid < 0) {
++    RAW_LOG(ERROR, "connect NativeMessageHost process failed");
++    return Process();
++  }
++
++  return Process(pid);
++}
++#endif  // BUILDFLAG(IS_OHOS)
+ }  // anonymous namespace
+ 
+ // Functor for |ScopedDIR| (below).
+@@ -202,7 +258,8 @@ struct ScopedDIRClose {
+ // Automatically closes |DIR*|s.
+ typedef std::unique_ptr<DIR, ScopedDIRClose> ScopedDIR;
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX) || \
++    BUILDFLAG(IS_OHOS)
+ static const char kFDDir[] = "/proc/self/fd";
+ #elif BUILDFLAG(IS_SOLARIS)
+ static const char kFDDir[] = "/dev/fd";
+@@ -286,6 +343,16 @@ void CloseSuperfluousFds(const base::InjectiveMultimap& saved_mapping) {
+ 
+ Process LaunchProcess(const CommandLine& cmdline,
+                       const LaunchOptions& options) {
++#if BUILDFLAG(IS_OHOS)
++  if (options.enable_native_spawn) {
++    // Creating a process with native spawn and specified the process startup entry point
++    return LaunchProcessWithNativeSpawn(cmdline, options);
++  }
++  if (options.is_native_message) {
++    // Connect NativeMessagingHost
++    return LaunchProcessWithNativeMessage(cmdline.argv(), options);
++  }
++#endif
+   return LaunchProcess(cmdline.argv(), options);
+ }
+ 
+@@ -330,7 +397,8 @@ Process LaunchProcess(const std::vector<std::string>& argv,
+   }
+ 
+   pid_t pid;
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX) || \
++    BUILDFLAG(IS_OHOS)
+   if (options.clone_flags) {
+     // Signal handling in this function assumes the creation of a new
+     // process, so we check that a thread is not being created by mistake
+@@ -540,7 +608,11 @@ Process LaunchProcess(const std::vector<std::string>& argv,
+       // finish is the sort of thing ThreadRestrictions is trying to prevent.
+       ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                               BlockingType::MAY_BLOCK);
++#if BUILDFLAG(IS_OHOS)
++      pid_t ret = ohos::adapter::multiprocess::Waitpid(pid, nullptr, false);
++#else
+       pid_t ret = HANDLE_EINTR(waitpid(pid, nullptr, 0));
++#endif
+       DPCHECK(ret > 0);
+     }
+   }
+@@ -732,7 +804,7 @@ bool GetAppOutputWithExitCode(const std::vector<std::string>& argv,
+   return GetAppOutputInternal(argv, nullptr, false, output, true, exit_code);
+ }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ namespace {
+ 
+ // This function runs on the stack specified on the clone call. It uses longjmp
+diff --git a/base/process/memory.h b/base/process/memory.h
+index b8147f0c93..f473af21d7 100644
+--- a/base/process/memory.h
++++ b/base/process/memory.h
+@@ -35,7 +35,7 @@ inline void TerminateBecauseOutOfMemory(size_t) {
+ #endif
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ // The maximum allowed value for the OOM score.
+ const int kMaxOomScore = 1000;
+ 
+diff --git a/base/process/process_linux.cc b/base/process/process_linux.cc
+index 2618b503db..65a7251786 100644
+--- a/base/process/process_linux.cc
++++ b/base/process/process_linux.cc
+@@ -29,6 +29,10 @@
+ #include "base/process/process_priority_delegate.h"
+ #endif  // BUILDFLAG(IS_CHROMEOS)
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/res_sched/manager/background_manager_api_wrapper.h"
++#endif  // BUILDFLAG(IS_OHOS)
++
+ namespace base {
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
+@@ -194,10 +198,35 @@ bool Process::SetPriority(Priority priority) {
+     return false;
+   }
+ 
++#if BUILDFLAG(IS_OHOS)
++  // call ohos background manager api to lower qos
++  using ohos::adapter::res_sched::manager::BackgroundManagerApiWrapper;
++  BackgroundManagerApiWrapper& instance =
++      BackgroundManagerApiWrapper::GetInstance();
++  bool background = priority == Priority::kBestEffort;
++  if (background) {
++    instance.SetProcessPriority(
++        Pid(),
++        BackgroundManagerApiWrapper::ProcessPriority::PROCESS_BACKGROUND);
++  } else {
++    instance.ResetProcessPriority(Pid());
++  }
++#endif  // BUILDFLAG(IS_OHOS)
++
+   int priority_value = priority == Priority::kBestEffort ? kBackgroundPriority
+                                                          : kForegroundPriority;
+   int result =
+       setpriority(PRIO_PROCESS, static_cast<id_t>(process_), priority_value);
++#if BUILDFLAG(IS_OHOS)
++  // Native children are managed by appspawn and may exit before a queued
++  // priority update reaches this thread. A valid Process handle is a PID,
++  // not a guarantee that the process is still alive. Report the failed update
++  // to the caller instead of aborting the browser for this normal race.
++  if (result != 0 && errno == ESRCH) {
++    DPLOG(WARNING) << "Priority update target already exited: " << process_;
++    return false;
++  }
++#endif
+   DPCHECK(result == 0);
+   return result == 0;
+ }
+diff --git a/base/process/process_metrics.cc b/base/process/process_metrics.cc
+index 85105fb9fb..f90a396514 100644
+--- a/base/process/process_metrics.cc
++++ b/base/process/process_metrics.cc
+@@ -17,7 +17,7 @@ namespace base {
+ namespace {
+ 
+ #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ int CalculateEventsPerSecond(uint64_t event_count,
+                              uint64_t* last_event_count,
+                              base::TimeTicks* last_calculated) {
+@@ -56,7 +56,8 @@ SystemMetrics SystemMetrics::Sample() {
+   SystemMetrics system_metrics;
+ 
+   system_metrics.committed_memory_ = GetSystemCommitCharge();
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+   GetSystemMemoryInfo(&system_metrics.memory_info_);
+   GetVmStatInfo(&system_metrics.vmstat_info_);
+   GetSystemDiskInfo(&system_metrics.disk_info_);
+@@ -114,7 +115,7 @@ ProcessMetrics::GetPlatformIndependentCPUUsage() {
+ #endif
+ 
+ #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ int ProcessMetrics::CalculateIdleWakeupsPerSecond(
+     uint64_t absolute_idle_wakeups) {
+   return CalculateEventsPerSecond(absolute_idle_wakeups,
+diff --git a/base/process/process_metrics.h b/base/process/process_metrics.h
+index fd523a88bf..37c82267ab 100644
+--- a/base/process/process_metrics.h
++++ b/base/process/process_metrics.h
+@@ -40,7 +40,7 @@
+ #endif
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ #include <string>
+ #include <utility>
+ #include <vector>
+@@ -50,7 +50,8 @@
+ 
+ namespace base {
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ // Minor and major page fault counts since the process creation.
+ // Both counts are process-wide, and exclude child processes.
+ //
+@@ -88,7 +89,7 @@ struct ProcessMemoryInfo {
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS)
+   uint64_t rss_anon_bytes = 0;
+   uint64_t vm_swap_bytes = 0;
+ #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+@@ -180,7 +181,7 @@ class BASE_EXPORT ProcessMetrics {
+   base::expected<TimeDelta, ProcessCPUUsageError> GetCumulativeCPUUsage();
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+   // Emits the cumulative CPU usage for all currently active threads since they
+   // were started into the output parameter (replacing its current contents).
+   // Threads that have already terminated will not be reported. Thus, the sum of
+@@ -225,7 +226,7 @@ class BASE_EXPORT ProcessMetrics {
+   int GetOpenFdSoftLimit() const;
+ #endif  // BUILDFLAG(IS_POSIX)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   // Minor and major page fault count as reported by /proc/[pid]/stat.
+   // Returns true for success.
+   bool GetPageFaultCounts(PageFaultCounts* counts) const;
+@@ -243,7 +244,7 @@ class BASE_EXPORT ProcessMetrics {
+ #endif  // !BUILDFLAG(IS_MAC)
+ 
+ #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+   int CalculateIdleWakeupsPerSecond(uint64_t absolute_idle_wakeups);
+ #endif
+ #if BUILDFLAG(IS_APPLE)
+@@ -270,7 +271,7 @@ class BASE_EXPORT ProcessMetrics {
+ #endif
+ 
+ #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+   // Same thing for idle wakeups.
+   TimeTicks last_idle_wakeups_time_;
+   uint64_t last_absolute_idle_wakeups_;
+@@ -311,7 +312,7 @@ BASE_EXPORT void IncreaseFdLimitTo(unsigned int max_descriptors);
+ 
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||      \
+     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_AIX) || \
+-    BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS)
+ // Data about system-wide memory consumption. Available on Windows, Mac, Linux,
+ // Android and Chrome OS.
+ //
+@@ -347,7 +348,7 @@ struct BASE_EXPORT SystemMemoryInfo {
+ #endif
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+   // This provides an estimate of available memory as described here:
+   // https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=34e431b0ae398fc54ea69ff85ec700722c9da773
+   // NOTE: this is ONLY valid in kernels 3.14 and up.  Its value will always
+@@ -362,7 +363,7 @@ struct BASE_EXPORT SystemMemoryInfo {
+ #endif
+ 
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS)
+   ByteSize buffers;
+   ByteSize cached;
+   ByteSize active_anon;
+@@ -420,7 +421,7 @@ BASE_EXPORT bool GetSystemMemoryInfo(SystemMemoryInfo* meminfo);
+         // BUILDFLAG(IS_FUCHSIA)
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+ // Parse the data found in /proc/<pid>/stat and return the sum of the
+ // CPU-related ticks.  Returns -1 on parse error.
+ // Exposed for testing.
+@@ -596,7 +597,7 @@ class BASE_EXPORT SystemMetrics {
+   FRIEND_TEST_ALL_PREFIXES(SystemMetricsTest, SystemMetrics);
+ 
+   size_t committed_memory_;
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   SystemMemoryInfo memory_info_;
+   VmStatInfo vmstat_info_;
+   SystemDiskInfo disk_info_;
+diff --git a/base/process/process_metrics_linux.cc b/base/process/process_metrics_linux.cc
+index 69adf1bef5..5d9390d182 100644
+--- a/base/process/process_metrics_linux.cc
++++ b/base/process/process_metrics_linux.cc
+@@ -146,7 +146,7 @@ bool ProcessMetrics::GetCumulativeCPUUsagePerThread(
+   return !cpu_per_thread.empty();
+ }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ base::expected<ProcessMemoryInfo, ProcessUsageError>
+ ProcessMetrics::GetMemoryInfo() const {
+   std::string buffer;
+@@ -1037,7 +1037,8 @@ bool GetGraphicsMemoryInfo(GraphicsMemoryInfoKB* gpu_meminfo) {
+ 
+ #endif  // BUILDFLAG(IS_CHROMEOS)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_AIX) || \
++    BUILDFLAG(IS_OHOS)
+ int ProcessMetrics::GetIdleWakeupsPerSecond() {
+   uint64_t num_switches;
+   static const char kSwitchStat[] = "voluntary_ctxt_switches";
+diff --git a/base/process/process_metrics_posix.cc b/base/process/process_metrics_posix.cc
+index 205200021c..8d42f63627 100644
+--- a/base/process/process_metrics_posix.cc
++++ b/base/process/process_metrics_posix.cc
+@@ -54,7 +54,7 @@ static const rlim_t kSystemDefaultMaxFds = 8192;
+ static const rlim_t kSystemDefaultMaxFds = 1024;
+ #elif BUILDFLAG(IS_OPENBSD)
+ static const rlim_t kSystemDefaultMaxFds = 256;
+-#elif BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ static const rlim_t kSystemDefaultMaxFds = 1024;
+ #elif BUILDFLAG(IS_AIX)
+ static const rlim_t kSystemDefaultMaxFds = 8192;
+@@ -108,7 +108,8 @@ void IncreaseFdLimitTo(unsigned int max_descriptors) {
+ 
+ #endif  // !BUILDFLAG(IS_FUCHSIA)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+ namespace {
+ 
+ size_t GetMallocUsageMallinfo() {
+@@ -134,7 +135,8 @@ size_t ProcessMetrics::GetMallocUsage() {
+   malloc_statistics_t stats = {0};
+   malloc_zone_statistics(nullptr, &stats);
+   return stats.size_in_use;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++    BUILDFLAG(IS_OHOS)
+   return GetMallocUsageMallinfo();
+ #elif BUILDFLAG(IS_FUCHSIA)
+   // TODO(fuchsia): Not currently exposed. https://crbug.com/735087.
+diff --git a/base/process/process_posix.cc b/base/process/process_posix.cc
+index bd960e127c..e5a96c503a 100644
+--- a/base/process/process_posix.cc
++++ b/base/process/process_posix.cc
+@@ -25,6 +25,10 @@
+ #include "base/trace_event/trace_event.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/multiprocess/child_process_manager.h"
++#endif
++
+ #if BUILDFLAG(IS_MAC)
+ #include <sys/event.h>
+ #endif
+@@ -43,7 +47,20 @@
+ #include "TargetConditionals.h"
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include <AbilityKit/native_child_process.h>
++#include <deviceinfo.h>
++
++#include "ohos/adapter/device_info/device_info.h"
++#endif
++
+ namespace {
++#if BUILDFLAG(IS_OHOS)
++extern "C" {
++Ability_NativeChildProcess_ErrCode OH_Ability_KillChildProcess(
++    int32_t pid) __attribute__((weak));
++}
++#endif
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ // Blocks until `handle` exits or `wakeup_time` is reached using `pidfd_open(2)`
+@@ -102,10 +119,19 @@ bool WaitpidWithTimeout(base::ProcessHandle handle,
+   // the application itself it would probably be best to examine other routes.
+ 
+   if (wait == base::TimeDelta::Max()) {
++#if BUILDFLAG(IS_OHOS)
++    return ohos::adapter::multiprocess::Waitpid(handle, status, false) > 0;
++#else
+     return HANDLE_EINTR(waitpid(handle, status, 0)) > 0;
++#endif
+   }
+ 
++#if BUILDFLAG(IS_OHOS)
++  pid_t ret_pid =
++      ohos::adapter::multiprocess::Waitpid(handle, status, true);
++#else
+   pid_t ret_pid = HANDLE_EINTR(waitpid(handle, status, WNOHANG));
++#endif
+   if (ret_pid != 0 || wait.is_zero()) {
+     return ret_pid > 0;
+   }
+@@ -133,7 +159,11 @@ bool WaitpidWithTimeout(base::ProcessHandle handle,
+     // usleep() will return 0 and set errno to EINTR on receipt of a signal
+     // such as SIGCHLD.
+     usleep(sleep_time_usecs);
++#if BUILDFLAG(IS_OHOS)
++    ret_pid = ohos::adapter::multiprocess::Waitpid(handle, status, true);
++#else
+     ret_pid = HANDLE_EINTR(waitpid(handle, status, WNOHANG));
++#endif
+ 
+     if ((max_sleep_time_usecs < kMaxSleepInMicroseconds) &&
+         (double_sleep_time++ % 4 == 0)) {
+@@ -330,6 +360,10 @@ void Process::Close() {
+ 
+ #if !BUILDFLAG(IS_IOS)
+ bool Process::Terminate(int exit_code, bool wait) const {
++#if BUILDFLAG(IS_OHOS)
++  LOG(INFO) << "process terminate pid:" << process_ << " code:" << exit_code
++            << " wait:" << wait;
++#endif
+   // exit_code isn't supportable.
+   DCHECK(IsValid());
+   CHECK_GT(process_, 0);
+@@ -349,11 +383,30 @@ bool Process::TerminateInternal(int exit_code, bool wait) const {
+     return was_killed;
+   }
+ 
++#if BUILDFLAG(IS_OHOS)
++  // if SDK version>=22 && The linker can find the implementation of the
++  // OH_Ability_KillChildProcess function
++  if (OH_GetSdkApiVersion() >= ohos::adapter::device_info::SDK_VERSION_22 &&
++      OH_Ability_KillChildProcess) {
++    Ability_NativeChildProcess_ErrCode errCode =
++        OH_Ability_KillChildProcess(process_);
++    if (errCode != 0) {
++      LOG(ERROR) << "OH_Ability_KillChildProcess failed, errcode:" << errCode
++                 << "process: " << process_;
++      return false;
++    }
++  } else if (kill(process_, SIGTERM) != 0) {
++    // or Running the kill command to terminate the process
++    DPLOG(ERROR) << "Unable to terminate process " << process_;
++    return false;
++  }
++#else
+   // Terminate process giving it a chance to clean up.
+   if (kill(process_, SIGTERM) != 0) {
+     DPLOG(ERROR) << "Unable to terminate process " << process_;
+     return false;
+   }
++#endif
+ 
+   if (!wait || WaitForExitWithTimeout(Seconds(60), nullptr)) {
+     return true;
+diff --git a/base/process/process_unittest.cc b/base/process/process_unittest.cc
+index 2a3657ee8a..d5fab0a7ce 100644
+--- a/base/process/process_unittest.cc
++++ b/base/process/process_unittest.cc
+@@ -147,7 +147,7 @@ TEST_F(ProcessTest, CreationTimeOtherProcess) {
+   // was spawned and a time recorded after it was spawned. However, since the
+   // base::Time and process creation clocks don't match, tolerate some error.
+   constexpr base::TimeDelta kTolerance =
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+       // On Linux, process creation time is relative to boot time which has a
+       // 1-second resolution. Tolerate 1 second for the imprecise boot time and
+       // 100 ms for the imprecise clock.
+diff --git a/base/process/set_process_title.cc b/base/process/set_process_title.cc
+index aacd4a841f..83f703921f 100644
+--- a/base/process/set_process_title.cc
++++ b/base/process/set_process_title.cc
+@@ -44,7 +44,7 @@ namespace base {
+ 
+ // TODO(jrg): Find out if setproctitle or equivalent is available on Android.
+ #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_SOLARIS) && \
+-    !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
++    !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_OHOS)
+ 
+ void SetProcessTitleFromCommandLine(const char** main_argv) {
+   // Build a single string which consists of all the arguments separated
+diff --git a/base/profiler/register_context.h b/base/profiler/register_context.h
+index db247d6e0b..43b993931f 100644
+--- a/base/profiler/register_context.h
++++ b/base/profiler/register_context.h
+@@ -12,7 +12,7 @@
+ 
+ #if BUILDFLAG(IS_WIN)
+ typedef struct _CONTEXT CONTEXT;
+-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ #include <sys/ucontext.h>
+ #elif BUILDFLAG(IS_APPLE) && \
+     (defined(ARCH_CPU_X86_64) || defined(ARCH_CPU_ARM64))
+@@ -27,7 +27,8 @@ namespace base {
+ 
+ using RegisterContext = ::CONTEXT;
+ 
+-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++    BUILDFLAG(IS_OHOS)
+ 
+ using RegisterContext = mcontext_t;
+ 
+diff --git a/base/profiler/register_context_registers.h b/base/profiler/register_context_registers.h
+index a60020846d..32b25ac85f 100644
+--- a/base/profiler/register_context_registers.h
++++ b/base/profiler/register_context_registers.h
+@@ -16,7 +16,8 @@
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include <windows.h>
+-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++    BUILDFLAG(IS_OHOS)
+ #include <sys/ucontext.h>
+ #elif BUILDFLAG(IS_APPLE)
+ #include <mach/machine/thread_status.h>
+@@ -113,7 +114,8 @@ inline void SetRegisterContextInstructionPointer(::CONTEXT* context,
+ #endif
+ }
+ 
+-#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++    BUILDFLAG(IS_OHOS)
+ 
+ inline uintptr_t RegisterContextStackPointer(mcontext_t* context) {
+ #if defined(ARCH_CPU_ARMEL)
+diff --git a/base/profiler/sampling_profiler_thread_token.cc b/base/profiler/sampling_profiler_thread_token.cc
+index 7ad5b47f2b..d2f8593fbf 100644
+--- a/base/profiler/sampling_profiler_thread_token.cc
++++ b/base/profiler/sampling_profiler_thread_token.cc
+@@ -7,7 +7,7 @@
+ #include "base/check_op.h"
+ #include "build/build_config.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ #include <pthread.h>
+ 
+ #include "base/profiler/stack_base_address_posix.h"
+@@ -30,7 +30,7 @@ SamplingProfilerThreadToken SamplingProfilerThreadToken::Clone() const {
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+   const auto& [target_id, target_pthread_id] = *this;
+   return {target_id, target_pthread_id};
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   const auto& [target_id, target_stack_base_address] = *this;
+   return {target_id, target_stack_base_address};
+ #elif BUILDFLAG(IS_WIN)
+@@ -49,7 +49,7 @@ SamplingProfilerThreadToken GetSamplingProfilerCurrentThreadToken() {
+   DCHECK_NE(id, kInvalidThreadId);
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+   return {id, pthread_self()};
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   std::optional<uintptr_t> maybe_stack_base =
+       GetThreadStackBaseAddress(id, pthread_self());
+   return {id, maybe_stack_base};
+diff --git a/base/profiler/sampling_profiler_thread_token.h b/base/profiler/sampling_profiler_thread_token.h
+index 80eaea9247..e2ea1962f1 100644
+--- a/base/profiler/sampling_profiler_thread_token.h
++++ b/base/profiler/sampling_profiler_thread_token.h
+@@ -13,7 +13,7 @@
+ 
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+ #include <pthread.h>
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ #include <stdint.h>
+ #elif BUILDFLAG(IS_WIN)
+ #include <stdint.h>
+@@ -35,7 +35,7 @@ struct BASE_EXPORT SamplingProfilerThreadToken {
+   PlatformThreadId id;
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
+   pthread_t pthread_id;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   // Due to the sandbox, we can only retrieve the stack base address for the
+   // current thread. We must grab it during
+   // GetSamplingProfilerCurrentThreadToken() and not try to get it later.
+diff --git a/base/profiler/thread_delegate_posix.cc b/base/profiler/thread_delegate_posix.cc
+index ff26e2f6a0..4e3a4f287c 100644
+--- a/base/profiler/thread_delegate_posix.cc
++++ b/base/profiler/thread_delegate_posix.cc
+@@ -16,7 +16,7 @@
+ #include "base/process/process_handle.h"
+ #include "build/build_config.h"
+ 
+-#if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
++#if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS))
+ #include "base/profiler/stack_base_address_posix.h"
+ #endif
+ 
+@@ -25,7 +25,7 @@ namespace base {
+ std::unique_ptr<ThreadDelegatePosix> ThreadDelegatePosix::Create(
+     const SamplingProfilerThreadToken& thread_token) {
+   std::optional<uintptr_t> base_address;
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   base_address = thread_token.stack_base_address;
+ #else
+   base_address =
+diff --git a/base/system/sys_info.cc b/base/system/sys_info.cc
+index 02daeaf7b8..2b2b334c88 100644
+--- a/base/system/sys_info.cc
++++ b/base/system/sys_info.cc
+@@ -247,7 +247,8 @@ std::string SysInfo::SocManufacturer() {
+ #endif
+ 
+ void SysInfo::GetHardwareInfo(base::OnceCallback<void(HardwareInfo)> callback) {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA) || \
++    BUILDFLAG(IS_OHOS)
+   constexpr base::TaskTraits kTraits = {base::MayBlock()};
+ #else
+   constexpr base::TaskTraits kTraits = {};
+diff --git a/base/system/sys_info.h b/base/system/sys_info.h
+index 72eccc012c..a9f46ea501 100644
+--- a/base/system/sys_info.h
++++ b/base/system/sys_info.h
+@@ -415,7 +415,7 @@ class BASE_EXPORT SysInfo {
+   static HardwareInfo GetHardwareInfoSync();
+ 
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_AIX)
++    BUILDFLAG(IS_AIX) || BUILDFLAG(IS_OHOS)
+   static ByteSize AmountOfAvailablePhysicalMemory(
+       const SystemMemoryInfo& meminfo);
+ #endif
+diff --git a/base/task/sequence_manager/thread_controller_with_message_pump_impl.cc b/base/task/sequence_manager/thread_controller_with_message_pump_impl.cc
+index 1e0a7c056a..43086b2a77 100644
+--- a/base/task/sequence_manager/thread_controller_with_message_pump_impl.cc
++++ b/base/task/sequence_manager/thread_controller_with_message_pump_impl.cc
+@@ -284,7 +284,16 @@ void ThreadControllerWithMessagePumpImpl::OnBeginWorkItem() {
+ 
+ void ThreadControllerWithMessagePumpImpl::OnBeginWorkItemImpl(
+     LazyNow& lazy_now) {
++#if BUILDFLAG(IS_OHOS)
++  if (HangWatcher::IsBrowserProcess()) {
++    base::TimeDelta OhosThreadHangWatchTime = base::Seconds(3);
++    hang_watch_scope_.emplace(OhosThreadHangWatchTime);
++  } else {
++    hang_watch_scope_.emplace();
++  }
++#else
+   hang_watch_scope_.emplace();
++#endif
+   work_id_provider_->IncrementWorkId();
+   run_level_tracker_.OnWorkStarted(lazy_now);
+   main_thread_only().task_source->OnBeginWork();
+diff --git a/base/task/thread_pool/thread_pool_impl.cc b/base/task/thread_pool/thread_pool_impl.cc
+index 5595dc92ec..c6f1b5e29e 100644
+--- a/base/task/thread_pool/thread_pool_impl.cc
++++ b/base/task/thread_pool/thread_pool_impl.cc
+@@ -40,7 +40,11 @@ namespace base::internal {
+ namespace {
+ 
+ constexpr EnvironmentParams kForegroundPoolEnvironmentParams{
+-    "Foreground", base::ThreadType::kDefault};
++#if BUILDFLAG(IS_OHOS)
++    "Foreground", base::ThreadType::kPresentation};
++#else
++     "Foreground", base::ThreadType::kDefault};
++#endif  // BUILDFLAG(IS_OHOS)
+ 
+ constexpr EnvironmentParams kUtilityPoolEnvironmentParams{
+     "Utility", base::ThreadType::kUtility};
+diff --git a/base/test/BUILD.gn b/base/test/BUILD.gn
+index 6ed929b534..dbe0eab09f 100644
+--- a/base/test/BUILD.gn
++++ b/base/test/BUILD.gn
+@@ -383,6 +383,13 @@ static_library("test_support") {
+     ]
+   }
+ 
++  if (is_ohos) {
++    sources += [
++      "test_support_ohos.h",
++      "test_support_ohos.cc",
++    ]
++  }
++
+   if (is_ios) {
+     sources += [
+       "ios/wait_util.h",
+diff --git a/base/test/run_all_unittests.cc b/base/test/run_all_unittests.cc
+index 486e3bbce3..89da93193b 100644
+--- a/base/test/run_all_unittests.cc
++++ b/base/test/run_all_unittests.cc
+@@ -17,6 +17,10 @@
+ #include "base/process/set_process_title_linux.h"
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "base/test/test_support_ohos.h"
++#endif
++
+ namespace base {
+ 
+ namespace {
+@@ -54,6 +58,10 @@ class BaseUnittestSuite : public TestSuite {
+   void Initialize() override {
+     TestSuite::Initialize();
+ 
++#if BUILDFLAG(IS_OHOS)
++    base::RegisterPathProviderForOhosTest();
++#endif
++
+ #if BUILDFLAG(IS_WIN)
+     // Add TestEventListeners to enforce certain properties across tests.
+     testing::TestEventListeners& listeners =
+diff --git a/base/test/test_shared_memory_util.cc b/base/test/test_shared_memory_util.cc
+index 48a848ad49..07c6010e9d 100644
+--- a/base/test/test_shared_memory_util.cc
++++ b/base/test/test_shared_memory_util.cc
+@@ -42,7 +42,7 @@ static const size_t kDataSize = 1024;
+ static bool CheckReadOnlySharedMemoryFdPosix(int fd) {
+ // Note that the error on Android is EPERM, unlike other platforms where
+ // it will be EACCES.
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   const int kExpectedErrno = EPERM;
+ #else
+   const int kExpectedErrno = EACCES;
+@@ -129,7 +129,7 @@ bool CheckReadOnlyPlatformSharedMemoryRegionForTesting(
+   return CheckReadOnlySharedMemoryFuchsiaHandle(region.GetPlatformHandle());
+ #elif BUILDFLAG(IS_WIN)
+   return CheckReadOnlySharedMemoryWindowsHandle(region.GetPlatformHandle());
+-#elif BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   return CheckReadOnlySharedMemoryFdPosix(region.GetPlatformHandle());
+ #else
+   return CheckReadOnlySharedMemoryFdPosix(region.GetPlatformHandle().fd);
+diff --git a/base/test/test_suite.cc b/base/test/test_suite.cc
+index 6a0a06a56d..97abf4e198 100644
+--- a/base/test/test_suite.cc
++++ b/base/test/test_suite.cc
+@@ -104,6 +104,10 @@
+ #include "base/allocator/partition_alloc_support.h"
+ #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC)
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "base/test/test_support_ohos.h"
++#endif
++
+ #if GTEST_HAS_DEATH_TEST
+ #include "base/gtest_prod_util.h"
+ #endif
+@@ -365,6 +369,10 @@ int RunUnitTestsUsingBaseTestSuite(int argc, char** argv) {
+ }
+ 
+ TestSuite::TestSuite(int argc, char** argv) : argc_(argc), argv_(argv) {
++#if BUILDFLAG(IS_OHOS)
++  base::RegisterPathProviderForOhosTest();
++#endif
++
+   PreInitialize();
+ }
+ 
+diff --git a/base/threading/hang_watcher.cc b/base/threading/hang_watcher.cc
+index 8d87190fad..62b5ab1ac2 100644
+--- a/base/threading/hang_watcher.cc
++++ b/base/threading/hang_watcher.cc
+@@ -31,6 +31,10 @@
+ #include "base/trace_event/trace_event.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++#include "hicollie/hicollie.h"
++#endif //BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++
+ namespace base {
+ 
+ namespace {
+@@ -56,6 +60,62 @@ std::atomic<LoggingLevel> g_compositor_thread_log_level{LoggingLevel::kNone};
+ // Indicates whether HangWatcher::Run() should return after the next monitoring.
+ std::atomic<bool> g_keep_monitoring{true};
+ 
++#if BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++constexpr auto kUIMonitoringPeriod = base::Seconds(1);
++constexpr auto kUIHangWatchTime = base::Seconds(3);
++
++enum class ReportStatus {
++  kNotNeedReport,
++  kNeedReport3s,
++  kNeedReport6s,
++  kReportedAll
++};
++std::atomic<ReportStatus> g_report_status{ReportStatus::kNotNeedReport};
++
++ReportStatus GetReportStatus() {
++  return g_report_status.load(std::memory_order_relaxed);
++}
++
++void SetReportStatus(ReportStatus report_status) {
++   g_report_status.store(report_status, std::memory_order_relaxed);
++}
++
++void UpdateHungThreadReportStatus(bool thread_hang) {
++  if (!thread_hang) {
++    SetReportStatus(ReportStatus::kNotNeedReport);
++  } else if (GetReportStatus() == ReportStatus::kNotNeedReport) {
++    SetReportStatus(ReportStatus::kNeedReport3s);
++  }
++}
++
++void OHHiCollieTask() {
++  switch (GetReportStatus()) {
++    case ReportStatus::kNotNeedReport:
++      break;
++    case ReportStatus::kNeedReport3s:
++    {
++      bool report_arg = false;
++      HiCollie_ErrorCode reportResult = OH_HiCollie_Report(&report_arg);
++      LOG(ERROR) << "OH_HiCollie_Report: Detected freeze, reportResult = "
++                 << static_cast<int>(reportResult) << ", 3s was reported";
++      SetReportStatus(ReportStatus::kNeedReport6s);
++      break;
++    }
++    case ReportStatus::kNeedReport6s:
++    {
++      bool report_arg = true;
++      HiCollie_ErrorCode reportResult = OH_HiCollie_Report(&report_arg);
++      LOG(ERROR) << "OH_HiCollie_Report: Detected freeze, reportResult = "
++                 << static_cast<int>(reportResult) << ", 6s was reported";
++      SetReportStatus(ReportStatus::kReportedAll);
++      break;
++    }
++    case ReportStatus::kReportedAll:
++      break;
++  }
++}
++#endif //BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++
+ // If true, indicates that this process's shutdown sequence has started. Once
+ // flipped to true, cannot be un-flipped.
+ std::atomic<bool> g_shutting_down{false};
+@@ -97,6 +157,9 @@ void LogStatusHistogram(HangWatcher::ThreadType thread_type,
+           }
+           break;
+         case HangWatcher::ThreadType::kMainThread:
++#if BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++          UpdateHungThreadReportStatus(any_thread_hung);
++#endif //BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
+           if (shutting_down) {
+             UMA_HISTOGRAM_BOOLEAN(
+                 "HangWatcher.IsThreadHung.BrowserProcess.UIThread.Shutdown",
+@@ -503,6 +566,16 @@ void HangWatcher::InitializeOnMainThread(ProcessType process_type,
+     return;
+   }
+ 
++#if BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++  LOG(INFO) << "Process type: " << static_cast<int>(process_type);
++  if (process_type == ProcessType::kBrowserProcess) {
++    HiCollie_ErrorCode result = OH_HiCollie_Init_StuckDetection(OHHiCollieTask);
++    if (result != 0) {
++      LOG(ERROR) << "OH_HiCollie_Init_StuckDetection failed, errcod: " << static_cast<int>(result);
++    }
++  }
++#endif //BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++
+   // Retrieve thread-specific config for hang watching.
+   if (process_type == HangWatcher::ProcessType::kBrowserProcess) {
+     // Crashes are set to always emit. Override any feature flags.
+@@ -635,6 +708,12 @@ HangWatcher::HangWatcher()
+ 
+   should_monitor_.declare_only_used_while_idle();
+ 
++#if BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++  if (g_hang_watcher_process_type == HangWatcher::ProcessType::kBrowserProcess) {
++     monitoring_period_ = kUIMonitoringPeriod;
++  }
++#endif //BUILDFLAG(IS_OHOS) && defined(FREEZE_DETECTION_MODE)
++
+   DCHECK(!g_instance);
+   g_instance = this;
+ }
+@@ -813,6 +892,14 @@ base::TimeTicks HangWatcher::WatchStateSnapShot::GetHighestDeadline() const {
+   return hung_watch_state_copies_.back().deadline;
+ }
+ 
++#if BUILDFLAG(IS_OHOS)
++// static
++bool HangWatcher::IsBrowserProcess() {
++  return g_hang_watcher_process_type.load(std::memory_order_relaxed) ==
++         HangWatcher::ProcessType::kBrowserProcess;
++}
++#endif
++
+ HangWatcher::WatchStateSnapShot::WatchStateSnapShot() = default;
+ 
+ void HangWatcher::WatchStateSnapShot::Init(
+diff --git a/base/threading/hang_watcher.h b/base/threading/hang_watcher.h
+index 99c38faacb..dd00d183dc 100644
+--- a/base/threading/hang_watcher.h
++++ b/base/threading/hang_watcher.h
+@@ -196,6 +196,10 @@ class BASE_EXPORT HangWatcher : public DelegateSimpleThread::Delegate {
+   // emitted every interval for all threads.
+   static void SetShuttingDown();
+ 
++#if BUILDFLAG(IS_OHOS)
++  static bool IsBrowserProcess();
++#endif
++
+   // Sets up the calling thread to be monitored for threads. Returns a
+   // ScopedClosureRunner that unregisters the thread. This closure has to be
+   // called from the registered thread before it's joined. Returns a null
+diff --git a/base/threading/platform_thread.h b/base/threading/platform_thread.h
+index 8496fc0765..5e949ea7e5 100644
+--- a/base/threading/platform_thread.h
++++ b/base/threading/platform_thread.h
+@@ -354,7 +354,7 @@ class BASE_EXPORT PlatformThreadApple : public PlatformThreadBase {
+ };
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ class ThreadTypeDelegate;
+ 
+ class BASE_EXPORT PlatformThreadLinux : public PlatformThreadBase {
+@@ -418,7 +418,7 @@ class BASE_EXPORT PlatformThreadChromeOS : public PlatformThreadLinux {
+ using PlatformThread = PlatformThreadApple;
+ #elif BUILDFLAG(IS_CHROMEOS)
+ using PlatformThread = PlatformThreadChromeOS;
+-#elif BUILDFLAG(IS_LINUX)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ using PlatformThread = PlatformThreadLinux;
+ #else
+ using PlatformThread = PlatformThreadBase;
+diff --git a/base/threading/platform_thread_internal_posix.h b/base/threading/platform_thread_internal_posix.h
+index 008e513956..b49c540f06 100644
+--- a/base/threading/platform_thread_internal_posix.h
++++ b/base/threading/platform_thread_internal_posix.h
+@@ -33,7 +33,7 @@ int ThreadTypeToNiceValue(ThreadType thread_type);
+ // Returns whether SetCurrentThreadType can set a thread as kRealtimeAudio.
+ bool CanSetThreadTypeToRealtimeAudio();
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ // Current thread id is cached in thread local storage for performance reasons.
+ // In some rare cases it's important to invalidate that cache explicitly (e.g.
+ // after going through clone() syscall which does not call pthread_atfork()
+@@ -53,7 +53,7 @@ int GetThreadNiceValue(PlatformThreadId id);
+ 
+ bool SetThreadNiceFromType(PlatformThreadId thread_id, ThreadType thread_type);
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ void SetThreadTypeLinux(ProcessId process_id,
+                         PlatformThreadId thread_id,
+                         ThreadType thread_type);
+@@ -65,7 +65,7 @@ void SetThreadTypeChromeOS(ProcessId process_id,
+ #endif
+ #if BUILDFLAG(IS_CHROMEOS)
+ inline constexpr auto SetThreadType = SetThreadTypeChromeOS;
+-#elif BUILDFLAG(IS_LINUX)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ inline constexpr auto SetThreadType = SetThreadTypeLinux;
+ #endif
+ 
+diff --git a/base/threading/platform_thread_linux.cc b/base/threading/platform_thread_linux.cc
+index b0dab76f9e..162efe6ca4 100644
+--- a/base/threading/platform_thread_linux.cc
++++ b/base/threading/platform_thread_linux.cc
+@@ -38,12 +38,37 @@
+ #include "base/threading/thread_type_delegate.h"
+ #include "build/build_config.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include <qos/qos.h>
++#endif
++
+ namespace base {
+ 
+ namespace {
+ 
+ ThreadTypeDelegate* g_thread_type_delegate = nullptr;
+ 
++#if BUILDFLAG(IS_OHOS)
++QoS_Level ThreadTypeToOHOSQoS(ThreadType thread_type) {
++  switch (thread_type) {
++    case ThreadType::kBackground:
++      return QOS_BACKGROUND;
++    case ThreadType::kUtility:
++      return QOS_UTILITY;
++    case ThreadType::kDefault:
++      return QOS_DEFAULT;
++    case ThreadType::kPresentation:
++      return QOS_USER_INTERACTIVE;
++    case ThreadType::kAudioProcessing:
++      return QOS_USER_INITIATED;
++    case ThreadType::kRealtimeAudio:
++      return QOS_DEADLINE_REQUEST;
++  }
++  NOTREACHED();
++}
++#endif
++
++
+ const FilePath::CharType kCgroupDirectory[] =
+     FILE_PATH_LITERAL("/sys/fs/cgroup");
+ 
+@@ -263,6 +288,19 @@ namespace internal {
+ void SetThreadTypeLinux(ProcessId process_id,
+                         PlatformThreadId thread_id,
+                         ThreadType thread_type) {
++#if BUILDFLAG(IS_OHOS)
++  // The app's current thread must use the native scheduler API. Other threads
++  // retain the existing Linux kernel fallback until their IPC delegate handles
++  // the request in the owning process.
++  if ((process_id == 0 || process_id == getpid()) &&
++      thread_id == PlatformThread::CurrentId()) {
++    if (OH_QoS_SetThreadQoS(ThreadTypeToOHOSQoS(thread_type)) != 0) {
++      DLOG(ERROR) << "Failed to set OHOS QoS for thread " << thread_id;
++    }
++    return;
++  }
++#endif
++
+   PlatformThreadLinux::SetThreadCgroupsForThreadType(thread_id, thread_type);
+ 
+   // Some scheduler syscalls require thread ID of 0 for current thread.
+diff --git a/base/threading/platform_thread_metrics.cc b/base/threading/platform_thread_metrics.cc
+index 1e1ead4d24..84f06b62cd 100644
+--- a/base/threading/platform_thread_metrics.cc
++++ b/base/threading/platform_thread_metrics.cc
+@@ -54,7 +54,7 @@ PlatformThreadMetrics::CreateForCurrentThread() {
+ }
+ 
+ #elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ 
+ // static
+ std::unique_ptr<PlatformThreadMetrics>
+diff --git a/base/threading/platform_thread_metrics.h b/base/threading/platform_thread_metrics.h
+index f51333e43c..c21c4fdd74 100644
+--- a/base/threading/platform_thread_metrics.h
++++ b/base/threading/platform_thread_metrics.h
+@@ -68,7 +68,8 @@ class BASE_EXPORT PlatformThreadMetrics {
+ #endif
+ 
+ #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
++    BUILDFLAG(IS_OHOS)
+   static std::unique_ptr<PlatformThreadMetrics> CreateFromId(
+       PlatformThreadId tid);
+ #endif
+@@ -109,7 +110,7 @@ class BASE_EXPORT PlatformThreadMetrics {
+ 
+   PlatformThreadHandle handle_;
+ #elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX)
++    BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+   explicit PlatformThreadMetrics(PlatformThreadId tid) : tid_(tid) {}
+ 
+   PlatformThreadId tid_;
+diff --git a/base/threading/platform_thread_posix.cc b/base/threading/platform_thread_posix.cc
+index a4248a906e..73dc818066 100644
+--- a/base/threading/platform_thread_posix.cc
++++ b/base/threading/platform_thread_posix.cc
+@@ -52,6 +52,10 @@
+ #include "partition_alloc/stack/stack.h"  // nogncheck
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include <qos/qos.h>
++#endif
++
+ namespace base {
+ 
+ void InitThreading();
+@@ -255,7 +259,7 @@ PlatformThreadId PlatformThreadBase::CurrentId() {
+ #endif
+   }
+   return PlatformThreadId(g_thread_id);
+-#elif BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   // Note: do not cache the return value inside a thread_local variable on
+   // Android (as above). The reasons are:
+   // - thread_local is slow on Android (goes through emutls)
+diff --git a/base/threading/thread_restrictions.h b/base/threading/thread_restrictions.h
+index cc087c7376..c6c77a4b2a 100644
+--- a/base/threading/thread_restrictions.h
++++ b/base/threading/thread_restrictions.h
+@@ -447,6 +447,9 @@ class DrmThreadProxy;
+ class DrmDisplayHostManager;
+ class ScopedAllowBlockingForGbmSurface;
+ class SelectFileDialogLinux;
++#if BUILDFLAG(IS_OHOS)
++class SelectFileDialogOHOS;
++#endif
+ class WindowResizeHelperMac;
+ }  // namespace ui
+ namespace updater {
+@@ -665,6 +668,9 @@ class BASE_EXPORT ScopedAllowBlocking {
+   friend class ui::DrmDisplayHostManager;
+   friend class ui::ScopedAllowBlockingForGbmSurface;
+   friend class ui::SelectFileDialogLinux;
++#if BUILDFLAG(IS_OHOS)
++  friend class ui::SelectFileDialogOHOS;
++#endif
+ #if BUILDFLAG(IS_MAC)
+   friend class printing::PrintBackendServiceImpl;
+ #endif
+diff --git a/base/trace_event/heap_profiler.h b/base/trace_event/heap_profiler.h
+index 6e35645462..27e2b09695 100644
+--- a/base/trace_event/heap_profiler.h
++++ b/base/trace_event/heap_profiler.h
+@@ -46,8 +46,15 @@ class HeapProfilerScopedTaskExecutionTracker {
+     using base::trace_event::AllocationContextTracker;
+     if (AllocationContextTracker::capture_mode() !=
+         AllocationContextTracker::CaptureMode::kDisabled) [[unlikely]] {
++#if BUILDFLAG(IS_OHOS)
++      if (AllocationContextTracker::GetInstanceForCurrentThread()) {
++        AllocationContextTracker::GetInstanceForCurrentThread()
++            ->PushCurrentTaskContext(context_);
++      }
++#else
+       AllocationContextTracker::GetInstanceForCurrentThread()
+           ->PushCurrentTaskContext(context_);
++#endif
+     }
+   }
+ 
+@@ -55,8 +62,15 @@ class HeapProfilerScopedTaskExecutionTracker {
+     using base::trace_event::AllocationContextTracker;
+     if (AllocationContextTracker::capture_mode() !=
+         AllocationContextTracker::CaptureMode::kDisabled) [[unlikely]] {
++#if BUILDFLAG(IS_OHOS)
++      if (AllocationContextTracker::GetInstanceForCurrentThread()) {
++        AllocationContextTracker::GetInstanceForCurrentThread()
++            ->PopCurrentTaskContext(context_);
++      }
++#else
+       AllocationContextTracker::GetInstanceForCurrentThread()
+           ->PopCurrentTaskContext(context_);
++#endif
+     }
+   }
+ 
+@@ -65,9 +79,17 @@ class HeapProfilerScopedTaskExecutionTracker {
+ };
+ 
+ inline const char* HeapProfilerCurrentTaskContext() {
++#if BUILDFLAG(IS_OHOS)
++  if (base::trace_event::AllocationContextTracker::GetInstanceForCurrentThread()) {
++    return base::trace_event::AllocationContextTracker::
++        GetInstanceForCurrentThread()->TaskContext();
++  }
++  return nullptr;
++#else
+   return base::trace_event::AllocationContextTracker::
+       GetInstanceForCurrentThread()
+           ->TaskContext();
++#endif
+ }
+ 
+ }  // namespace trace_event_internal
+diff --git a/base/trace_event/heap_profiler_allocation_context_tracker.cc b/base/trace_event/heap_profiler_allocation_context_tracker.cc
+index 4a41bebb51..4ccfebec3b 100644
+--- a/base/trace_event/heap_profiler_allocation_context_tracker.cc
++++ b/base/trace_event/heap_profiler_allocation_context_tracker.cc
+@@ -64,7 +64,13 @@ AllocationContextTracker::~AllocationContextTracker() = default;
+ // static
+ void AllocationContextTracker::SetCurrentThreadName(const char* name) {
+   if (name && capture_mode() != CaptureMode::kDisabled) {
++#if BUILDFLAG(IS_OHOS)
++    if (GetInstanceForCurrentThread()) {
++      GetInstanceForCurrentThread()->thread_name_ = name;
++    }
++#else
+     GetInstanceForCurrentThread()->thread_name_ = name;
++#endif
+   }
+ }
+ 
+diff --git a/base/trace_event/trace_config.cc b/base/trace_event/trace_config.cc
+index c62e869588..0efc54e09a 100644
+--- a/base/trace_event/trace_config.cc
++++ b/base/trace_event/trace_config.cc
+@@ -597,7 +597,13 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
+         const std::string* trigger_type_str =
+             trigger_dict.FindString(kTriggerTypeParam);
+         DCHECK(trigger_type_str);
++#if BUILDFLAG(IS_OHOS)
++        if (trigger_type_str) {
++          dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
++        }
++#else
+         dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
++#endif
+       }
+       DCHECK(interval.has_value());
+       DCHECK_GT(*interval, 0);
+@@ -606,9 +612,15 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
+       const std::string* level_of_detail_str =
+           trigger_dict.FindString(kTriggerModeParam);
+       DCHECK(level_of_detail_str);
++#if BUILDFLAG(IS_OHOS)
++      if (level_of_detail_str) {
++        dump_config.level_of_detail =
++            StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
++      }
++#else
+       dump_config.level_of_detail =
+           StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
+-
++#endif
+       memory_dump_config_.triggers.push_back(dump_config);
+     }
+   }
+diff --git a/base/version_info/version_info.h b/base/version_info/version_info.h
+index 3d83451f3a..7a90ef46d7 100644
+--- a/base/version_info/version_info.h
++++ b/base/version_info/version_info.h
+@@ -82,6 +82,8 @@ constexpr std::string_view GetOSType() {
+   return "Solaris";
+ #elif BUILDFLAG(IS_FUCHSIA)
+   return "Fuchsia";
++#elif BUILDFLAG(IS_OHOS)
++  return "OHOS";
+ #else
+   return "Unknown";
+ #endif
+diff --git a/base/base_paths_ohos.cc b/base/base_paths_ohos.cc
+new file mode 100644
+index 0000000000..9da7a07363
+--- /dev/null
++++ b/base/base_paths_ohos.cc
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++// Defines base::PathProviderOHOS which replaces base::PathProviderPosix for
++// OHOS in base/path_service.cc.
++#include "base/base_paths_ohos.h"
++
++#include "base/base_paths.h"
++#include "base/base_switches.h"
++#include "base/command_line.h"
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/logging.h"
++#include "base/notreached.h"
++#include "base/process/process_metrics.h"
++#include "ohos/adapter/context_path/context_path_adapter.h"
++
++namespace base {
++// TODO: temporary solution to load resources for multiple processes
++bool ParseAssetsOHOS(FilePath* result) {
++  auto bundle_path =
++      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
++          switches::kBundleInstallationDir);
++  if (bundle_path.empty()) {
++    FilePath bin_dir;
++    if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
++      LOG(ERROR) << "Unable to resolve " << kProcSelfExe << ".";
++      return false;
++    }
++    *result = bin_dir.DirName();
++    return true;
++  }
++  *result = FilePath(bundle_path.c_str());
++  return true;
++}
++
++bool PathProviderOHOS(int key, FilePath* result) {
++  FilePath bin_dir;
++  switch (key) {
++    case base::FILE_EXE: {
++      if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
++        NOTREACHED() << "Unable to resolve " << kProcSelfExe << ".";
++        return false;
++      }
++      *result = bin_dir;
++      return true;
++    }
++    case base::DIR_MODULE: {
++      *result = base::FilePath();
++      return true;
++    }
++    case base::DIR_USER_DESKTOP:
++      *result =
++          FilePath(::ohos::adapter::ContextPathAdapter::GetUserDesktopDir());
++      return !result->empty();
++    case base::DIR_CACHE:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetCacheDir());
++      return !result->empty();
++    case base::DIR_TEMP:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetTempDir());
++      return !result->empty();
++    case base::DIR_ASSETS:
++      // TODO: temporary solution to load resources for multiple processes
++      // resource file packed to system images
++      return ParseAssetsOHOS(result);
++    case base::DIR_OHOS_APP_DATA:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetFilesDir());
++      return !result->empty();
++    default:
++      return false;
++  }
++}
++
++}  // namespace base
+diff --git a/base/base_paths_ohos.h b/base/base_paths_ohos.h
+new file mode 100644
+index 0000000000..2db55081d8
+--- /dev/null
++++ b/base/base_paths_ohos.h
+@@ -0,0 +1,43 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_BASE_PATHS_OHOS_H_
++#define BASE_BASE_PATHS_OHOS_H_
++
++namespace base {
++
++enum {
++  PATH_OHOS_START = 500,
++  DIR_OHOS_APP_DATA,
++  PATH_OHOS_END
++};
++
++}  // namespace base
++
++#endif  // BASE_BASE_PATHS_OHOS_H_
+diff --git a/base/debug/stack_trace_ohos.cc b/base/debug/stack_trace_ohos.cc
+new file mode 100644
+index 0000000000..90dc414cdf
+--- /dev/null
++++ b/base/debug/stack_trace_ohos.cc
+@@ -0,0 +1,221 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/debug/stack_trace.h"
++
++#include <unwind.h>
++
++#include <algorithm>
++#include <cstddef>
++#include <ostream>
++
++#include "base/containers/span_writer.h"
++#include "base/debug/proc_maps_linux.h"
++#include "base/logging.h"
++#include "base/memory/raw_ptr.h"
++#include "base/stl_util.h"
++#include "base/strings/strcat.h"
++#include "base/strings/stringprintf.h"
++#include "base/threading/thread_restrictions.h"
++
++#ifdef __LP64__
++#define FMT_ADDR "0x%016lx"
++#else
++#define FMT_ADDR "0x%08x"
++#endif
++
++namespace {
++
++struct StackCrawlState {
++  StackCrawlState(uintptr_t* frames, size_t max_depth)
++      : frames(frames),
++        frame_count(0),
++        max_depth(max_depth),
++        have_skipped_self(false) {}
++
++  raw_ptr<uintptr_t, AllowPtrArithmetic> frames;
++  size_t frame_count;
++  size_t max_depth;
++  bool have_skipped_self;
++};
++
++_Unwind_Reason_Code TraceStackFrame(_Unwind_Context* context, void* arg) {
++  StackCrawlState* state = static_cast<StackCrawlState*>(arg);
++  uintptr_t ip = _Unwind_GetIP(context);
++
++  // The first stack frame is this function itself.  Skip it.
++  if (ip != 0 && !state->have_skipped_self) {
++    state->have_skipped_self = true;
++    return _URC_NO_REASON;
++  }
++
++  state->frames[state->frame_count++] = ip;
++  if (state->frame_count >= state->max_depth) {
++    return _URC_END_OF_STACK;
++  }
++  return _URC_NO_REASON;
++}
++
++bool EndsWith(const std::string& s, const std::string& suffix) {
++  return s.size() >= suffix.size() &&
++      s.substr(s.size() - suffix.size(), suffix.size()) == suffix;
++}
++
++}  // namespace
++
++namespace base {
++namespace debug {
++
++namespace internal {
++void itoa_r(intptr_t i, int base, size_t padding, base::span<char> buf) {
++  // Make sure we can write at least one NUL byte.
++  if (buf.empty()) {
++    return;
++  }
++
++  if (base < 2 || base > 16) {
++    buf[0u] = '\000';
++    return;
++  }
++
++  auto writer = base::SpanWriter(buf);
++  size_t start = 0u;
++
++  uintptr_t j = static_cast<uintptr_t>(i);
++
++  // Handle negative numbers (only for base 10).
++  if (i < 0 && base == 10) {
++    // This does "j = -i" while avoiding integer overflow.
++    j = static_cast<uintptr_t>(-(i + 1)) + 1;
++
++    // Make sure we can write the '-' character.
++    if (!writer.Write('-')) {
++      buf[0u] = '\000';
++      return;
++    }
++    start += 1u;  // The number starts after the sign.
++  }
++
++  // Loop until we have converted the entire number. Output at least one
++  // character (i.e. '0').
++  constexpr std::string_view digits = "0123456789abcdef";
++  do {
++    // Output the next digit.
++    if (!writer.Write(digits[j % static_cast<uintptr_t>(base)])) {
++      buf[0] = '\000';
++      return;
++    }
++    j /= static_cast<uintptr_t>(base);
++
++    if (padding > 0) {
++      padding--;
++    }
++  } while (j > 0 || padding > 0);
++
++  // Terminate the output with a NUL character.
++  if (!writer.Write('\000')) {
++    buf[0] = '\000';
++    return;
++  }
++
++  // Conversion to ASCII actually resulted in the digits being in reverse order.
++  // We can't easily generate them in forward order, as we can't tell the number
++  // of characters needed until we are done converting. So, now, we reverse the
++  // string (except for the possible "-" sign and the NUL terminator).
++  std::ranges::reverse(buf.first(writer.num_written() - 1u).subspan(start));
++}
++}  // namespace internal
++
++bool EnableInProcessStackDumping() {
++  struct sigaction action;
++  std::fill(reinterpret_cast<unsigned char *>(&action),
++            reinterpret_cast<unsigned char *>(&action) + sizeof(action),
++            0);
++  action.sa_handler = SIG_IGN;
++  sigemptyset(&action.sa_mask);
++  return (sigaction(SIGPIPE, &action, NULL) == 0);
++}
++
++size_t CollectStackTrace(span<const void*> trace) {
++  StackCrawlState state(reinterpret_cast<uintptr_t*>(trace.data()),
++                        trace.size());
++  _Unwind_Backtrace(&TraceStackFrame, &state);
++  return state.frame_count;
++}
++
++// static
++void StackTrace::PrintMessageWithPrefix(cstring_view prefix_string,
++                                        cstring_view message) {
++  if (!prefix_string.empty()) {
++    LOG(ERROR) << StrCat({prefix_string, message}).c_str();
++  } else {
++    LOG(ERROR) << message.c_str();
++  }
++}
++
++void StackTrace::PrintWithPrefixImpl(cstring_view prefix_string) const {
++  std::string backtrace = ToStringWithPrefix(prefix_string);
++  LOG(ERROR) << backtrace;
++}
++
++// NOTE: Native libraries in APKs are stripped before installing. Print out the
++// relocatable address and library names so host computers can use tools to
++// symbolize and demangle (e.g., addr2line, c++filt).
++void StackTrace::OutputToStreamWithPrefixImpl(std::ostream* os,
++                                              cstring_view prefix_string) const {
++  std::string proc_maps;
++  std::vector<MappedMemoryRegion> regions;
++  // Allow IO to read /proc/self/maps. Reading this file doesn't hit the disk
++  // since it lives in procfs, and this is currently used to print a stack trace
++  // on fatal log messages in debug builds only. If the restriction is enabled
++  // then it will recursively trigger fatal failures when this enters on the
++  // UI thread.
++  base::ScopedAllowBlocking scoped_allow_blocking;
++  if (!ReadProcMaps(&proc_maps)) {
++    LOG(ERROR) << "Failed to read /proc/self/maps";
++  } else if (!ParseProcMaps(proc_maps, &regions)) {
++    LOG(ERROR) << "Failed to parse /proc/self/maps";
++  }
++
++  for (size_t i = 0; i < count_; ++i) {
++    // Subtract one as return address of function may be in the next
++    // function when a function is annotated as noreturn.
++    uintptr_t address = reinterpret_cast<uintptr_t>(trace_[i]) - 1;
++
++    std::vector<MappedMemoryRegion>::iterator iter = regions.begin();
++    while (iter != regions.end()) {
++      if (address >= iter->start && address < iter->end &&
++          !iter->path.empty()) {
++        break;
++      }
++      ++iter;
++    }
++
++    *os << prefix_string;
++
++    // Adjust absolute address to be an offset within the mapped region, to
++    // match the format dumped by Android's crash output.
++    if (iter != regions.end()) {
++      address -= iter->start;
++    }
++
++    // The format below intentionally matches that of Android's debuggerd
++    // output. This simplifies decoding by scripts such as stack.py.
++    *os << base::StringPrintf("#%02zd pc " FMT_ADDR " ", i, address);
++
++    if (iter != regions.end()) {
++      *os << base::StringPrintf("%s", iter->path.c_str());
++      if (EndsWith(iter->path, ".apk")) {
++        *os << base::StringPrintf(" (offset 0x%llx)", iter->offset);
++      }
++    } else {
++      *os << "<unknown>";
++    }
++
++    *os << "\n";
++  }
++}
++
++}  // namespace debug
++}  // namespace base
+diff --git a/base/memory/platform_shared_memory_mapper_ohos.cc b/base/memory/platform_shared_memory_mapper_ohos.cc
+new file mode 100644
+index 0000000000..e87edbadcf
+--- /dev/null
++++ b/base/memory/platform_shared_memory_mapper_ohos.cc
+@@ -0,0 +1,38 @@
++// Copyright 2022 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/memory/platform_shared_memory_mapper.h"
++
++#include "base/compiler_specific.h"
++#include "base/logging.h"
++#include "base/numerics/safe_conversions.h"
++
++#include <sys/mman.h>
++
++namespace base {
++
++std::optional<span<uint8_t>> PlatformSharedMemoryMapper::Map(
++    subtle::PlatformSharedMemoryHandle handle,
++    bool write_allowed,
++    uint64_t offset,
++    size_t size) {
++  void* address =
++      mmap(nullptr, size, PROT_READ | (write_allowed ? PROT_WRITE : 0),
++           MAP_SHARED, handle, checked_cast<off_t>(offset));
++
++  if (address == MAP_FAILED) {
++    DPLOG(ERROR) << "mmap " << handle << " failed";
++    return std::nullopt;
++  }
++
++  // SAFETY: mmap successfully created a mapping covering exactly size bytes.
++  return UNSAFE_BUFFERS(span(static_cast<uint8_t*>(address), size));
++}
++
++void PlatformSharedMemoryMapper::Unmap(span<uint8_t> mapping) {
++  if (munmap(mapping.data(), mapping.size()) < 0)
++    DPLOG(ERROR) << "munmap";
++}
++
++}  // namespace base
+diff --git a/base/memory/platform_shared_memory_region_ohos.cc b/base/memory/platform_shared_memory_region_ohos.cc
+new file mode 100644
+index 0000000000..2ff3a50a30
+--- /dev/null
++++ b/base/memory/platform_shared_memory_region_ohos.cc
+@@ -0,0 +1,211 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/memory/platform_shared_memory_region.h"
++
++#include <sys/mman.h>
++
++#include "base/bits.h"
++#include "base/logging.h"
++#include "base/memory/page_size.h"
++#include "base/memory/shared_memory_tracker.h"
++#include "base/metrics/histogram_macros.h"
++#include "base/posix/eintr_wrapper.h"
++#include "third_party/ashmem/ashmem.h"
++
++namespace base {
++namespace subtle {
++
++// For OHOS, we use ashmem the same way Android does to implement SharedMemory.
++
++namespace {
++
++int GetAshmemRegionProtectionMask(int fd) {
++  int prot = ashmem_get_prot_region(fd);
++  if (prot < 0) {
++    PLOG(ERROR) << "ashmem_get_prot_region failed";
++    return -1;
++  }
++  return prot;
++}
++
++}  // namespace
++
++// static
++expected<PlatformSharedMemoryRegion, PlatformSharedMemoryRegion::TakeError>
++PlatformSharedMemoryRegion::TakeOrFail(
++    ScopedFD fd,
++    Mode mode,
++    size_t size,
++    const UnguessableToken& guid) {
++  if (!fd.is_valid())
++    return {};
++
++  if (size == 0)
++    return {};
++
++  if (size > static_cast<size_t>(std::numeric_limits<int>::max()))
++    return {};
++
++  return CheckPlatformHandlePermissionsCorrespondToMode(fd.get(), mode, size)
++      .transform([&] {
++        return PlatformSharedMemoryRegion(std::move(fd), mode, size, guid);
++      });
++}
++
++int PlatformSharedMemoryRegion::GetPlatformHandle() const {
++  return handle_.get();
++}
++
++bool PlatformSharedMemoryRegion::IsValid() const {
++  return handle_.is_valid();
++}
++
++PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Duplicate() const {
++  if (!IsValid())
++    return {};
++
++  CHECK_NE(mode_, Mode::kWritable)
++      << "Duplicating a writable shared memory region is prohibited";
++
++  ScopedFD duped_fd(HANDLE_EINTR(dup(handle_.get())));
++  if (!duped_fd.is_valid()) {
++    DPLOG(ERROR) << "dup(" << handle_.get() << ") failed";
++    return {};
++  }
++
++  return PlatformSharedMemoryRegion(std::move(duped_fd), mode_, size_, guid_);
++}
++
++bool PlatformSharedMemoryRegion::ConvertToReadOnly() {
++  if (!IsValid())
++    return false;
++
++  CHECK_EQ(mode_, Mode::kWritable)
++      << "Only writable shared memory region can be converted to read-only";
++
++  ScopedFD handle_copy(handle_.release());
++
++  int prot = GetAshmemRegionProtectionMask(handle_copy.get());
++  if (prot < 0)
++    return false;
++
++  prot &= ~PROT_WRITE;
++  int ret = ashmem_set_prot_region(handle_copy.get(), prot);
++  if (ret != 0) {
++    DPLOG(ERROR) << "ashmem_set_prot_region failed";
++    return false;
++  }
++
++  handle_ = std::move(handle_copy);
++  mode_ = Mode::kReadOnly;
++  return true;
++}
++
++bool PlatformSharedMemoryRegion::ConvertToUnsafe() {
++  if (!IsValid())
++    return false;
++
++  CHECK_EQ(mode_, Mode::kWritable)
++      << "Only writable shared memory region can be converted to unsafe";
++
++  mode_ = Mode::kUnsafe;
++  return true;
++}
++
++// static
++PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Create(Mode mode,
++                                                              size_t size) {
++  if (size == 0) {
++    return {};
++  }
++
++  // Align size as required by ashmem_create_region() API documentation. This
++  // operation may overflow so check that the result doesn't decrease.
++  size_t rounded_size = bits::AlignUp(size, GetPageSize());
++  if (rounded_size < size ||
++      rounded_size > static_cast<size_t>(std::numeric_limits<int>::max())) {
++    return {};
++  }
++
++  CHECK_NE(mode, Mode::kReadOnly) << "Creating a region in read-only mode will "
++                                     "lead to this region being non-modifiable";
++
++  UnguessableToken guid = UnguessableToken::Create();
++
++  int fd = ashmem_create_region(
++      SharedMemoryTracker::GetDumpNameForTracing(guid).c_str(), rounded_size);
++  if (fd < 0) {
++    DPLOG(ERROR) << "ashmem_create_region failed";
++    return {};
++  }
++
++  ScopedFD scoped_fd(fd);
++  int err = ashmem_set_prot_region(scoped_fd.get(), PROT_READ | PROT_WRITE);
++  if (err < 0) {
++    DPLOG(ERROR) << "ashmem_set_prot_region failed";
++    return {};
++  }
++
++  return PlatformSharedMemoryRegion(std::move(scoped_fd), mode, size, guid);
++}
++
++expected<void, PlatformSharedMemoryRegion::TakeError>
++PlatformSharedMemoryRegion::CheckPlatformHandlePermissionsCorrespondToMode(
++    PlatformSharedMemoryHandle handle,
++    Mode mode,
++    size_t size) {
++  int prot = GetAshmemRegionProtectionMask(handle);
++  if (prot < 0) {
++    return unexpected(TakeError::kFailedToGetAshmemRegionProtectionMask);
++  }
++
++  bool is_read_only = (prot & PROT_WRITE) == 0;
++  bool expected_read_only = mode == Mode::kReadOnly;
++
++  if (is_read_only != expected_read_only) {
++    LOG(ERROR) << "Ashmem region has a wrong protection mask: it is"
++               << (is_read_only ? " " : " not ") << "read-only but it should"
++               << (expected_read_only ? " " : " not ") << "be";
++    return unexpected(expected_read_only ? TakeError::kExpectedReadOnlyButNot
++                                         : TakeError::kExpectedWritableButNot);
++  }
++
++  return ok();
++}
++
++PlatformSharedMemoryRegion::PlatformSharedMemoryRegion(
++    ScopedFD fd,
++    Mode mode,
++    size_t size,
++    const UnguessableToken& guid)
++    : handle_(std::move(fd)), mode_(mode), size_(size), guid_(guid) {}
++
++}  // namespace subtle
++}  // namespace base
+diff --git a/base/ohos/task_scheduler/task_runner_ohos.cc b/base/ohos/task_scheduler/task_runner_ohos.cc
+new file mode 100644
+index 0000000000..929280ab52
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_runner_ohos.cc
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/ohos/task_scheduler/task_runner_ohos.h"
++
++#include "base/check.h"
++#include "base/compiler_specific.h"
++#include "base/functional/bind.h"
++#include "base/no_destructor.h"
++#include "base/time/time.h"
++
++namespace base {
++
++namespace {
++
++TaskRunnerOHOS::UiThreadTaskRunnerCallback& GetUiThreadTaskRunnerCallback() {
++  static base::NoDestructor<TaskRunnerOHOS::UiThreadTaskRunnerCallback>
++      callback;
++  return *callback;
++}
++
++}  // namespace
++
++long Init(int task_traits) {
++  TaskRunnerOHOS* task_runner =
++      TaskRunnerOHOS::Create(task_traits).release();
++  return reinterpret_cast<intptr_t>(task_runner);
++}
++
++TaskRunnerOHOS::TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner)
++    : task_runner_(std::move(task_runner)) {}
++
++TaskRunnerOHOS::~TaskRunnerOHOS() = default;
++
++void TaskRunnerOHOS::Destroy() {
++  delete this;
++}
++
++void TaskRunnerOHOS::PostDelayedTask(const Location& from_here, OnceClosure task, int delay) {
++  task_runner_->PostDelayedTask(
++      from_here,
++      std::move(task),
++      Milliseconds(delay));
++}
++
++void TaskRunnerOHOS::PostTask(const Location& from_here, OnceClosure task) {
++  PostDelayedTask(from_here, std::move(task), 0);
++}
++
++bool TaskRunnerOHOS::BelongsToCurrentThread() {
++  return static_cast<SequencedTaskRunner*>(task_runner_.get())
++      ->RunsTasksInCurrentSequence();
++}
++
++// static
++std::unique_ptr<TaskRunnerOHOS> TaskRunnerOHOS::Create(int task_traits) {
++  CHECK(GetUiThreadTaskRunnerCallback());
++  scoped_refptr<TaskRunner> task_runner = GetUiThreadTaskRunnerCallback().Run(
++      static_cast<::TaskTraits>(task_traits));
++
++  return std::make_unique<TaskRunnerOHOS>(task_runner);
++}
++
++// static
++void TaskRunnerOHOS::SetUiThreadTaskRunnerCallback(
++    UiThreadTaskRunnerCallback callback) {
++  GetUiThreadTaskRunnerCallback() = std::move(callback);
++}
++
++// static
++scoped_refptr<base::SingleThreadTaskRunner>
++TaskRunnerOHOS::GetUIThreadTaskRunner(int task_traits) {
++  if (task_traits == ::TaskTraits::UI_DEFAULT &&
++      base::SingleThreadTaskRunner::HasCurrentDefault()) {
++    return base::SingleThreadTaskRunner::GetCurrentDefault();
++  }
++  CHECK(GetUiThreadTaskRunnerCallback());
++  return GetUiThreadTaskRunnerCallback().Run(static_cast<::TaskTraits>(task_traits));
++}
++
++}  // namespace base
+diff --git a/base/ohos/task_scheduler/task_runner_ohos.h b/base/ohos/task_scheduler/task_runner_ohos.h
+new file mode 100644
+index 0000000000..79d93acdeb
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_runner_ohos.h
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
++#define BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
++
++#include <memory>
++
++#include "base/ohos/task_scheduler/task_traits_ohos.h"
++#include "base/base_export.h"
++#include "base/functional/callback_forward.h"
++#include "base/task/single_thread_task_runner.h"
++
++namespace base {
++
++class BASE_EXPORT TaskRunnerOHOS {
++ public:
++  explicit TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner);
++
++  TaskRunnerOHOS(const TaskRunnerOHOS&) = delete;
++  TaskRunnerOHOS& operator=(const TaskRunnerOHOS&) = delete;
++
++  ~TaskRunnerOHOS();
++
++  void Destroy();
++
++  void PostDelayedTask(const Location& from_here, OnceClosure task, int delay);
++
++  void PostTask(const Location& from_here, OnceClosure task);
++
++  bool BelongsToCurrentThread();
++
++  static std::unique_ptr<TaskRunnerOHOS> Create(int task_traits = ::TaskTraits::UI_DEFAULT);
++
++  using UiThreadTaskRunnerCallback =
++      RepeatingCallback<scoped_refptr<base::SingleThreadTaskRunner>(
++          ::TaskTraits)>;
++
++  static void SetUiThreadTaskRunnerCallback(
++      UiThreadTaskRunnerCallback callback);
++
++  static scoped_refptr<base::SingleThreadTaskRunner> GetUIThreadTaskRunner(
++      int task_traits = ::TaskTraits::UI_DEFAULT);
++
++ private:
++  const scoped_refptr<TaskRunner> task_runner_;
++};
++
++}  // namespace base
++
++#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
+diff --git a/base/ohos/task_scheduler/task_traits_ohos.h b/base/ohos/task_scheduler/task_traits_ohos.h
+new file mode 100644
+index 0000000000..b4671d912c
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_traits_ohos.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
++#define BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
++
++enum TaskTraits {
++  UI_TRAITS_START = 0,
++  UI_BEST_EFFORT = UI_TRAITS_START + 1,
++  UI_USER_VISIBLE = UI_TRAITS_START + 2,
++  UI_USER_BLOCKING = UI_TRAITS_START + 3,
++  UI_DEFAULT = UI_TRAITS_START,
++  UI_TRAITS_END = UI_USER_BLOCKING
++};
++
++#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
+diff --git a/base/power_monitor/power_monitor_device_source_ohos.cc b/base/power_monitor/power_monitor_device_source_ohos.cc
+new file mode 100644
+index 0000000000..7b0cd3a148
+--- /dev/null
++++ b/base/power_monitor/power_monitor_device_source_ohos.cc
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/power_monitor/power_monitor_device_source.h"
++
++#include <memory>
++
++namespace ohos::adapter {
++class OhosPowerMonitorImpl final : public ohos::adapter::OhosPowerMonitor {
++ public:
++  OhosPowerMonitorImpl() = default;
++  OhosPowerMonitorImpl(const OhosPowerMonitorImpl&) = delete;
++  OhosPowerMonitorImpl& operator=(const OhosPowerMonitorImpl&) = delete;
++  void OnSuspend() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::SUSPEND_EVENT);
++  }
++  void OnResume() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::RESUME_EVENT);
++  }
++  void OnPowerStateChanged() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::POWER_STATE_EVENT);
++  }
++};
++}  // namespace ohos::adapter
++
++namespace base {
++
++// A helper function which is a friend of PowerMonitorSource.
++void ProcessPowerEventHelper(PowerMonitorSource::PowerEvent event) {
++  PowerMonitorSource::ProcessPowerEvent(event);
++}
++
++void PowerMonitorDeviceSource::PlatformInit() {
++  if (impl == nullptr) {
++    impl = std::make_unique<ohos::adapter::OhosPowerMonitorImpl>();
++    ::ohos::adapter::PowerMonitor::SetMonitor(impl.get());
++  }
++}
++
++void PowerMonitorDeviceSource::PlatformDestroy() {
++  if (impl != nullptr) {
++    ::ohos::adapter::PowerMonitor::ReleaseMonitor();
++    impl = nullptr;
++  }
++}
++
++PowerStateObserver::BatteryPowerStatus
++PowerMonitorDeviceSource::GetBatteryPowerStatus() const {
++  if (::ohos::adapter::PowerMonitor::IsOnBatteryPower()) {
++    return PowerStateObserver::BatteryPowerStatus::kBatteryPower;
++  } else {
++    return PowerStateObserver::BatteryPowerStatus::kExternalPower;
++  }
++}
++}  // namespace base
+diff --git a/base/test/test_support_ohos.cc b/base/test/test_support_ohos.cc
+new file mode 100644
+index 0000000000..5bab2b345f
+--- /dev/null
++++ b/base/test/test_support_ohos.cc
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
++#define BASE_TEST_TEST_SUPPORT_OHOS_H_
++
++
++#include "base/path_service.h"
++#include "base/files/file_path.h"
++#include "base/base_paths.h"
++
++namespace {
++// Provides the test path for paths overridden during tests.
++bool GetTestProviderPath(int key, base::FilePath* result) {
++  // On OHOS, such directory relate to arkui env, unittest cannot get. MOCK it.
++  switch (key) {
++    case base::DIR_TEMP:
++      *result = base::FilePath("./tmp");
++      return true;
++    case base::DIR_CACHE:
++      *result = base::FilePath("./cache");
++      return true;
++    case base::DIR_USER_DESKTOP:
++      *result = base::FilePath("./user_desktop");
++      return true;
++    case base::DIR_SRC_TEST_DATA_ROOT:
++      *result = base::FilePath("./src");
++      return true;
++    case base::DIR_TEST_DATA:
++      *result = base::FilePath("./test_data");
++      return true;
++    case base::DIR_EXE:
++    case base::DIR_MODULE:
++    case base::DIR_OHOS_APP_DATA:
++      *result = base::FilePath(base::FilePath::kCurrentDirectory);
++      return true;
++    case base::DIR_GEN_TEST_DATA_ROOT:
++      *result = base::FilePath("./test_gen_data");
++      return true;
++    default:
++      return false;
++  }
++}
++
++void InitPathProvider(int key) {
++  base::FilePath path;
++  // If failed to override the key, that means the way has not been registered.
++  if (GetTestProviderPath(key, &path) &&
++      !base::PathService::Override(key, path)) {
++    base::PathService::RegisterProvider(&GetTestProviderPath, key, key + 1);
++  }
++}
++}
++
++namespace base {
++void RegisterPathProviderForOhosTest() {
++  InitPathProvider(DIR_TEMP);
++  InitPathProvider(DIR_SRC_TEST_DATA_ROOT);
++  InitPathProvider(DIR_TEST_DATA);
++  InitPathProvider(DIR_EXE);
++  InitPathProvider(DIR_OHOS_APP_DATA);
++  InitPathProvider(DIR_GEN_TEST_DATA_ROOT);
++  InitPathProvider(DIR_CACHE);
++  InitPathProvider(DIR_USER_DESKTOP);
++  InitPathProvider(DIR_MODULE);
++}
++
++}  // namespace base
++#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
+diff --git a/base/test/test_support_ohos.h b/base/test/test_support_ohos.h
+new file mode 100644
+index 0000000000..79b4a995ad
+--- /dev/null
++++ b/base/test/test_support_ohos.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
++#define BASE_TEST_TEST_SUPPORT_OHOS_H_
++
++#include "base/test/test_suite.h"
++
++namespace base {
++void RegisterPathProviderForOhosTest();
++}  // namespace base
++
++#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
+diff --git a/base/trace_event/ohos_fix_buffer.cc b/base/trace_event/ohos_fix_buffer.cc
+new file mode 100644
+index 0000000000..3273f203f8
+--- /dev/null
++++ b/base/trace_event/ohos_fix_buffer.cc
+@@ -0,0 +1,140 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/trace_event/ohos_fix_buffer.h"
++
++#include <cinttypes>
++
++#include "base/compiler_specific.h"
++
++namespace base::trace_event::ohos {
++
++namespace {
++constexpr std::string_view kTrueView = "true";
++constexpr std::string_view kFalseView = "false";
++
++/**
++ * avoid buffer overflow brought by snprintf return value, which can exceed
++ * buffer size
++ * @param raw_len the return value of `snprintf`
++ * @param delta_len the buffer size
++ * @returns value is the actual new writed length,
++ * it is `min(raw_len, delta_len)` to avoid buffer overflow and `0` if `raw_len`
++ * is negative
++ */
++ALWAYS_INLINE constexpr size_t GetDeltaLength(int raw_len,
++                                              size_t delta_len) noexcept {
++  if (raw_len < 0 || delta_len <= 0) {
++    return 0;
++  }
++  size_t raw_size = static_cast<size_t>(raw_len);
++  if (raw_size > delta_len) {
++    return delta_len;
++  }
++  return raw_size;
++}
++}  // namespace
++
++class PrintHelper {
++ public:
++  /**
++   * helper function for invoke snprintf and handle result of snprintf and
++   * append null terminator
++   * @param buffer the buffer class
++   * @param f the lambda that is invoked with `f(const char* dest, size_t
++   * buffer_size)`, should directly call `snprintf`
++   * @return the buffer instance reference
++   */
++  template <typename F>
++  static FixBuffer& ToBuffer(FixBuffer& buffer, F f) {
++    if (buffer.IsFull()) {
++      return buffer;
++    }
++    size_t delta_len = buffer.size_ - buffer.len_;
++    int raw_len = f(buffer.buffer_ + buffer.len_, delta_len);
++    buffer.len_ += GetDeltaLength(raw_len, delta_len);
++    buffer.buffer_[buffer.len_] = '\0';
++    return buffer;
++  }
++};
++
++FixBuffer::FixBuffer(char* buffer, size_t length) noexcept
++    : size_(length - 1), buffer_(buffer) {
++  Clear();
++  buffer_[size_] = '\0';
++}
++
++std::string_view FixBuffer::GetStr() const noexcept {
++  return {buffer_, len_};
++}
++
++FixBuffer& FixBuffer::operator<<(std::string_view string_view_input) noexcept {
++  if (IsFull()) {
++    return *this;
++  }
++  // target_len cannot exceed `size_` to avoid buffer overflow
++  size_t target_len = std::min(string_view_input.length() + len_, size_);
++  size_t delta_len = target_len - len_;
++  std::memcpy(buffer_ + len_, string_view_input.data(), delta_len);
++  len_ = target_len;
++  // make buffer_ always valid c str without overflow for c api
++  buffer_[len_] = '\0';
++  return *this;
++}
++
++FixBuffer& FixBuffer::operator<<(int int_input) noexcept {
++  return PrintHelper::ToBuffer(
++      *this, [int_input](char* dest, size_t len) -> int {
++        return std::snprintf(dest, len, "%d", int_input);
++      });
++}
++
++FixBuffer& FixBuffer::operator<<(int64_t int64_input) noexcept {
++  return PrintHelper::ToBuffer(
++      *this, [int64_input](char* dest, size_t len) -> int {
++        return std::snprintf(dest, len, "%" PRId64 "", int64_input);
++      });
++}
++
++FixBuffer& FixBuffer::operator<<(uint64_t uint64_input) noexcept {
++  return PrintHelper::ToBuffer(
++      *this, [uint64_input](char* dest, size_t len) -> int {
++        return std::snprintf(dest, len, "%" PRIu64 "", uint64_input);
++      });
++}
++
++FixBuffer& FixBuffer::operator<<(FixBuffer::ToBool bool_value) noexcept {
++  const std::string_view& value = bool_value.value ? kTrueView : kFalseView;
++  return *this << value;
++}
++
++FixBuffer& FixBuffer::operator<<(double double_value) noexcept {
++  return PrintHelper::ToBuffer(
++      *this, [double_value](char* dest, size_t len) -> int {
++        return std::snprintf(dest, len, "%g", double_value);
++      });
++}
++
++FixBuffer& FixBuffer::operator<<(Ptr pointer_value) noexcept {
++  return PrintHelper::ToBuffer(
++      *this, [pointer_value](char* dest, size_t len) -> int {
++        return std::snprintf(dest, len, "%p", pointer_value.ptr);
++      });
++}
++
++void FixBuffer::Clear() noexcept {
++  len_ = 0;
++  buffer_[0] = '\0';
++  buffer_[size_] = '\0';
++}
++
++size_t FixBuffer::ShrinkTo(size_t input) noexcept {
++  if (input >= len_) {
++    return len_;
++  }
++  len_ = input;
++  buffer_[len_] = '\0';
++  return input;
++}
++}  // namespace base::trace_event::ohos
+\ No newline at end of file
+diff --git a/base/trace_event/ohos_fix_buffer.h b/base/trace_event/ohos_fix_buffer.h
+new file mode 100644
+index 0000000000..63d945d1fd
+--- /dev/null
++++ b/base/trace_event/ohos_fix_buffer.h
+@@ -0,0 +1,115 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef BASE_TRACE_EVENT_OHOS_FIX_BUFFER_
++#define BASE_TRACE_EVENT_OHOS_FIX_BUFFER_
++
++#include <array>
++#include <string_view>
++
++namespace base::trace_event::ohos {
++/**
++ * FixBuffer is a utility class used to append with a limited length support,
++ * it takes a `char array[LEN]` reference or `std::array<char, LEN>` and write
++ * string on it without exceed limit.
++ * Since not owning underlying buffer, it must keep valid throughout FixBuffer
++ * life span
++ */
++struct FixBuffer {
++ public:
++  /**
++   * tag class to avoid implicit convertion from `const char*` to `const void*`
++   */
++  struct Ptr {
++   public:
++    const void* ptr;
++    explicit constexpr Ptr(const void* ptr) : ptr(ptr) {}
++  };
++  /** tag class to avoid implicit convertion to bool to mess up overload */
++  struct ToBool {
++   public:
++    bool value;
++    explicit constexpr ToBool(bool value) : value(value) {}
++  };
++  /** constructor FixBuffer with an char array left value reference */
++  template <size_t N>
++  explicit FixBuffer(char (&buffer)[N]) : FixBuffer(buffer, N) {
++    static_assert(N >= 1, "buffer size must greater than 1");
++  }
++
++  /** constructor FixBuffer with an `std::array` instance */
++  template <size_t N>
++  explicit FixBuffer(std::array<char, N>& buffer)
++      : FixBuffer(buffer.data(), buffer.size()) {
++    static_assert(N >= 1, "buffer size must greater than 1");
++  }
++
++  /** copy not allowed */
++  FixBuffer(const FixBuffer& other) = delete;
++  ~FixBuffer() noexcept = default;
++
++  /**
++   * Append input, if over limit just append to limit
++   */
++  FixBuffer& operator<<(std::string_view string_view_input) noexcept;
++
++  /** append number */
++  FixBuffer& operator<<(int int_input) noexcept;
++
++  /** append int64 number */
++  FixBuffer& operator<<(int64_t int64_input) noexcept;
++
++  FixBuffer& operator<<(uint64_t uint64_input) noexcept;
++
++  /**
++   * append bool value
++   * @param bool_value, use a structure to avoid implicit convert to bool
++   */
++  FixBuffer& operator<<(ToBool bool_value) noexcept;
++
++  /** append double value, returns actual appended char */
++  FixBuffer& operator<<(double double_value) noexcept;
++
++  /** append pointer value, returns actual appended char */
++  FixBuffer& operator<<(Ptr pointer_value) noexcept;
++
++  /** get the `string_view` of the current buffer */
++  std::string_view GetStr() const noexcept;
++
++  /** @return return the c str, guaranteed to be always valid */
++  const char* CStr() const noexcept { return buffer_; }
++
++  /** clear the buffer to make it empty str */
++  void Clear() noexcept;
++
++  /**
++   * shrink to specific length
++   * @param input the target length
++   * @return if input is less than current length, shrink to it and return
++   * input. otherwise keep untouched and return current length
++   */
++  size_t ShrinkTo(size_t input) noexcept;
++
++  /** @return length of the whole buffer written */
++  size_t Len() const noexcept { return len_; }
++
++  /** @return the total size of buffer (except last null terminator) */
++  size_t BufferSize() const noexcept { return size_; }
++
++  /** @return full or not */
++  bool IsFull() const noexcept { return len_ >= size_; }
++
++ private:
++  friend class PrintHelper;
++  FixBuffer(char* buffer, size_t length) noexcept;
++  /** the total size */
++  const size_t size_;
++  /** the length of valid string before tailing `'\0'` */
++  size_t len_{0};
++  /** the buffer for output, always valid C str with terminate zero at last */
++  char* buffer_;
++};
++}  // namespace base::trace_event::ohos
++
++#endif  // BASE_TRACE_EVENT_OHOS_FIX_BUFFER_
+\ No newline at end of file
+diff --git a/base/trace_event/ohos_hitrace_adapter.h b/base/trace_event/ohos_hitrace_adapter.h
+new file mode 100644
+index 0000000000..8ece8d072e
+--- /dev/null
++++ b/base/trace_event/ohos_hitrace_adapter.h
+@@ -0,0 +1,64 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef BASE_TRACE_EVENT_OHOS_HITRACE_ADAPTER_H_
++#define BASE_TRACE_EVENT_OHOS_HITRACE_ADAPTER_H_
++
++#include <cstddef>
++#include <cstdint>
++
++#include "base/base_export.h"
++
++namespace base::trace_event::ohos {
++/**
++ * hitrace api interface, it must be thread safe
++ */
++class BASE_EXPORT HitraceAdapter {
++ public:
++  /** max length const char* length hitrace accept */
++  static constexpr const size_t kLimit = 500;
++  virtual ~HitraceAdapter() = default;
++  /**
++   * Marks the start of a synchronous trace task.
++   * @param name Name of a trace task.
++   */
++  virtual void StartSyncTrace(const char* name) = 0;
++  /**
++   * Marks the end of a synchronous trace task,
++   * must be pair with `StartSyncTrace` to format correct trace
++   */
++  virtual void EndSyncTrace() = 0;
++  /**
++   * Marks the start of an asynchronous trace task.
++   * @param name Name of the asynchronous trace task.
++   * @param taskId ID of the asynchronous trace task. The start and end of an
++   * asynchronous trace task do not occur in sequence. Therefore, the start and
++   * end of an asynchronous trace need to be matched based on the task name and
++   * the unique task ID together.
++   */
++  virtual void StartAsyncTrace(const char* name, int32_t taskId) = 0;
++  /**
++   * Marks the end of an asynchronous trace task, `name` and `taskId` must be
++   * pair with `StartAsyncTrace`
++   * @param name Name of the asynchronous trace task.
++   * @param taskId ID of the asynchronous trace task. The start and end of an
++   * asynchronous trace task do not occur in sequence. Therefore, the start and
++   * end of an asynchronous trace need to be matched based on the task name and
++   * the unique task ID together.
++   */
++  virtual void EndAsyncTrace(const char* name, int32_t taskId) = 0;
++  /**
++   * Traces the value change of an integer variable based on its name.
++   * @param name Name of the integer variable. It does not need to be the same
++   * as the real variable name.
++   * @param count Integer value. Generally, an integer variable can be passed.
++   */
++  virtual void CounterTrace(const char* name, int64_t count) = 0;
++};
++
++/** get the system hitrace implementation */
++HitraceAdapter& BASE_EXPORT GetSystemSingleton();
++}  // namespace base::trace_event::ohos
++
++#endif  // BASE_TRACE_EVENT_OHOS_HITRACE_ADAPTER_H_
+\ No newline at end of file
+diff --git a/base/trace_event/ohos_hitrace_adapter_impl.cc b/base/trace_event/ohos_hitrace_adapter_impl.cc
+new file mode 100644
+index 0000000000..4534a9a6b9
+--- /dev/null
++++ b/base/trace_event/ohos_hitrace_adapter_impl.cc
+@@ -0,0 +1,52 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include <hitrace/trace.h>
++
++#include <type_traits>
++
++#include "base/trace_event/ohos_hitrace_adapter.h"
++
++namespace base::trace_event::ohos {
++/** Adapter to direct invoke system api, this adapter is thread safe as
++ * `OH_Hitrace_...` API is guaranteed to be thread safe  */
++class HitraceSystemAdapter final : public HitraceAdapter {
++ public:
++  ~HitraceSystemAdapter() override = default;
++  void StartSyncTrace(const char* name) override;
++  void EndSyncTrace() override;
++  void StartAsyncTrace(const char* name, int32_t taskId) override;
++  void EndAsyncTrace(const char* name, int32_t taskId) override;
++  void CounterTrace(const char* name, int64_t count) override;
++
++ private:
++  HitraceSystemAdapter() = default;
++  friend HitraceAdapter& GetSystemSingleton();
++};
++
++void HitraceSystemAdapter::StartSyncTrace(const char* name) {
++  OH_HiTrace_StartTrace(name);
++}
++
++void HitraceSystemAdapter::EndSyncTrace() {
++  OH_HiTrace_FinishTrace();
++}
++
++void HitraceSystemAdapter::StartAsyncTrace(const char* name, int32_t taskId) {
++  OH_HiTrace_StartAsyncTrace(name, taskId);
++}
++
++void HitraceSystemAdapter::EndAsyncTrace(const char* name, int32_t taskId) {
++  OH_HiTrace_FinishAsyncTrace(name, taskId);
++}
++
++void HitraceSystemAdapter::CounterTrace(const char* name, int64_t count) {
++  OH_HiTrace_CountTrace(name, count);
++}
++
++HitraceAdapter& GetSystemSingleton() {
++  static HitraceSystemAdapter singleton{};
++  return singleton;
++}
++}  // namespace base::trace_event::ohos
+\ No newline at end of file
+diff --git a/base/trace_event/ohos_hitrace_interceptor.cc b/base/trace_event/ohos_hitrace_interceptor.cc
+new file mode 100644
+index 0000000000..4cab05d209
+--- /dev/null
++++ b/base/trace_event/ohos_hitrace_interceptor.cc
+@@ -0,0 +1,771 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/trace_event/ohos_hitrace_interceptor.h"
++
++#include <string_view>
++#include <type_traits>
++
++#include "base/compiler_specific.h"
++#include "base/trace_event/ohos_fix_buffer.h"
++#include "base/trace_event/ohos_hitrace_adapter.h"
++#include "perfetto/protozero/field.h"
++#include "perfetto/protozero/proto_decoder.h"
++#include "protos/perfetto/trace/interned_data/interned_data.pbzero.h"
++#include "protos/perfetto/trace/track_event/debug_annotation.pbzero.h"
++#include "protos/perfetto/trace/track_event/track_event.pbzero.h"
++#include "third_party/perfetto/protos/perfetto/common/interceptor_descriptor.gen.h"
++#include "third_party/perfetto/protos/perfetto/trace/trace_packet.pbzero.h"
++
++namespace base::trace_event::ohos {
++namespace pbzero = perfetto::protos::pbzero;
++
++namespace {
++/**
++ * convert `protozero::ConstChars` into `std::string_view`
++ * @param const_chars the protobuf char span
++ * @returns return the string_view can be used to append to FixBuf
++ */
++std::string_view ToStringView(
++    const protozero::ConstChars& const_chars) noexcept {
++  return std::string_view{const_chars.data, const_chars.size};
++}
++
++/**
++ * helper to append comma for second time and later
++ */
++struct CommaHelper {
++ public:
++  static constexpr std::string_view kDefaultComma{","};
++  std::string_view comma_str;
++  bool is_first = true;
++
++  explicit CommaHelper(std::string_view comma_str = kDefaultComma) noexcept
++      : comma_str(comma_str) {}
++};
++
++/**
++ * @param fix_buffer the fix_buffer input
++ */
++FixBuffer& operator<<(FixBuffer& fix_buffer,
++                      CommaHelper& comma_helper) noexcept {
++  if (comma_helper.is_first) [[unlikely]] {
++    comma_helper.is_first = false;
++    return fix_buffer;
++  } else {
++    return fix_buffer << comma_helper.comma_str;
++  }
++}
++
++/**
++ * helper class to convert `protozero::RepeatedFieldIterator<T>` into ranged for
++ * iteration. Can extra take a `FixBuffer` pointer to stop if buffer is full.
++ */
++template <typename T>
++struct IterProto final {
++ public:
++  explicit IterProto(protozero::RepeatedFieldIterator<T> iter,
++                     FixBuffer* fix_buffer = nullptr)
++      : iter_(iter), fix_buffer_(fix_buffer) {}
++  struct IterEnd {};
++
++  struct Iter {
++    explicit Iter(protozero::RepeatedFieldIterator<T> iter,
++                  FixBuffer* fix_buffer)
++        : iter_(iter), fix_buffer_(fix_buffer) {}
++
++    /**
++     * ranged based for loop not require `begin()` and `end()` has same type,
++     */
++    ALWAYS_INLINE bool operator==(const IterEnd&) const { return !IsValid(); }
++
++    /**
++     * if iter_ reach end or `fix_buffer_` is full, break the loop
++     */
++    ALWAYS_INLINE bool IsValid() const { return iter_ && IsBufferValid(); }
++
++    /**
++     * fix_buffer_ is nullptr is always valid,
++     * or check if not `IsFull()`
++     */
++    ALWAYS_INLINE bool IsBufferValid() const {
++      return !fix_buffer_ || !fix_buffer_->IsFull();
++    }
++
++    Iter& operator++() {
++      if (iter_) {
++        ++iter_;
++      }
++      return *this;
++    }
++
++    T operator*() const { return *iter_; }
++    protozero::RepeatedFieldIterator<T> iter_;
++    FixBuffer* fix_buffer_;
++  };
++
++  Iter begin() const { return Iter(iter_, fix_buffer_); }
++
++  IterEnd end() const { return IterEnd{}; }
++
++  protozero::RepeatedFieldIterator<T> iter_;
++  FixBuffer* fix_buffer_;
++};
++
++/**
++ * wrapper for IterProto, if the IterProto iterate over `ConstBytes`,
++ * use TypedIterProto with the decoder type to iter and create decoder facade in
++ * the same type
++ */
++template <typename T>
++struct TypedIterProto {
++ public:
++  static_assert(std::is_constructible_v<T, const protozero::ConstBytes&>,
++                "T must be a pbzero SomeType::Decoder class");
++  static_assert(std::is_base_of_v<protozero::TypedProtoDecoderBase, T>,
++                "T must be a pbzero SomeType::Decoder class");
++  explicit TypedIterProto(
++      protozero::RepeatedFieldIterator<protozero::ConstBytes> iter,
++      FixBuffer* fix_buffer = nullptr)
++      : iter_proto_(iter, fix_buffer) {}
++
++  // note struct Iter is not final, we override the `operator*` to directly
++  // return the Decoder instance
++  struct Iter : public IterProto<protozero::ConstBytes>::Iter {
++   public:
++    T operator*() const { return T(*iter_); }
++  };
++
++  TypedIterProto::Iter begin() const {
++    return TypedIterProto::Iter(iter_proto_.begin());
++  }
++
++  // reuse the `end` and `operator==`
++  IterProto<protozero::ConstBytes>::IterEnd end() const {
++    return iter_proto_.end();
++  }
++
++  IterProto<protozero::ConstBytes> iter_proto_;
++};
++
++/**
++ * helper to query the string from iid, or output `"[iid: <iid>]"` if not found
++ */
++struct QueryIId {
++ public:
++  explicit QueryIId(const OhosSeqData::IIdMap& map, uint64_t iid);
++  const OhosSeqData::IIdMap& map_;
++  uint64_t iid_;
++};
++
++QueryIId::QueryIId(const OhosSeqData::IIdMap& map, uint64_t iid)
++    : map_(map), iid_(iid) {}
++
++FixBuffer& operator<<(FixBuffer& fix_buffer, QueryIId queryIId) {
++  OhosSeqData::IIdMap::const_iterator iter = queryIId.map_.find(queryIId.iid_);
++  if (iter != queryIId.map_.cend()) {
++    return fix_buffer << iter->second;
++  } else {
++    return fix_buffer << "[iid:" << queryIId.iid_ << "]";
++  }
++}
++}  // namespace
++
++OhosHiTraceInterceptor::ThreadLocalState::ThreadLocalState(
++    ThreadLocalStateArgs&)
++    : fix_buffer_(buffer_) {}
++
++OhosHiTraceInterceptor::ThreadLocalState::~ThreadLocalState() = default;
++
++/**
++ * SeqTrackProcessor is response for process tracks
++ */
++class OhosHiTraceInterceptor::SeqTrackProcessor final {
++ public:
++  /** interceptor per invoke of OnTraceEvent */
++  InterceptorContext& context_;
++  /** thread local state */
++  ThreadLocalState& tls_;
++
++  /** Delegate should be only local variable inside `OnTracePacket` */
++  explicit SeqTrackProcessor(InterceptorContext& context,
++                             ThreadLocalState& tls) noexcept;
++  ~SeqTrackProcessor() = default;
++
++  /** entry point to process data */
++  void ProcessData();
++
++ private:
++  /**
++   * update the interned data or clear interned data
++   */
++  void UpdateSeqData(const pbzero::TracePacket::Decoder& trace_packet);
++
++  /**
++   * handle normal track event, that is handle slice begin and slice end
++   */
++  void HandleTrackEvent(const pbzero::TrackEvent::Decoder& track_event);
++
++  /** print event name */
++  void PrintName(const pbzero::TrackEvent::Decoder& track_event);
++
++  /** print formatted categories */
++  void PrintCategories(const pbzero::TrackEvent::Decoder& track_event);
++
++  /**
++   * handle the legacy event, can be disabled by `kHitraceLevel`,
++   * that is unspecified event with `legacy_event` present,
++   * can convert to async begin, async end, counter value
++   */
++  void HandleLegacyEvent(const pbzero::TrackEvent::Decoder& track_event);
++
++  /**
++   * get the track id from legacy_event, first get `local_id` otherwise get
++   * `unscoped_id`
++   */
++  int32_t GetLegacyAsyncId(
++      const pbzero::TrackEvent::LegacyEvent::Decoder& legacy_event);
++
++  /** print the legacy event with special key */
++  void PrintLegacyEvent(const pbzero::TrackEvent::Decoder& track_event);
++
++  /**
++   * print single formated debug annotation, is recursive for `dict_entries` or
++   * `array_values` */
++  void PrintDebugAnnotation(const pbzero::DebugAnnotation::Decoder& annotation);
++  /**
++   * print debug annotation for track_event, can be disabled by `kHitraceLevel`
++   */
++  void PrintDebugAnnotations(const pbzero::TrackEvent::Decoder& track_event);
++  /**
++   * special treatment for nested value in debug annotation
++   */
++  void PrintNestedValues(
++      const pbzero::DebugAnnotation::NestedValue::Decoder& nested_value);
++  /**
++   * handle basic debug annotation, return `true` if already printed
++   */
++  bool PrintDebugAnnotationBasic(
++      const pbzero::DebugAnnotation::Decoder& annotation);
++};
++
++OhosHiTraceInterceptor::SeqTrackProcessor::SeqTrackProcessor(
++    InterceptorContext& context,
++    ThreadLocalState& tls) noexcept
++    : context_(context), tls_(tls) {}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::ProcessData() {
++  pbzero::TracePacket::Decoder packet(context_.packet_data.data,
++                                      context_.packet_data.size);
++  UpdateSeqData(packet);
++  if (!packet.has_track_event()) {
++    return;
++  }
++  pbzero::TrackEvent::Decoder track_event(packet.track_event());
++  HandleTrackEvent(track_event);
++  HandleLegacyEvent(track_event);
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::UpdateSeqData(
++    const pbzero::TracePacket::Decoder& trace_packet) {
++  OhosSeqData& seq_data = tls_.seq_data_;
++  if (trace_packet.sequence_flags() &
++      pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED) [[unlikely]] {
++    seq_data.event_names_map_.clear();
++    seq_data.event_categories_map_.clear();
++    seq_data.debug_annotation_names_map_.clear();
++    seq_data.proto_type_map_.clear();
++  }
++
++  if (trace_packet.has_interned_data()) [[unlikely]] {
++    pbzero::InternedData::Decoder interned_data{trace_packet.interned_data()};
++    for (pbzero::EventName::Decoder entry :
++         TypedIterProto<pbzero::EventName::Decoder>(
++             interned_data.event_names())) {
++      seq_data.event_names_map_.try_emplace(entry.iid(),
++                                            entry.name().ToStdString());
++    }
++    for (pbzero::EventCategory::Decoder entry :
++         TypedIterProto<pbzero::EventCategory::Decoder>(
++             interned_data.event_categories())) {
++      seq_data.event_categories_map_.try_emplace(entry.iid(),
++                                                 entry.name().ToStdString());
++    }
++    for (pbzero::DebugAnnotationName::Decoder entry :
++         TypedIterProto<pbzero::DebugAnnotationName::Decoder>(
++             interned_data.debug_annotation_names())) {
++      seq_data.debug_annotation_names_map_.try_emplace(
++          entry.iid(), entry.name().ToStdString());
++    }
++    for (pbzero::DebugAnnotationValueTypeName::Decoder entry :
++         TypedIterProto<pbzero::DebugAnnotationValueTypeName::Decoder>(
++             interned_data.debug_annotation_value_type_names())) {
++      seq_data.proto_type_map_.try_emplace(entry.iid(),
++                                           entry.name().ToStdString());
++    }
++  }
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::HandleTrackEvent(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  HitraceAdapter& adapter = OhosHiTraceInterceptor::GetHitraceAdapter();
++  FixBuffer& fix_buffer = tls_.fix_buffer_;
++  fix_buffer.Clear();
++  if (track_event.type() == pbzero::TrackEvent::TYPE_SLICE_END) {
++    // slice end just return
++    adapter.EndSyncTrace();
++    return;
++  }
++
++  // first print the name
++  PrintName(track_event);
++  // then output the full categories
++  PrintCategories(track_event);
++  // print other metadatas, like uuid, flow
++  if (track_event.has_track_uuid()) [[unlikely]] {
++    fix_buffer << ",uuid:" << track_event.track_uuid();
++  }
++  if (track_event.has_flow_ids()) [[unlikely]] {
++    for (uint64_t flow_id : IterProto(track_event.flow_ids(), &fix_buffer)) {
++      fix_buffer << ",flow:" << flow_id;
++    }
++  }
++  if (track_event.has_terminating_flow_ids()) [[unlikely]] {
++    for (uint64_t flow_id :
++         IterProto(track_event.terminating_flow_ids(), &fix_buffer)) {
++      fix_buffer << ",termflow:" << flow_id;
++    }
++  }
++  PrintDebugAnnotations(track_event);
++  if (track_event.type() == pbzero::TrackEvent::TYPE_SLICE_BEGIN) {
++    // start the hitrace sync trace
++    adapter.StartSyncTrace(fix_buffer.CStr());
++  } else if (track_event.type() == pbzero::TrackEvent::TYPE_INSTANT) {
++    // simulate the instance by a start and end extra with an instant suffix
++    fix_buffer << ", instant";
++    adapter.StartSyncTrace(fix_buffer.CStr());
++    adapter.EndSyncTrace();
++  }
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintName(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  if (track_event.has_name_iid()) {
++    tls_.fix_buffer_ << QueryIId(tls_.seq_data_.event_names_map_,
++                                 track_event.name_iid());
++  } else if (track_event.has_name()) {
++    tls_.fix_buffer_ << ToStringView(track_event.name());
++  }
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintCategories(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  tls_.fix_buffer_ << "[";
++  // auto add comma for non first
++  CommaHelper auto_comma{CommaHelper::kDefaultComma};
++  // note the `categories` and `category_iids` are exclussive, only one can be
++  // not empty
++  for (uint64_t category_iid :
++       IterProto(track_event.category_iids(), &tls_.fix_buffer_)) {
++    tls_.fix_buffer_ << auto_comma
++                     << QueryIId(tls_.seq_data_.event_categories_map_,
++                                 category_iid);
++  }
++  for (protozero::ConstChars str :
++       IterProto(track_event.categories(), &tls_.fix_buffer_)) {
++    tls_.fix_buffer_ << auto_comma << ToStringView(str);
++  }
++  tls_.fix_buffer_ << "]";
++}
++
++enum class AsyncType : int32_t {
++  kNone,
++  kBegin = 1,
++  kEnd = 2,
++  kInstant = 3,
++  kCounter = 4,
++};
++
++namespace {
++// Event phases copied from
++// `third_party/perfetto/include/perfetto/tracing/internal/track_event_legacy.h`
++static constexpr char TRACE_EVENT_PHASE_ASYNC_BEGIN = 'S';
++static constexpr char TRACE_EVENT_PHASE_ASYNC_STEP_INTO = 'T';
++static constexpr char TRACE_EVENT_PHASE_ASYNC_STEP_PAST = 'p';
++static constexpr char TRACE_EVENT_PHASE_ASYNC_END = 'F';
++static constexpr char TRACE_EVENT_PHASE_NESTABLE_ASYNC_BEGIN = 'b';
++static constexpr char TRACE_EVENT_PHASE_NESTABLE_ASYNC_END = 'e';
++static constexpr char TRACE_EVENT_PHASE_NESTABLE_ASYNC_INSTANT = 'n';
++static constexpr char TRACE_EVENT_PHASE_COUNTER = 'C';
++static constexpr char TRACE_EVENT_PHASE_MARK = 'R';
++
++/** get phase type, 9 supported phase map to 3 types */
++AsyncType GetPhaseType(int32_t phase) {
++  switch (phase) {
++    case TRACE_EVENT_PHASE_ASYNC_BEGIN:
++    case TRACE_EVENT_PHASE_NESTABLE_ASYNC_BEGIN:
++      return AsyncType::kBegin;
++    case TRACE_EVENT_PHASE_ASYNC_END:
++    case TRACE_EVENT_PHASE_NESTABLE_ASYNC_END:
++      return AsyncType::kEnd;
++    case TRACE_EVENT_PHASE_ASYNC_STEP_INTO:
++    case TRACE_EVENT_PHASE_NESTABLE_ASYNC_INSTANT:
++    case TRACE_EVENT_PHASE_MARK:
++      return AsyncType::kInstant;
++    case TRACE_EVENT_PHASE_COUNTER:
++      return AsyncType::kCounter;
++    default:
++      return AsyncType::kNone;
++  }
++}
++}  // namespace
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::HandleLegacyEvent(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  // compile time skip handle legacy event
++  if constexpr (OhosHiTraceInterceptor::kHitraceLevel <=
++                OhosHiTraceInterceptor::HitraceLevel::kNoLegacyEvent) {
++    return;
++  }
++  if (track_event.type() != pbzero::TrackEvent::TYPE_UNSPECIFIED) [[likely]] {
++    return;
++  }
++  if (!track_event.has_legacy_event()) [[unlikely]] {
++    return;
++  }
++  // handle legacy event by different case
++  pbzero::TrackEvent::LegacyEvent::Decoder legacy_event{
++      track_event.legacy_event()};
++  int32_t phase = legacy_event.phase();
++  AsyncType type = GetPhaseType(phase);
++  if (type == AsyncType::kNone) [[unlikely]] {
++    return;
++  }
++  HitraceAdapter& adapter = OhosHiTraceInterceptor::GetHitraceAdapter();
++  FixBuffer& fix_buffer_ = tls_.fix_buffer_;
++  fix_buffer_.Clear();
++  if (type == AsyncType::kBegin || type == AsyncType::kEnd ||
++      type == AsyncType::kInstant) {
++    // Note format is `[category]name:I/S`, and I for instant, S for slice begin
++    // end
++    PrintCategories(track_event);
++    PrintName(track_event);
++    if (type == AsyncType::kInstant) {
++      fix_buffer_ << ":I";
++    } else {
++      fix_buffer_ << ":S";
++    }
++    int32_t id = GetLegacyAsyncId(legacy_event);
++    if (type == AsyncType::kBegin) {
++      adapter.StartAsyncTrace(fix_buffer_.CStr(), id);
++    } else if (type == AsyncType::kEnd) {
++      adapter.EndAsyncTrace(fix_buffer_.CStr(), id);
++    } else if (type == AsyncType::kInstant) {
++      adapter.StartAsyncTrace(fix_buffer_.CStr(), id);
++      adapter.EndAsyncTrace(fix_buffer_.CStr(), id);
++    }
++  } else if (type == AsyncType::kCounter &&
++             track_event.has_debug_annotations()) {
++    PrintCategories(track_event);
++    PrintName(track_event);
++    fix_buffer_ << ":";
++    size_t trim_len = fix_buffer_.Len();
++    // counter will traverse debug annotations to get result
++    for (pbzero::DebugAnnotation::Decoder debug_annotation :
++         TypedIterProto<pbzero::DebugAnnotation::Decoder>(
++             track_event.debug_annotations())) {
++      // keep common part `[category]name:subname:`
++      fix_buffer_.ShrinkTo(trim_len);
++      if (debug_annotation.has_name_iid()) {
++        fix_buffer_ << QueryIId(tls_.seq_data_.debug_annotation_names_map_,
++                                debug_annotation.name_iid());
++      } else if (debug_annotation.has_name()) {
++        fix_buffer_ << ToStringView(debug_annotation.name());
++      }
++      if (debug_annotation.has_int_value()) [[likely]] {
++        // format is `[category]name:subname:I` and has integer count
++        fix_buffer_ << ":I";
++        adapter.CounterTrace(fix_buffer_.CStr(), debug_annotation.int_value());
++      } else if (debug_annotation.has_double_value()) {
++        // format is `[category]name:subname:D*10000` and double value * 10000
++        // to convert to integer since hitrace v1 only support int64_t counter
++        fix_buffer_ << ":D*10000";
++        int64_t double_to_int =
++            static_cast<int64_t>(debug_annotation.double_value() * 10000);
++        adapter.CounterTrace(fix_buffer_.CStr(), double_to_int);
++      }
++    }
++  }
++}
++
++int32_t OhosHiTraceInterceptor::SeqTrackProcessor::GetLegacyAsyncId(
++    const pbzero::TrackEvent::LegacyEvent::Decoder& legacy_event) {
++  uint64_t result = 0;
++  if (legacy_event.has_local_id() && legacy_event.local_id() != 0) {
++    result = legacy_event.local_id();
++  }
++  if (legacy_event.has_unscoped_id() && legacy_event.unscoped_id() != 0) {
++    result = legacy_event.unscoped_id();
++  }
++  return static_cast<int32_t>(result);
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintLegacyEvent(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  if (!track_event.has_legacy_event()) {
++    return;
++  }
++  FixBuffer& fix_buffer_ = tls_.fix_buffer_;
++  fix_buffer_ << ",[legacy_event]:{";
++  CommaHelper auto_comma{};
++  pbzero::TrackEvent::LegacyEvent::Decoder legacy_event{
++      track_event.legacy_event()};
++  fix_buffer_ << auto_comma << "phase:" << legacy_event.phase();
++  if (legacy_event.has_duration_us()) {
++    fix_buffer_ << auto_comma << "duration_us:" << legacy_event.duration_us();
++  }
++  if (legacy_event.has_thread_duration_us()) {
++    fix_buffer_ << auto_comma
++                << "thread_duration_us:" << legacy_event.thread_duration_us();
++  }
++  if (legacy_event.has_thread_instruction_delta()) {
++    fix_buffer_ << auto_comma << "thread_instruction_delta:"
++                << legacy_event.thread_instruction_delta();
++  }
++  if (legacy_event.has_unscoped_id()) {
++    fix_buffer_ << auto_comma << "unscoped_id:" << legacy_event.unscoped_id();
++  }
++  if (legacy_event.has_local_id()) {
++    fix_buffer_ << auto_comma << "local_id:" << legacy_event.local_id();
++  }
++  if (legacy_event.has_global_id()) {
++    fix_buffer_ << auto_comma << "global_id:" << legacy_event.global_id();
++  }
++  if (legacy_event.has_id_scope()) {
++    fix_buffer_ << auto_comma
++                << "id_scope:" << ToStringView(legacy_event.id_scope());
++  }
++  if (legacy_event.has_use_async_tts()) {
++    fix_buffer_ << auto_comma << "use_async_tts:"
++                << FixBuffer::ToBool(legacy_event.use_async_tts());
++  }
++  if (legacy_event.has_bind_id()) {
++    fix_buffer_ << auto_comma << "bind_id:" << legacy_event.bind_id();
++  }
++  if (legacy_event.has_bind_to_enclosing()) {
++    fix_buffer_ << auto_comma << "bind_to_enclosing:"
++                << FixBuffer::ToBool(legacy_event.bind_to_enclosing());
++  }
++  if (legacy_event.has_flow_direction()) {
++    fix_buffer_ << auto_comma
++                << "flow_direction:" << legacy_event.flow_direction();
++  }
++  if (legacy_event.has_instant_event_scope()) {
++    fix_buffer_ << auto_comma
++                << "instant_event_scope:" << legacy_event.instant_event_scope();
++  }
++  if (legacy_event.has_pid_override()) {
++    fix_buffer_ << auto_comma << "pid_override:" << legacy_event.pid_override();
++  }
++  if (legacy_event.has_tid_override()) {
++    fix_buffer_ << auto_comma << "tid_override:" << legacy_event.tid_override();
++  }
++  fix_buffer_ << "}";
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintDebugAnnotation(
++    const pbzero::DebugAnnotation::Decoder& annotation) {
++  FixBuffer& fix_buffer_ = tls_.fix_buffer_;
++  // if has name we print the `<name>:`
++  if (annotation.has_name_iid()) {
++    fix_buffer_ << QueryIId(tls_.seq_data_.debug_annotation_names_map_,
++                            annotation.name_iid())
++                << ":";
++  } else if (annotation.has_name()) {
++    fix_buffer_ << ToStringView(annotation.name()) << ":";
++  }
++  // see
++  // `third_party/perfetto/protos/perfetto/trace/track_event/debug_annotation.proto`
++  if (PrintDebugAnnotationBasic(annotation)) {
++    // means the basic is printed
++    return;
++  } else if (annotation.has_dict_entries()) {
++    CommaHelper auto_comma{};
++    fix_buffer_ << "{";
++    // dict_entries is just debug annotations with name
++    for (pbzero::DebugAnnotation::Decoder entry :
++         TypedIterProto<pbzero::DebugAnnotation::Decoder>(
++             annotation.dict_entries(), &tls_.fix_buffer_)) {
++      fix_buffer_ << auto_comma;
++      PrintDebugAnnotation(entry);
++    }
++    fix_buffer_ << "}";
++  } else if (annotation.has_array_values()) {
++    CommaHelper auto_comma{};
++    fix_buffer_ << "[";
++    // array_values is just debug annotations without name
++    for (pbzero::DebugAnnotation::Decoder no_name_entry :
++         TypedIterProto<pbzero::DebugAnnotation::Decoder>(
++             annotation.array_values(), &tls_.fix_buffer_)) {
++      fix_buffer_ << auto_comma;
++      PrintDebugAnnotation(no_name_entry);
++    }
++    fix_buffer_ << "]";
++  } else if (annotation.has_proto_value()) {
++    // currently for performance don't print proto value, just print the name
++    fix_buffer_ << "[proto value";
++    // extra print the proto name
++    if (annotation.has_proto_type_name_iid()) {
++      fix_buffer_ << ":"
++                  << QueryIId(tls_.seq_data_.proto_type_map_,
++                              annotation.proto_type_name_iid());
++    } else if (annotation.has_proto_type_name()) {
++      fix_buffer_ << ":" << ToStringView(annotation.proto_type_name());
++    }
++    fix_buffer_ << "]";
++  } else if (annotation.has_nested_value()) {
++    pbzero::DebugAnnotation::NestedValue::Decoder nested_value{
++        annotation.nested_value()};
++    PrintNestedValues(nested_value);
++  } else {
++    // other type we just print an unknown type
++    fix_buffer_ << "[unknown type]";
++  }
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintDebugAnnotations(
++    const pbzero::TrackEvent::Decoder& track_event) {
++  // compile time skip print annotation
++  if constexpr (OhosHiTraceInterceptor::kHitraceLevel <=
++                OhosHiTraceInterceptor::HitraceLevel::kNoAnnotation) {
++    return;
++  }
++  if (!track_event.has_debug_annotations()) [[likely]] {
++    return;
++  }
++  CommaHelper auto_comma{};
++  tls_.fix_buffer_ << ",{";
++  for (pbzero::DebugAnnotation::Decoder annotation :
++       TypedIterProto<pbzero::DebugAnnotation::Decoder>(
++           track_event.debug_annotations())) {
++    tls_.fix_buffer_ << auto_comma;
++    PrintDebugAnnotation(annotation);
++  }
++  tls_.fix_buffer_ << "}";
++}
++
++void OhosHiTraceInterceptor::SeqTrackProcessor::PrintNestedValues(
++    const pbzero::DebugAnnotation::NestedValue::Decoder& nested_value) {
++  // has three types: `UNSPECIFIED` for leaf, DICT for dict, `ARRAY` for array
++  if (nested_value.nested_type() ==
++      pbzero::DebugAnnotation::NestedValue::UNSPECIFIED) {
++    if (nested_value.has_bool_value()) {
++      tls_.fix_buffer_ << FixBuffer::ToBool(nested_value.bool_value());
++    } else if (nested_value.has_int_value()) {
++      tls_.fix_buffer_ << nested_value.int_value();
++    } else if (nested_value.has_double_value()) {
++      tls_.fix_buffer_ << nested_value.double_value();
++    } else if (nested_value.has_string_value()) {
++      tls_.fix_buffer_ << "\"" << ToStringView(nested_value.string_value())
++                       << "\"";
++    } else {
++      tls_.fix_buffer_ << "[unknown nested value]";
++    }
++  } else if (nested_value.nested_type() ==
++             pbzero::DebugAnnotation::NestedValue::DICT) {
++    // it is a zip of both key and value
++    CommaHelper auto_comma{};
++    tls_.fix_buffer_ << "{";
++    protozero::RepeatedFieldIterator<protozero::ConstChars> key_iter =
++        nested_value.dict_keys();
++    protozero::RepeatedFieldIterator<protozero::ConstBytes> value_iter =
++        nested_value.dict_values();
++    for (; !tls_.fix_buffer_.IsFull() && key_iter && value_iter;
++         ++key_iter, ++value_iter) {
++      tls_.fix_buffer_ << auto_comma << ToStringView(*key_iter) << ":";
++      pbzero::DebugAnnotation::NestedValue::Decoder inner_value{*value_iter};
++      PrintNestedValues(inner_value);
++    }
++    tls_.fix_buffer_ << "}";
++  } else if (nested_value.nested_type() ==
++             pbzero::DebugAnnotation::NestedValue::ARRAY) {
++    CommaHelper auto_comma{};
++    tls_.fix_buffer_ << "[";
++    for (pbzero::DebugAnnotation::NestedValue::Decoder inner_value :
++         TypedIterProto<pbzero::DebugAnnotation::NestedValue::Decoder>(
++             nested_value.array_values(), &tls_.fix_buffer_)) {
++      tls_.fix_buffer_ << auto_comma;
++      PrintNestedValues(inner_value);
++    }
++    tls_.fix_buffer_ << "]";
++  } else {
++    tls_.fix_buffer_ << "[unknown nested type]";
++  }
++}
++
++bool OhosHiTraceInterceptor::SeqTrackProcessor::PrintDebugAnnotationBasic(
++    const pbzero::DebugAnnotation::Decoder& annotation) {
++  FixBuffer& fix_buffer_ = tls_.fix_buffer_;
++  if (annotation.has_bool_value()) {
++    fix_buffer_ << FixBuffer::ToBool(annotation.bool_value());
++  } else if (annotation.has_uint_value()) {
++    fix_buffer_ << annotation.uint_value();
++  } else if (annotation.has_int_value()) {
++    fix_buffer_ << annotation.int_value();
++  } else if (annotation.has_double_value()) {
++    fix_buffer_ << annotation.double_value();
++  } else if (annotation.has_string_value()) {
++    fix_buffer_ << "\"" << ToStringView(annotation.string_value()) << "\"";
++  } else if (annotation.has_string_value_iid()) {
++    fix_buffer_ << "\""
++                << QueryIId(tls_.seq_data_.debug_annotation_names_map_,
++                            annotation.string_value_iid())
++                << "\"";
++  } else if (annotation.has_pointer_value()) {
++    fix_buffer_ << FixBuffer::Ptr(
++        reinterpret_cast<const void*>(annotation.pointer_value()));
++  } else if (annotation.has_legacy_json_value()) {
++    fix_buffer_ << ToStringView(annotation.legacy_json_value());
++  } else {
++    // means is not basic value, need recursion and futher handle
++    return false;
++  }
++  return true;
++}
++
++HitraceAdapter& OhosHiTraceInterceptor::GetHitraceAdapter() {
++  if (!OhosHiTraceInterceptor::hitrace_adapter_) [[unlikely]] {
++    return GetSystemSingleton();
++  } else {
++    return *OhosHiTraceInterceptor::hitrace_adapter_;
++  }
++}
++
++void OhosHiTraceInterceptor::OnTracePacket(InterceptorContext context) {
++  OhosHiTraceInterceptor::ThreadLocalState& tls = context.GetThreadLocalState();
++  SeqTrackProcessor processor(context, tls);
++  // do the actual process data
++  processor.ProcessData();
++}
++
++void OhosHiTraceInterceptor::Register() {
++  perfetto::protos::gen::InterceptorDescriptor desc;
++  // fake the name to pass register process
++  desc.set_name(kInterceptorName);
++  // if the adapter is empty, init it
++  if (!OhosHiTraceInterceptor::hitrace_adapter_) {
++    OhosHiTraceInterceptor::hitrace_adapter_ = &(GetSystemSingleton());
++  }
++  Interceptor<OhosHiTraceInterceptor>::Register(desc);
++}
++
++OhosHiTraceInterceptor::OhosHiTraceInterceptor() = default;
++
++void OhosHiTraceInterceptor::SetHitraceAdapterForTesting(
++    HitraceAdapter& adapter) {
++  hitrace_adapter_ = &adapter;
++}
++
++HitraceAdapter* OhosHiTraceInterceptor::hitrace_adapter_ = nullptr;
++}  // namespace base::trace_event::ohos
+diff --git a/base/trace_event/ohos_hitrace_interceptor.h b/base/trace_event/ohos_hitrace_interceptor.h
+new file mode 100644
+index 0000000000..2c846708d5
+--- /dev/null
++++ b/base/trace_event/ohos_hitrace_interceptor.h
+@@ -0,0 +1,98 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef BASE_TRACE_EVENT_OHOS_HITRACE_INTERCEPTOR_H_
++#define BASE_TRACE_EVENT_OHOS_HITRACE_INTERCEPTOR_H_
++
++#include <cstddef>
++#include <cstdint>
++#include <string_view>
++
++#include "absl/container/flat_hash_map.h"
++#include "base/base_export.h"
++#include "base/trace_event/ohos_fix_buffer.h"
++#include "base/trace_event/ohos_hitrace_adapter.h"
++#include "third_party/perfetto/include/perfetto/tracing/interceptor.h"
++
++namespace base::trace_event::ohos {
++
++/**
++ * store the interned data required to use to map iid back
++ */
++struct BASE_EXPORT OhosSeqData {
++ public:
++  /** map between iid(uint64_t) to std::string, to map interned_data */
++  using IIdMap = absl::flat_hash_map<uint64_t, std::string>;
++  /** used for event_names in track_event */
++  IIdMap event_names_map_;
++  /** used for event_categories in track_event */
++  IIdMap event_categories_map_;
++  /** used for debug annotation names */
++  IIdMap debug_annotation_names_map_;
++  /** used for debug annotation type proto name */
++  IIdMap proto_type_map_;
++};
++
++// OhosHiTraceInterceptor is a high performance perfetto interceptor, it
++// directly write to hitrace. To prevent protential jank, except update interned
++// iid map, all track parse and hitrace format don't use heap allocation
++class BASE_EXPORT OhosHiTraceInterceptor
++    : public perfetto::Interceptor<OhosHiTraceInterceptor> {
++ public:
++  /** ThreadLocalState store a buffer to append to serialize trace packet */
++  struct ThreadLocalState : public InterceptorBase::ThreadLocalState {
++   public:
++    ThreadLocalState(ThreadLocalStateArgs&);
++    ~ThreadLocalState() override;
++    /** sequence data required to use */
++    OhosSeqData seq_data_;
++    /** fix buffer used for append to hitrace name */
++    FixBuffer fix_buffer_;
++    /** actual buffer to write to */
++    char buffer_[HitraceAdapter::kLimit];
++  };
++
++  /** Helper class used to parse track event and output to hitrace */
++  class SeqTrackProcessor;
++
++  /**
++   * in `tracing_muxer_impl.cc TracingMuxerImpl::RegisterInterceptor` only two
++   * special names are allowed, fake the name to pass register process
++   */
++  static constexpr const char* kInterceptorName = "etwexport";
++
++  /**
++   * there are 3 hitrace level, edit it at compile time to enable / disable
++   * feature
++   */
++  static constexpr enum HitraceLevel : int32_t {
++    /** just print the name categories without any debug annotation */
++    kNoAnnotation = 0,
++    /** name categories and debug annotation, without handle legacy events */
++    kNoLegacyEvent = 1,
++    /** print all, include name categories, debug annotation, legacy events */
++    KAll = 2,
++  } kHitraceLevel = HitraceLevel::KAll;
++
++  /**
++   * actual handler for each trace packet
++   */
++  static void OnTracePacket(InterceptorContext context);
++  /** register the event to trace */
++  static void Register();
++  /** get current hitrace adapter */
++  static HitraceAdapter& GetHitraceAdapter();
++
++  OhosHiTraceInterceptor();
++
++  /** for unit test */
++  static void SetHitraceAdapterForTesting(HitraceAdapter& adapter);
++
++ private:
++  /** hitrace sink */
++  static HitraceAdapter* hitrace_adapter_;
++};
++}  // namespace base::trace_event::ohos
++
++#endif  // BASE_TRACE_EVENT_OHOS_HITRACE_INTERCEPTOR_H_

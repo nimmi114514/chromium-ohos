@@ -1,0 +1,43 @@
+import("//build/config/ohos/config.gni")
+
+toolchain("clang_arm64") {
+  _bin = rebase_path("$ohos_clang_root/bin", root_build_dir)
+
+  tool("cc") {
+    command = "\"$_bin/clang\" -MMD -MF {{output}}.d {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
+    depfile = "{{output}}.d"
+    depsformat = "gcc"
+    outputs =
+        [ "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.o" ]
+    description = "OHOS CC {{source}}"
+  }
+
+  tool("solink") {
+    command = "\"$_bin/clang\" -shared {{ldflags}} -Wl,-soname,{{target_output_name}}{{output_extension}} -o {{output}} {{inputs}} {{solibs}} {{libs}}"
+    outputs = [ "{{root_out_dir}}/{{target_output_name}}{{output_extension}}" ]
+    default_output_extension = ".so"
+    output_prefix = "lib"
+    link_output = outputs[0]
+    depend_output = outputs[0]
+    description = "OHOS SOLINK {{output}}"
+  }
+
+  tool("stamp") {
+    command = "touch {{output}}"
+  }
+}
+
+shared_library("sdk_probe") {
+  sources = [ "sdk_probe.c" ]
+  include_dirs = [ "//" ]
+  cflags = [ "-fPIC" ]
+  libs = [
+    "dl",
+    "native_window",
+    "pthread",
+  ]
+}
+
+group("all") {
+  deps = [ ":sdk_probe" ]
+}

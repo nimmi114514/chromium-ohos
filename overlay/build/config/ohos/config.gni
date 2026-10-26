@@ -1,0 +1,30 @@
+# OHOS arm64 bring-up for Chromium 158.
+# Platform layout follows OpenHarmony-TPC's pc_chromium_132 port.
+
+declare_args() {
+  # Native SDK directory containing sysroot/ and llvm/.
+  ohos_sdk_native = "//ohos_sdk/openharmony/native"
+
+  # Keep Chromium's compiler by default. The old SDK compiler has not been
+  # validated against Chromium 158's language and compiler requirements.
+  ohos_clang_root = "//third_party/llvm-build/Release+Asserts"
+
+  # Optional resource overlay: current Clang builtin headers plus OHOS SDK
+  # compiler-rt/startup objects. Created by scripts/prepare_toolchain.py.
+  ohos_clang_resource_dir = ""
+
+  # Adapter entry point loaded by the HAP.
+  ohos_build_target = "chromium"
+  isolated_level = 0
+  enable_ohos_bytrace = true
+  product_name = "all"
+  gpu_switch = "on"
+  ohos_enable_media_router = false
+}
+
+ohos_sysroot = "$ohos_sdk_native/sysroot"
+ohos_target_triple = "aarch64-linux-ohos"
+
+if (current_os == "ohos") {
+  assert(current_cpu == "arm64", "Initial OHOS port supports arm64 only.")
+}

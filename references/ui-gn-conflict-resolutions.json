@@ -1,0 +1,7 @@
+{
+  "ui/base/BUILD.gn": "Preserve Fuchsia web engine and add OHOS pointer/resource bundle/drag provider",
+  "ui/gfx/BUILD.gn": "Use current Skia font source layout with OHOS and native fence support",
+  "ui/gfx/mojom/BUILD.gn": "M158 use_ozone already enables native pixmap support",
+  "ui/ozone/common/BUILD.gn": "Keep current GL features import; discard commented legacy import",
+  "ui/views/controls/webview/BUILD.gn": "Extend current Ozone keyboard handler platforms with OHOS"
+}

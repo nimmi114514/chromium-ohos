@@ -1,0 +1,50 @@
+{
+  "provider": "EZDRM WisePlay public demonstration",
+  "source": "https://hs.ezdrm.com/hubfs/Documentation/EZDRM%20WisePlay%20V1.0.pdf",
+  "manifest": "https://eu-dev.ezdrm.com/sample/dev/001/hu-wiseplay.mpd",
+  "license": "https://wiseplay.ezdrm.com/",
+  "tracks": [
+    {
+      "name": "video",
+      "init": "video-init.mp4",
+      "segments": [
+        {
+          "file": "video-0.m4s",
+          "bytes": 6322617,
+          "duration": 10.0
+        },
+        {
+          "file": "video-1.m4s",
+          "bytes": 3146764,
+          "duration": 10.0
+        },
+        {
+          "file": "video-2.m4s",
+          "bytes": 4651047,
+          "duration": 11.083333333333334
+        }
+      ]
+    },
+    {
+      "name": "audio",
+      "init": "audio-init.mp4",
+      "segments": [
+        {
+          "file": "audio-0.m4s",
+          "bytes": 121961,
+          "duration": 6.016
+        },
+        {
+          "file": "audio-1.m4s",
+          "bytes": 123775,
+          "duration": 5.994666666666666
+        },
+        {
+          "file": "audio-2.m4s",
+          "bytes": 123764,
+          "duration": 5.994666666666666
+        }
+      ]
+    }
+  ]
+}

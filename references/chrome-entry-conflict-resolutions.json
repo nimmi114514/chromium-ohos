@@ -1,0 +1,22 @@
+{
+  "chrome/app/chrome_main_delegate.cc": [
+    "Preserve M158 startup and tracing APIs; include OHOS crash features separately",
+    "Use the OHOS crash-reporting feature switch instead of Linux-only first-chance exception handling"
+  ],
+  "chrome/BUILD.gn": [
+    "Build a production chrome_main_web shared library using current dependency targets and packed resources"
+  ],
+  "components/crash/core/app/BUILD.gn": [
+    "Keep current shared-memory crash user-stream targets",
+    "Wire OHOS implementation without adding obsolete Breakpad client dependencies"
+  ],
+  "components/crash/core/app/crashpad.cc": [
+    "Preserve current Windows elevated-tracing-service entrypoint",
+    "Use browser_process initialization policy on OHOS",
+    "Keep OHOS crash upload/dump ownership from the reference port"
+  ],
+  "components/crash/core/app/crashpad_ohos.cc": [
+    "Use the SDK gettid API instead of sandbox syscall wrapper",
+    "Forward current attachment argument to the Crashpad StartHandlerAtCrash API"
+  ]
+}

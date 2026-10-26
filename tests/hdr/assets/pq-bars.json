@@ -1,0 +1,43 @@
+{
+  "width": 640,
+  "height": 360,
+  "primaries": "bt2020",
+  "transfer": "smpte2084",
+  "matrix": "bt2020nc",
+  "range": "limited",
+  "bitDepth": 10,
+  "bars": [
+    {
+      "nits": 0,
+      "code10": 64
+    },
+    {
+      "nits": 1,
+      "code10": 195
+    },
+    {
+      "nits": 10,
+      "code10": 327
+    },
+    {
+      "nits": 100,
+      "code10": 509
+    },
+    {
+      "nits": 203,
+      "code10": 573
+    },
+    {
+      "nits": 400,
+      "code10": 636
+    },
+    {
+      "nits": 1000,
+      "code10": 723
+    },
+    {
+      "nits": 4000,
+      "code10": 855
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "reference_revision": "773a2324f276f8f10af744eacfacf9ad2a50b8f6",
+  "decisions": [
+    "Restore original132 FreeType system-font scanner and typeface backend using current158 factory APIs; no Fontations replacement for OHOS system fonts.",
+    "Use scanInstance VariationPosition for named variable-font instances",
+    "Use current SkFontStyleSet CSS3 style matching",
+    "Compare native fallback group names by string value",
+    "Check missing generic families before resolving aliases",
+    "Release OHOS font descriptors after copying their paths",
+    "Use dynamic language-match storage rather than variable-length stack arrays",
+    "Keep M158 ARM and gamma configuration; register only OHOS font sources and native_drawing linkage"
+  ],
+  "device_validation": "Original Fontations migration crashed on default instance 0; FreeType restoration progressed past font initialization on the real API26 device. Startup now blocked by cross-thread window callbacks."
+}

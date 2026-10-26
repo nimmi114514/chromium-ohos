@@ -1,0 +1,10 @@
+0001-ohos-arm64-build-support.patch
+0002-ohos-sdk-abi-probe.patch
+0003-ohos-platform-buildflags.patch
+0004-ohos-rust-target.patch
+0005-ohos-base-platform.patch
+0006-ohos-native-adapter.patch
+0007-ohos-ui-and-ozone.patch
+0008-ohos-third-party-platforms.patch
+0009-ohos-chrome-platform.patch
+0010-ohos-shared-components.patch

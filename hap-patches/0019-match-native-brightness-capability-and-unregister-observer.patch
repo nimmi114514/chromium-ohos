@@ -1,0 +1,91 @@
+--- a/web_engine/src/main/ets/ability/WebAbility.ets
++++ b/web_engine/src/main/ets/ability/WebAbility.ets
+@@ -34,6 +34,44 @@
+   private displayAdapter : DisplayAdapter | undefined = undefined;
+   private deviceInfoAdapter: DeviceInfoAdapter | undefined = undefined;
+   private appLifecycleAdapter: AppLifecycleAdapter | undefined = undefined;
++  private brightnessObserverContext: Context | undefined = undefined;
++
++  private registerDisplayBrightnessObserver() {
++    if (deviceInfo.sdkApiVersion < 22 ||
++      typeof this.nativeContext.UpdateDisplayBrightnessCB !== 'function') {
++      return;
++    }
++    const context: Context = getContext(this);
++    try {
++      const registered = settings.registerKeyObserver(context,
++        settings.display.SCREEN_BRIGHTNESS_STATUS, settings.domainName.DEVICE_SHARED, () => {
++          if (this.brightnessObserverContext !== context) {
++            return;
++          }
++          const value = settings.getValueSync(context, settings.display.SCREEN_BRIGHTNESS_STATUS, '10');
++          this.nativeContext.UpdateDisplayBrightnessCB?.(value);
++        });
++      if (registered) {
++        this.brightnessObserverContext = context;
++      }
++    } catch (error) {
++      LogUtil.error(TAG, 'Failed to register display brightness observer');
++    }
++  }
++
++  private unregisterDisplayBrightnessObserver() {
++    const context = this.brightnessObserverContext;
++    this.brightnessObserverContext = undefined;
++    if (context === undefined) {
++      return;
++    }
++    try {
++      settings.unregisterKeyObserver(context, settings.display.SCREEN_BRIGHTNESS_STATUS,
++        settings.domainName.DEVICE_SHARED);
++    } catch (error) {
++      LogUtil.error(TAG, 'Failed to unregister display brightness observer');
++    }
++  }
+  
+   onConfigurationUpdate(config: Configuration) {
+     this.displayAdapter?.onSystemFontSizeChange(config.fontSizeScale);
+@@ -288,15 +326,7 @@
+         this.nativeContext.RegisterWindowEventFilter(window.getWindowProperties().id);
+       }
+ 
+-      // display brightness observer 
+-      if (deviceInfo.sdkApiVersion >= 22) {
+-        const context: Context = getContext(this);
+-        let res: boolean = settings.registerKeyObserver(context,
+-          settings.display.SCREEN_BRIGHTNESS_STATUS, settings.domainName.DEVICE_SHARED, () => {
+-            let value: string = settings.getValueSync(context, settings.display.SCREEN_BRIGHTNESS_STATUS, '10');
+-            this.nativeContext.UpdateDisplayBrightnessCB(value);
+-          });
+-      }
++      this.registerDisplayBrightnessObserver();
+ 
+       try {
+         if (this.xcomponentId === ConfigData.DEFAULT_WINDOW_ID) {
+@@ -317,6 +347,7 @@
+   }
+ 
+   onWindowStageDestroy() {
++    this.unregisterDisplayBrightnessObserver();
+     LogUtil.info(TAG, '[ohoswindow] in WebAbility onWindowStageDestroy.');    
+     if (CheckEmptyUtils.isEmpty(this.xcomponentId)) {
+       LogUtil.warn(TAG, 'onWindowStageDestroy component is not instantiated');
+@@ -411,6 +442,7 @@
+   }
+ 
+   async onDestroy(): Promise<void> {
++    this.unregisterDisplayBrightnessObserver();
+     let id: number = Number(this.xcomponentId.substring(ConfigData.WINDOW_PREFIX.length));
+     while (true) {
+       await this.sleep(WebAbility.SLEEP_INTERVAL_MS);
+--- a/web_engine/src/main/ets/interface/CommonInterface.ts
++++ b/web_engine/src/main/ets/interface/CommonInterface.ts
+@@ -113,7 +113,7 @@
+   ClearWindowEventFilter: (origin_window_id: number) => void;
+   OnCaptionButtonRectChange: (id: string, event: CaptionButtonRect) => void;
+   UpdateWindowDeviceModeSwitchCB: (mode: DeviceMode) => void;
+-  UpdateDisplayBrightnessCB: (display_brightness: string) => void;
++  UpdateDisplayBrightnessCB?: (display_brightness: string) => void;
+   SetSystemWindowLimits: (windowLimits: WinLimits) => void;
+   OnDeviceModeChange: (id: string, event: ChangeEventType, status: window.WindowStatusType) => void;
+   OnWindowDisplayIdChange: (id: string, displayId: number) => void;

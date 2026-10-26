@@ -1,0 +1,8 @@
+{
+  "compiledLocale": "zh-CN",
+  "passed": true,
+  "strings": {
+    "IDS_PASSWORD_MANAGER_UI_BIOMETRIC_AUTHENTICATION_FOR_FILLING_TOGGLE_LABEL_OHOS": "填充密码时使用屏幕锁定",
+    "IDS_PASSWORD_MANAGER_UI_BIOMETRIC_AUTHENTICATION_FOR_FILLING_TOGGLE_SUBLABEL_OHOS": "如果您与他人共用此设备，那么您每次使用已保存的密码时，都可使用屏幕解锁方式来验证身份"
+  }
+}

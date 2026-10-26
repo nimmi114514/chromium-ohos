@@ -1,0 +1,42 @@
+{
+  "files": [
+    "ui/shell_dialogs/select_file_dialog_ohos.h",
+    "services/device/usb/usb_device_ohos.cc",
+    "gpu/command_buffer/service/ohos/shared_image_video_ohos.h",
+    "gpu/command_buffer/service/ohos/native_image_texture_owner.cc",
+    "media/gpu/ohos/codec_output_buffer_renderer.cc",
+    "media/gpu/ohos/frame_info_helper.h",
+    "media/gpu/ohos/ohos_video_decoder.h",
+    "media/gpu/ohos/video_frame_factory_impl.h",
+    "media/gpu/ohos/codec_wrapper.cc",
+    "media/gpu/ohos/frame_info_helper.cc",
+    "ui/ozone/platform/ohos/drag/ohos_drag_manager.h",
+    "content/browser/media/key_system_support_ohos.cc",
+    "media/filters/ohos/ohos_audio_decoder_loop.h",
+    "media/filters/ohos/ohos_audio_decoder.h",
+    "components/qr_code_generator/qr_code_generator_ohos.h",
+    "components/qr_code_generator/qr_code_generator_ohos.cc",
+    "chrome/browser/web_applications/os_integration/web_app_shortcut_ohos.cc",
+    "chrome/browser/media/ohos/cdm/media_drm_storage_factory.cc",
+    "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager.h",
+    "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager.cc",
+    "services/device/usb/usb_service_ohos.cc",
+    "chrome/browser/performance_manager/policies/page_discarding_policy_ohos.cc",
+    "ui/display/screen_ohos.cc",
+    "chrome/browser/ui/views/frame/browser_frame_view_ohos.cc",
+    "media/capture/video/ohos/ohos_capture_delegate.cc",
+    "ui/base/ime/ohos/input_method_ohos.cc",
+    "ui/views/accessibility/view_ax_platform_node_delegate_ohos.cc",
+    "ui/views/widget_util_ohos.cc",
+    "media/base/ohos/ohos_media_crypto_context_impl.cc",
+    "media/base/ohos/ohos_media_drm_bridge.cc"
+  ],
+  "changes": [
+    "Replace removed Abseil optional interfaces with std::optional",
+    "Replace removed base::make_span with current base::span",
+    "Use standard associative container contains and remove obsolete contains header",
+    "Replace removed display::Screen::GetScreen with current Screen::Get",
+    "Use std::ranges algorithms and explicit algorithm header"
+  ],
+  "scope": "Mechanical source API migration; each backend still needs compilation in the full build"
+}

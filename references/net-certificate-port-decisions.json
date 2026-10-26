@@ -1,0 +1,15 @@
+{
+  "decisions": [
+    "Enable the current Chrome Root Store and builtin verifier on OHOS",
+    "Use OHOS TrustStoreOhos only for user-added local trust settings alongside current Google public roots",
+    "Wire the native adapter dependency so native certificate headers get AKI includes",
+    "Map native self-signed leaf errors to current CERT_STATUS_AUTHORITY_INVALID",
+    "Do not reuse old status bits that collide with current certificate statuses",
+    "Do not wire the legacy M132 certificate verifier as the main OHOS verifier",
+    "Use current TrustStoreInMemory normalized issuer matching instead of raw DER name comparison",
+    "Preserve OHOS private-certificate leaf-only and enterprise certificate anchor trust; do not add system public roots to the local trust provider",
+    "Keep certificate URI when cloning intermediates; own BoringSSL URI extension data until X509 destruction",
+    "Advertise only the signing scheme implemented by the current HAP bridge; reject empty signatures and oversize output"
+  ],
+  "device_validation": "Not performed"
+}

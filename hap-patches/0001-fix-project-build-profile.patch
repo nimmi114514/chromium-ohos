@@ -1,0 +1,15 @@
+diff --git a/build-profile.json5 b/build-profile.json5
+index 8e7508e..d5ca1be 100644
+--- a/build-profile.json5
++++ b/build-profile.json5
+@@ -21,8 +21,8 @@
+       {
+         "name": "release"
+       }
+-    ],
+-
++    ]
++  },
+   "modules": [
+     {
+       "name": "chromium",

@@ -1,0 +1,11 @@
+--- a/web_engine/src/main/ets/utils/CmdArgsHelper.ets
++++ b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+@@ -52,7 +52,7 @@
+ 
+ export class CmdArgsHelper {
+   private static readonly DEFAULT_ARGS: string[] = [
+-    "chrome",
++    // The original132 BasicLoader supplies argv[0] in GetEntryArgs().
+     "--use-gl=egl",
+     "--enable-features=UseOzonePlatform",
+     "--ozone-platform=ohos",

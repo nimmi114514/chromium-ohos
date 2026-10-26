@@ -1,0 +1,40 @@
+import("//build/config/ohos/config.gni")
+
+assert(current_os == "ohos")
+
+config("compiler") {
+  cflags = [
+    "--target=$ohos_target_triple",
+    "--sysroot=" + rebase_path(ohos_sysroot, root_build_dir),
+    "-ffunction-sections",
+    "-fdata-sections",
+    "-pthread",
+  ]
+  if (ohos_clang_resource_dir != "") {
+    cflags += [ "-resource-dir=" +
+                rebase_path(ohos_clang_resource_dir, root_build_dir) ]
+  }
+  asmflags = cflags
+  defines = [
+    "OSOHOS",
+    "__MUSL__",
+  ]
+}
+
+config("runtime_library") {
+  ldflags = [
+    "--target=$ohos_target_triple",
+    "--sysroot=" + rebase_path(ohos_sysroot, root_build_dir),
+    "-L" + rebase_path("$ohos_sdk_native/llvm/lib/$ohos_target_triple",
+                       root_build_dir),
+    "-Wl,-z,defs",
+    "-Wl,-z,max-page-size=4096",
+  ]
+  if (ohos_clang_resource_dir != "") {
+    ldflags += [
+      "-resource-dir=" + rebase_path(ohos_clang_resource_dir, root_build_dir),
+      "-B" + rebase_path("$ohos_clang_resource_dir/lib/$ohos_target_triple",
+                         root_build_dir),
+    ]
+  }
+}

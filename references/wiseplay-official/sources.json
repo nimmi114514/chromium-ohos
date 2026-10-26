@@ -1,0 +1,137 @@
+[
+  {
+    "path": "sample/README_zh.md",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/README_zh.md",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/README_zh.md",
+    "sha256": "a8cc82817fc0b387ee3cb2ba50a5e31a0acaddb0cdadf6ba2d0b3f9aec4d12d1",
+    "bytes": 9337
+  },
+  {
+    "path": "sample/DrmController.ets",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/DrmController.ets",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/DrmController.ets",
+    "sha256": "f8e0a8a2611fb0943defdd228ccd1e8480794d4b686bc21885854e823201772d",
+    "bytes": 14066
+  },
+  {
+    "path": "sample/HttpUtil.ets",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/HttpUtil.ets",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/HttpUtil.ets",
+    "sha256": "b78ab27209af0613b2de0a23201450c305e1fe79c15c56f7cc373f79a9887d5d",
+    "bytes": 1854
+  },
+  {
+    "path": "sample/AVPlayer.ets",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/AVPlayer.ets",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/model/AVPlayer.ets",
+    "sha256": "4907ebb0467505a16e7dce073d18648d0c7961476e801c7c6c3be0fde8c1a822",
+    "bytes": 17809
+  },
+  {
+    "path": "sample/DrmConstants.ets",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/common/constants/DrmConstants.ets",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/entry/src/main/ets/common/constants/DrmConstants.ets",
+    "sha256": "0b1db77204749c35cdd3765fb3ec8c8fb19f38eaa22f2d48f322161fd8aa8c4e",
+    "bytes": 1142
+  },
+  {
+    "path": "docs/drm-c-dev-guide.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "zh-cn/application-dev/media/drm/drm-c-dev-guide.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/zh-cn/application-dev/media/drm/drm-c-dev-guide.md",
+    "sha256": "2875df8c70913da0f1c0be2822ec5b2a15ae2ab1dbd743f62c27116b090dd18e",
+    "bytes": 10570
+  },
+  {
+    "path": "docs/audio-decoding.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "en/application-dev/media/avcodec/audio-decoding.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/en/application-dev/media/avcodec/audio-decoding.md",
+    "sha256": "661c628a9e96b6764f288feefbe64f48d0787c9e7a91f1bdb8c5851b34318b59",
+    "bytes": 21702
+  },
+  {
+    "path": "docs/video-decoding.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "en/application-dev/media/avcodec/video-decoding.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/en/application-dev/media/avcodec/video-decoding.md",
+    "sha256": "73cef574c0b83bbf14b3d6675bc38133c5d945e42c17323c551020b589bfb2fc",
+    "bytes": 59100
+  },
+  {
+    "path": "hms/README.md",
+    "repository": "HMS-Core/hms-wiseplay-demo-exoplayer",
+    "revision": "ae24bc33f82b5c2832de6ec3f35b3e8c9dca46d2",
+    "upstreamPath": "README.md",
+    "url": "https://raw.githubusercontent.com/HMS-Core/hms-wiseplay-demo-exoplayer/ae24bc33f82b5c2832de6ec3f35b3e8c9dca46d2/README.md",
+    "sha256": "18f0c4e3791a05de0ad198883f006bfce000a91923849474cca3364c52b792b7",
+    "bytes": 4898
+  },
+  {
+    "path": "hms/HttpMediaDrmCallback.java",
+    "repository": "HMS-Core/hms-wiseplay-demo-exoplayer",
+    "revision": "ae24bc33f82b5c2832de6ec3f35b3e8c9dca46d2",
+    "upstreamPath": "library/core/src/main/java/com/google/android/exoplayer2/drm/HttpMediaDrmCallback.java",
+    "url": "https://raw.githubusercontent.com/HMS-Core/hms-wiseplay-demo-exoplayer/ae24bc33f82b5c2832de6ec3f35b3e8c9dca46d2/library/core/src/main/java/com/google/android/exoplayer2/drm/HttpMediaDrmCallback.java",
+    "sha256": "37035e98cfd1af4e9d3f17cdf5a25bc51f9db8b5dcddad08ad7b77a38352b120",
+    "bytes": 8242
+  },
+  {
+    "path": "docs/drm-arkts-dev-guide.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "zh-cn/application-dev/media/drm/drm-arkts-dev-guide.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/zh-cn/application-dev/media/drm/drm-arkts-dev-guide.md",
+    "sha256": "dc4f101cec641734302fb91da0d2055bbf51770f7850b8db3dc4fc028a63ec2b",
+    "bytes": 12383
+  },
+  {
+    "path": "docs/drm-avcodec-integration.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "zh-cn/application-dev/media/drm/drm-avcodec-integration.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/zh-cn/application-dev/media/drm/drm-avcodec-integration.md",
+    "sha256": "b9d3b890ea1a8a940011180fdae19f31c929457e908b6e7f87a56000c2ad4107",
+    "bytes": 6831
+  },
+  {
+    "path": "docs/drm-avplayer-arkts-integration.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "zh-cn/application-dev/media/drm/drm-avplayer-arkts-integration.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/zh-cn/application-dev/media/drm/drm-avplayer-arkts-integration.md",
+    "sha256": "6a70fe8dcf785885b993bc60d0fbdf61c808696e1e1df584eda72bb3db929517",
+    "bytes": 4586
+  },
+  {
+    "path": "docs/drm-solution-dev-guide.md",
+    "repository": "openharmony/docs",
+    "revision": "f41b9345badd47c7ab0c263344cd7f4b5a549afb",
+    "upstreamPath": "zh-cn/application-dev/media/drm/drm-solution-dev-guide.md",
+    "url": "https://raw.githubusercontent.com/openharmony/docs/f41b9345badd47c7ab0c263344cd7f4b5a549afb/zh-cn/application-dev/media/drm/drm-solution-dev-guide.md",
+    "sha256": "d337d9e0e3b28745ab6394368b0c09fd2b637309d36de43b5fe102d5ef1d0b14",
+    "bytes": 18427
+  },
+  {
+    "path": "sample/DTA.exolist.json",
+    "repository": "openharmony/applications_app_samples",
+    "revision": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+    "upstreamPath": "code/SystemFeature/FileManagement/MediaCollections/entry/src/main/resources/rawfile/DTA.exolist.json",
+    "url": "https://raw.githubusercontent.com/openharmony/applications_app_samples/a826ab0e75fe51d028c1c5af58188e908736b53b/code/SystemFeature/FileManagement/MediaCollections/entry/src/main/resources/rawfile/DTA.exolist.json",
+    "sha256": "53564a8166350914b22766e313792ecfaaa9dfa140ee53afd0b094b19855975a",
+    "bytes": 2111
+  }
+]

@@ -1,0 +1,552 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 71e67a1..4f0cfad 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -271,6 +271,9 @@ config("common_inherited_config") {
+   if (is_linux || is_chromeos) {
+     defines += [ "WEBRTC_LINUX" ]
+   }
++  if (is_ohos) {
++    defines += [ "WEBRTC_OHOS" ]
++  }
+   if (is_mac) {
+     defines += [ "WEBRTC_MAC" ]
+   }
+diff --git a/modules/desktop_capture/BUILD.gn b/modules/desktop_capture/BUILD.gn
+index 5247ec0..a16f0aa 100644
+--- a/modules/desktop_capture/BUILD.gn
++++ b/modules/desktop_capture/BUILD.gn
+@@ -749,7 +749,26 @@ rtc_library("desktop_capture") {
+     ]
+   }
+ 
+-  if (!is_win && !is_mac && !rtc_use_x11_extensions && !rtc_use_pipewire &&
++  if (is_ohos) {
++    sources += [
++      "mouse_cursor_monitor_null.cc",
++      "ohos/native_desktop_capturer.cc",
++      "ohos/native_desktop_capturer.h",
++    ]
++    deps += [
++      "//ohos/adapter:adapter",
++      "//third_party/libyuv",
++    ]
++    libs = [
++      "native_avscreen_capture",
++      "native_buffer",
++      "native_media_core",
++      "native_display_manager",
++      "pixelmap",
++    ]
++  }
++
++  if (!is_ohos && !is_win && !is_mac && !rtc_use_x11_extensions && !rtc_use_pipewire &&
+       !is_fuchsia) {
+     sources += [
+       "mouse_cursor_monitor_null.cc",
+diff --git a/rtc_base/platform_thread_types.cc b/rtc_base/platform_thread_types.cc
+index 20bf4af..5dd04ec 100644
+--- a/rtc_base/platform_thread_types.cc
++++ b/rtc_base/platform_thread_types.cc
+@@ -11,8 +11,10 @@
+ #include "rtc_base/platform_thread_types.h"
+ 
+ // IWYU pragma: begin_keep
+-#if defined(WEBRTC_LINUX)
++#if defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
++#if !defined(WEBRTC_OHOS)
+ #include <linux/prctl.h>
++#endif
+ #include <sys/prctl.h>
+ #include <sys/syscall.h>
+ 
+@@ -50,7 +52,7 @@ PlatformThreadId CurrentThreadId() {
+   return gettid();
+ #elif defined(WEBRTC_FUCHSIA)
+   return zx_thread_self();
+-#elif defined(WEBRTC_LINUX)
++#elif defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
+   return syscall(__NR_gettid);
+ #elif defined(__EMSCRIPTEN__)
+   return static_cast<PlatformThreadId>(pthread_self());
+@@ -118,7 +120,7 @@ void SetCurrentThreadName(const char* name) {
+   } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
+   }
+ #pragma warning(pop)
+-#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID)
++#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID) || defined(WEBRTC_OHOS)
+   prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name));  // NOLINT
+ #elif defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
+   pthread_setname_np(name);
+diff --git a/webrtc.gni b/webrtc.gni
+index 42c6a4a..d6160e5 100644
+--- a/webrtc.gni
++++ b/webrtc.gni
+@@ -342,7 +342,7 @@ rtc_opus_dir = "//third_party/opus"
+ 
+ # Desktop capturer is supported only on Windows, OSX and Linux.
+ rtc_desktop_capture_supported =
+-    (is_win && current_os != "winuwp") || is_mac ||
++    (is_win && current_os != "winuwp") || is_mac || is_ohos ||
+     ((is_linux || is_chromeos) && (rtc_use_x11_extensions || rtc_use_pipewire))
+ 
+ ###############################################################################
+diff --git a/modules/desktop_capture/ohos/native_desktop_capturer.cc b/modules/desktop_capture/ohos/native_desktop_capturer.cc
+new file mode 100644
+index 0000000..5bc80f1
+--- /dev/null
++++ b/modules/desktop_capture/ohos/native_desktop_capturer.cc
+@@ -0,0 +1,432 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++// Port of the original OHOS OH_AVScreenCapture backend to current WebRTC.
++// SDK callbacks retain independent state and copy borrowed video data before
++// returning. They never dereference the DesktopCapturer or its callback.
++#include <atomic>
++#include <cstdint>
++#include <map>
++#include <memory>
++#include <limits>
++#include <mutex>
++
++#include <multimedia/player_framework/native_avbuffer.h>
++#include <multimedia/player_framework/native_avscreen_capture.h>
++#include <native_buffer/native_buffer.h>
++#include <window_manager/oh_display_manager.h>
++#include <window_manager/oh_display_capture.h>
++
++#include "modules/desktop_capture/ohos/native_desktop_capturer.h"
++
++#include "modules/desktop_capture/desktop_capture_options.h"
++#include "modules/desktop_capture/desktop_capturer.h"
++#include "modules/desktop_capture/desktop_frame.h"
++#include "ohos/adapter/screen_capture/screen_capture_adapter.h"
++#include "third_party/libyuv/include/libyuv/convert_argb.h"
++
++namespace webrtc {
++namespace {
++
++struct CaptureState {
++  std::mutex mutex;
++  bool detached = false;
++  bool failed = false;
++  bool paused = false;
++  std::unique_ptr<DesktopFrame> frame;
++};
++
++struct CallbackEntry {
++  uintptr_t token;
++  std::shared_ptr<CaptureState> state;
++};
++
++struct CallbackRegistry {
++  std::mutex mutex;
++  std::map<OH_AVScreenCapture*, CallbackEntry> entries;
++  std::atomic<uintptr_t> next_token{1};
++};
++
++CallbackRegistry& Registry() {
++  static auto* registry = new CallbackRegistry;
++  return *registry;
++}
++
++std::shared_ptr<CaptureState> FindState(OH_AVScreenCapture* capture,
++                                      void* user_data) {
++  auto& registry = Registry();
++  std::lock_guard lock(registry.mutex);
++  auto it = registry.entries.find(capture);
++  if (it == registry.entries.end() ||
++      it->second.token != reinterpret_cast<uintptr_t>(user_data)) {
++    return nullptr;
++  }
++  return it->second.state;
++}
++
++void MarkFailed(OH_AVScreenCapture* capture, void* user_data) {
++  if (auto state = FindState(capture, user_data)) {
++    std::lock_guard lock(state->mutex);
++    if (!state->detached) {
++      state->failed = true;
++      state->frame.reset();
++    }
++  }
++}
++
++void OnError(OH_AVScreenCapture* capture, int32_t error, void* user_data) {
++  MarkFailed(capture, user_data);
++}
++
++void OnContentChanged(OH_AVScreenCapture* capture,
++                      OH_AVScreenCaptureContentChangedEvent event,
++                      OH_Rect* area,
++                      void* user_data) {
++  if (event == OH_SCREEN_CAPTURE_CONTENT_UNAVAILABLE) {
++    MarkFailed(capture, user_data);
++  }
++}
++
++void OnStateChanged(OH_AVScreenCapture* capture,
++                    OH_AVScreenCaptureStateCode code,
++                    void* user_data) {
++  switch (code) {
++    case OH_SCREEN_CAPTURE_STATE_CANCELED:
++    case OH_SCREEN_CAPTURE_STATE_STOPPED_BY_USER:
++    case OH_SCREEN_CAPTURE_STATE_INTERRUPTED_BY_OTHER:
++    case OH_SCREEN_CAPTURE_STATE_STOPPED_BY_CALL:
++    case OH_SCREEN_CAPTURE_STATE_STOPPED_BY_USER_SWITCHES:
++      MarkFailed(capture, user_data);
++      break;
++    case OH_SCREEN_CAPTURE_STATE_PAUSED_BY_USER:
++    case OH_SCREEN_CAPTURE_STATE_PAUSED_BY_APP:
++    case OH_SCREEN_CAPTURE_STATE_RESUMED_BY_USER:
++    case OH_SCREEN_CAPTURE_STATE_RESUMED_BY_APP:
++      if (auto state = FindState(capture, user_data)) {
++        std::lock_guard lock(state->mutex);
++        state->paused = code == OH_SCREEN_CAPTURE_STATE_PAUSED_BY_USER ||
++                        code == OH_SCREEN_CAPTURE_STATE_PAUSED_BY_APP;
++        state->frame.reset();
++      }
++      break;
++    default:
++      break;
++  }
++}
++
++void OnBuffer(OH_AVScreenCapture* capture,
++              OH_AVBuffer* buffer,
++              OH_AVScreenCaptureBufferType type,
++              int64_t timestamp,
++              void* user_data) {
++  if (!buffer || type != OH_SCREEN_CAPTURE_BUFFERTYPE_VIDEO) {
++    return;
++  }
++  auto state = FindState(capture, user_data);
++  if (!state) {
++    return;
++  }
++  std::lock_guard lock(state->mutex);
++  if (state->detached || state->failed || state->paused) {
++    return;
++  }
++
++  OH_NativeBuffer* native_buffer = OH_AVBuffer_GetNativeBuffer(buffer);
++  if (!native_buffer) {
++    return;
++  }
++  // GetNativeBuffer returns a reference owned by the caller (API 26 header).
++  auto release_buffer = [](OH_NativeBuffer* value) {
++    OH_NativeBuffer_Unreference(value);
++  };
++  std::unique_ptr<OH_NativeBuffer, decltype(release_buffer)> native(
++      native_buffer, release_buffer);
++  OH_NativeBuffer_Config config{};
++  OH_NativeBuffer_GetConfig(native.get(), &config);
++  constexpr uint64_t kMaxFrameBytes = 64 * 1024 * 1024;
++  if (config.format != NATIVEBUFFER_PIXEL_FMT_RGBA_8888 || config.width <= 0 ||
++      config.height <= 0 || config.width > 16384 || config.height > 16384 ||
++      config.stride < config.width * DesktopFrame::kBytesPerPixel) {
++    return;
++  }
++  uint64_t required = static_cast<uint64_t>(config.stride) * (config.height - 1) +
++                      static_cast<uint64_t>(config.width) *
++                          DesktopFrame::kBytesPerPixel;
++  int32_t capacity = OH_AVBuffer_GetCapacity(buffer);
++  const uint8_t* pixels = OH_AVBuffer_GetAddr(buffer);
++  if (!pixels || required > kMaxFrameBytes || capacity <= 0 ||
++      required > static_cast<uint64_t>(capacity)) {
++    return;
++  }
++  auto frame = std::make_unique<BasicDesktopFrame>(
++      DesktopSize(config.width, config.height));
++  if (libyuv::ABGRToARGB(pixels, config.stride, frame->data(), frame->stride(),
++                         config.width, config.height) != 0) {
++    return;
++  }
++  frame->mutable_updated_region()->SetRect(DesktopRect::MakeSize(frame->size()));
++  state->frame = std::move(frame);
++}
++
++class NativeDesktopCapturer final : public DesktopCapturer {
++ public:
++  explicit NativeDesktopCapturer(bool window) : window_(window) {}
++  ~NativeDesktopCapturer() override {
++    if (!capture_) {
++      return;
++    }
++    {
++      auto& registry = Registry();
++      std::lock_guard lock(registry.mutex);
++      registry.entries.erase(capture_);
++    }
++    {
++      // Wait for a frame copy already in progress, then reject callbacks that
++      // obtained the state before the registry entry was removed.
++      std::lock_guard lock(state_->mutex);
++      state_->detached = true;
++      state_->frame.reset();
++    }
++    OH_AVScreenCapture_StopScreenCapture(capture_);
++    OH_AVScreenCapture_Release(capture_);
++  }
++
++  bool Init(const DesktopCaptureOptions& options) {
++    if (OH_NativeDisplayManager_GetDefaultDisplayId(&display_id_) !=
++            DISPLAY_MANAGER_OK ||
++        OH_NativeDisplayManager_GetDefaultDisplayWidth(&display_width_) !=
++            DISPLAY_MANAGER_OK ||
++        OH_NativeDisplayManager_GetDefaultDisplayHeight(&display_height_) !=
++            DISPLAY_MANAGER_OK ||
++        display_width_ <= 0 || display_height_ <= 0) {
++      return false;
++    }
++    capture_ = OH_AVScreenCapture_Create();
++    if (!capture_) {
++      return false;
++    }
++    auto& registry = Registry();
++    uintptr_t token = registry.next_token.fetch_add(1, std::memory_order_relaxed);
++    {
++      std::lock_guard lock(registry.mutex);
++      registry.entries.emplace(capture_, CallbackEntry{token, state_});
++    }
++    void* user_data = reinterpret_cast<void*>(token);
++    if (OH_AVScreenCapture_SetStateCallback(capture_, OnStateChanged, user_data) !=
++            AV_SCREEN_CAPTURE_ERR_OK ||
++        OH_AVScreenCapture_SetErrorCallback(capture_, OnError, user_data) !=
++            AV_SCREEN_CAPTURE_ERR_OK ||
++        OH_AVScreenCapture_SetDataCallback(capture_, OnBuffer, user_data) !=
++            AV_SCREEN_CAPTURE_ERR_OK) {
++      return false;
++    }
++    OH_AVScreenCaptureConfig config{};
++    // As in the original OHOS backend, the system picker asks the user to
++    // authorize a window or screen. Never silently capture another source.
++    config.captureMode = OH_CAPTURE_SPECIFIED_WINDOW;
++    config.dataType = OH_ORIGINAL_STREAM;
++    config.videoInfo.videoCapInfo.videoFrameWidth = display_width_;
++    config.videoInfo.videoCapInfo.videoFrameHeight = display_height_;
++    config.videoInfo.videoCapInfo.videoSource = OH_VIDEO_SOURCE_SURFACE_RGBA;
++    if (OH_AVScreenCapture_Init(capture_, config) != AV_SCREEN_CAPTURE_ERR_OK ||
++        OH_AVScreenCapture_SetMicrophoneEnabled(capture_, false) !=
++            AV_SCREEN_CAPTURE_ERR_OK) {
++      return false;
++    }
++    auto& adapter = ohos::adapter::ScreenCaptureAdapter::GetInstance();
++    adapter.SetCaptureContentChanged(capture_, OnContentChanged, user_data);
++    adapter.SetAutoRotation(capture_);
++    if (options.prefer_cursor_embedded()) {
++      adapter.ShowCursor(capture_);
++    }
++    return true;
++  }
++
++  void Start(Callback* callback) override {
++    callback_ = callback;
++    if (OH_AVScreenCapture_StartScreenCapture(capture_) !=
++        AV_SCREEN_CAPTURE_ERR_OK) {
++      std::lock_guard lock(state_->mutex);
++      state_->failed = true;
++    }
++  }
++
++  void CaptureFrame() override {
++    if (!callback_) {
++      return;
++    }
++    Result result = Result::ERROR_TEMPORARY;
++    std::unique_ptr<DesktopFrame> frame;
++    {
++      std::lock_guard lock(state_->mutex);
++      if (state_->failed) {
++        result = Result::ERROR_PERMANENT;
++      } else if (!state_->paused && state_->frame) {
++        frame = std::make_unique<BasicDesktopFrame>(state_->frame->size());
++        frame->CopyPixelsFrom(state_->frame->data(), state_->frame->stride(),
++                              DesktopRect::MakeSize(frame->size()));
++        frame->mutable_updated_region()->SetRect(
++            DesktopRect::MakeSize(frame->size()));
++        result = Result::SUCCESS;
++      }
++    }
++    callback_->OnCaptureResult(result, std::move(frame));
++  }
++
++  bool GetSourceList(SourceList* sources) override {
++    if (window_) {
++      // Window enumeration is performed by the OHOS consent picker.
++      return false;
++    }
++    sources->clear();
++    sources->push_back({static_cast<SourceId>(display_id_), "Screen"});
++    return true;
++  }
++
++  bool SelectSource(SourceId id) override {
++    return !window_ && id == static_cast<SourceId>(display_id_);
++  }
++
++ private:
++  const bool window_;
++  OH_AVScreenCapture* capture_ = nullptr;
++  uint64_t display_id_ = 0;
++  int32_t display_width_ = 0;
++  int32_t display_height_ = 0;
++  std::shared_ptr<CaptureState> state_ = std::make_shared<CaptureState>();
++  Callback* callback_ = nullptr;
++};
++
++class NativeScreenshotCapturer final : public DesktopCapturer {
++ public:
++  bool Init() {
++    return OH_NativeDisplayManager_GetDefaultDisplayId(&display_id_) ==
++               DISPLAY_MANAGER_OK &&
++           display_id_ <= std::numeric_limits<uint32_t>::max();
++  }
++  void Start(Callback* callback) override { callback_ = callback; }
++  void CaptureFrame() override {
++    if (!callback_) {
++      return;
++    }
++    auto frame = Capture();
++    Result result = frame ? Result::SUCCESS : Result::ERROR_PERMANENT;
++    callback_->OnCaptureResult(result, std::move(frame));
++  }
++  bool GetSourceList(SourceList* sources) override {
++    sources->clear();
++    sources->push_back({static_cast<SourceId>(display_id_), "Screen"});
++    return true;
++  }
++  bool SelectSource(SourceId id) override {
++    return id == static_cast<SourceId>(display_id_);
++  }
++ private:
++  std::unique_ptr<DesktopFrame> Capture() {
++    OH_PixelmapNative* raw_pixelmap = nullptr;
++    auto error = OH_NativeDisplayManager_CaptureScreenPixelmap(
++        static_cast<uint32_t>(display_id_), &raw_pixelmap);
++    auto release_pixelmap = [](OH_PixelmapNative* value) {
++      OH_PixelmapNative_Release(value);
++    };
++    std::unique_ptr<OH_PixelmapNative, decltype(release_pixelmap)> pixelmap(
++        raw_pixelmap, release_pixelmap);
++    if (error != DISPLAY_MANAGER_OK || !pixelmap) {
++      return nullptr;
++    }
++    OH_Pixelmap_ImageInfo* raw_info = nullptr;
++    auto info_error = OH_PixelmapImageInfo_Create(&raw_info);
++    auto release_info = [](OH_Pixelmap_ImageInfo* value) {
++      OH_PixelmapImageInfo_Release(value);
++    };
++    std::unique_ptr<OH_Pixelmap_ImageInfo, decltype(release_info)> info(
++        raw_info, release_info);
++    uint32_t width = 0;
++    uint32_t height = 0;
++    if (info_error != IMAGE_SUCCESS || !info ||
++        OH_PixelmapNative_GetImageInfo(pixelmap.get(), info.get()) !=
++                     IMAGE_SUCCESS ||
++        OH_PixelmapImageInfo_GetWidth(info.get(), &width) != IMAGE_SUCCESS ||
++        OH_PixelmapImageInfo_GetHeight(info.get(), &height) != IMAGE_SUCCESS ||
++        width == 0 || height == 0 || width > 16384 || height > 16384 ||
++        static_cast<uint64_t>(width) * height * DesktopFrame::kBytesPerPixel >
++            64 * 1024 * 1024) {
++      return nullptr;
++    }
++    auto frame = std::make_unique<BasicDesktopFrame>(DesktopSize(width, height));
++    // API26 documents BGRA output for ReadPixelsFromArea. Write straight into
++    // the owned WebRTC frame with its actual stride, avoiding PixelMap padding
++    // assumptions and borrowed pixel-buffer lifetimes.
++    Image_PositionArea area{};
++    area.pixels = frame->data();
++    area.pixelsSize = static_cast<size_t>(frame->stride()) * height;
++    area.stride = frame->stride();
++    area.region = {0, 0, width, height};
++    if (OH_PixelmapNative_ReadPixelsFromArea(pixelmap.get(), &area) !=
++        IMAGE_SUCCESS) {
++      return nullptr;
++    }
++    frame->mutable_updated_region()->SetRect(DesktopRect::MakeSize(frame->size()));
++    return frame;
++  }
++  uint64_t display_id_ = 0;
++  Callback* callback_ = nullptr;
++};
++
++std::unique_ptr<DesktopCapturer> CreateNativeCapturer(
++    const DesktopCaptureOptions& options,
++    bool window) {
++  auto capturer = std::make_unique<NativeDesktopCapturer>(window);
++  if (!capturer->Init(options)) {
++    return nullptr;
++  }
++  return capturer;
++}
++
++}  // namespace
++
++std::unique_ptr<DesktopCapturer> CreateOhosScreenshotCapturer() {
++  auto capturer = std::make_unique<NativeScreenshotCapturer>();
++  if (!capturer->Init()) {
++    return nullptr;
++  }
++  return capturer;
++}
++
++std::unique_ptr<DesktopCapturer> DesktopCapturer::CreateRawScreenCapturer(
++    const DesktopCaptureOptions& options) {
++  return CreateNativeCapturer(options, false);
++}
++
++std::unique_ptr<DesktopCapturer> DesktopCapturer::CreateRawWindowCapturer(
++    const DesktopCaptureOptions& options) {
++  return CreateNativeCapturer(options, true);
++}
++
++}  // namespace webrtc
+diff --git a/modules/desktop_capture/ohos/native_desktop_capturer.h b/modules/desktop_capture/ohos/native_desktop_capturer.h
+new file mode 100644
+index 0000000..d6eb444
+--- /dev/null
++++ b/modules/desktop_capture/ohos/native_desktop_capturer.h
+@@ -0,0 +1,15 @@
++// Copyright 2026 The WebRTC project authors. All Rights Reserved.
++// Use of this source code is governed by a BSD-style license
++// that can be found in the LICENSE file in the root of the source tree.
++#ifndef MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_DESKTOP_CAPTURER_H_
++#define MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_DESKTOP_CAPTURER_H_
++
++#include <memory>
++
++namespace webrtc {
++class DesktopCapturer;
++// Uses the OHOS screenshot API for previews, keeping the consent-based video
++// capture session separate, as in the original OHOS port.
++std::unique_ptr<DesktopCapturer> CreateOhosScreenshotCapturer();
++}  // namespace webrtc
++#endif  // MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_DESKTOP_CAPTURER_H_

@@ -1,0 +1,2790 @@
+{
+  "baseline": "132.0.6834.161",
+  "reference": "1100a64e7fe77c09f96573abc7e7b136e3f6390d",
+  "files": [
+    {
+      "path": "chrome/.gitattributes",
+      "reference_blob": "79941fd6e72d23cb8361b7d80c566ce44382b3b1",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/.gitignore",
+      "reference_blob": "8028953efb1f283cd7eda39dfa1ed245c07763b7",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/BUILD.gn",
+      "reference_blob": "d250d7290744d88f10ff3487e494ea73a976014d",
+      "upstream_blob": "c785db2fe2a24d33db6499da7806defbdec78a7e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/app_management_strings.grdp",
+      "reference_blob": "9cff90efef7a39b22704372ccccfe38dbbc23b13",
+      "upstream_blob": "53d9a50186f17bfac794c39829146ae92f5e5036",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/certificate_manager.grdp",
+      "reference_blob": "c9a42d03094da0e1be6e962aa0d9a55884242861",
+      "upstream_blob": "ec7040fac24c5d567e9eb147505145e438a8b726",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/chrome_main_delegate.cc",
+      "reference_blob": "68e0fc3e9821fd6269ce9ec30ff06d2740425405",
+      "upstream_blob": "4569ff21cd37ea3d6f29c4a79d7f73b622aa49bd",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/chromium_strings.grd",
+      "reference_blob": "ad84d0329e8a96eec59d2f8881f4c7a9f8ade5a1",
+      "upstream_blob": "62900c285f9577558f7191f16a78baa7041611db",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/chromium_strings_grd/IDS_PENDING_CHANGE_WARNING.png.sha1",
+      "reference_blob": "7231bc2ac7937a72349d0c831bdd6d58dd97debd",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/app/generated_resources.grd",
+      "reference_blob": "c119d53de734502fcbc00f2d44f9b6b7d1a49bd1",
+      "upstream_blob": "400e650768f931758dee304cd66d77b210b615ee",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/google_chrome_strings.grd",
+      "reference_blob": "daf51caca02cb4e1c03cf36958bbe1010a39a792",
+      "upstream_blob": "4813d2973b697b9bf595f16e888a5038b9e2bc0b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/google_chrome_strings_grd/IDS_PENDING_CHANGE_WARNING.png.sha1",
+      "reference_blob": "dca63629b871a8de6e590384ee44dffce17e7f03",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/app/password_manager_ui_strings.grdp",
+      "reference_blob": "b0371c7560495807273eca03e325e9aa0fdaef0d",
+      "upstream_blob": "ad306b6a0f64204477964f8ba21a0767bc4886d4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/printing_strings.grdp",
+      "reference_blob": "05a1122d8fe90c7779086f0f84c9ec3f93fce0b2",
+      "upstream_blob": "089b211e29dd73d62ab1ef93900f1c9d4819ef69",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/resources/generated_resources_en-GB.xtb",
+      "reference_blob": "61dfa0c167cf12d6b4ca707befec4b4bce39f820",
+      "upstream_blob": "b841c39fa2988e6b17be36e33b1a36c5d1633324",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/resources/generated_resources_zh-CN.xtb",
+      "reference_blob": "232745a7da4126102e1f7dcafc022436b3fb658d",
+      "upstream_blob": "44be626c150aea40b296b6e52d74f2d4b4073a92",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/app/settings_strings.grdp",
+      "reference_blob": "5d29347fa38abcb0a042898f26fbb320e6d776ca",
+      "upstream_blob": "fe3dd9cf87c723be5eada9ba93d6a84233f43158",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/BUILD.gn",
+      "reference_blob": "69f665ba61c20eaecc580ae2312d255ecce5883b",
+      "upstream_blob": "c2c22a92bccb2487319affed384cac10dbc839a8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/about_flags.cc",
+      "reference_blob": "413d88fac6e8040463b7ab8b6b29e9d349934712",
+      "upstream_blob": "7613006656aaacda9a9b8cb9a54944f92d96c77d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ai/BUILD.gn",
+      "reference_blob": "c970fc2f973b2919994ae9d13052a490f3c816ad",
+      "upstream_blob": "03694eaa9b6d07a5251220b43e9c2a3dddadf189",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/apps/guest_view/web_view_browsertest.cc",
+      "reference_blob": "c79edd5e95b06fb56d284099d151c2e43ef8ba31",
+      "upstream_blob": "a6dad48f2471a6d975ac5c10dcd556a37ae912a7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/apps/platform_apps/api/browser_context_keyed_service_factories.cc",
+      "reference_blob": "6c50862bc6a98859953ea07168f673af58978cdd",
+      "upstream_blob": "d17fc374f605347bce71e7ee628f9673e8e88873",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/events/event_rewriter_delegate_impl.cc",
+      "reference_blob": "0d5afc41a98f5a2c95f9e7fbe16122fdaccb3b51",
+      "upstream_blob": "e6e794bac009b6e62489d3528560666fd8149276",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/events/event_rewriter_unittest.cc",
+      "reference_blob": "74bdb8c7e6a1c3fa948f3716290cb6445cfc7fe4",
+      "upstream_blob": "11aa6af80003b8e50f7671fcad9ec7d13b5c5925",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/geolocation/system_geolocation_source_browsertest.cc",
+      "reference_blob": "6b375a848c15e3e402282e15484281bdf1952e11",
+      "upstream_blob": "ec5490cf0aa27315127018b83e40ebef847fe826",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/login/enrollment/auto_enrollment_check_screen.cc",
+      "reference_blob": "1bc8812363b39d7fb8cc691ad77b5e489211a5f6",
+      "upstream_blob": "628c7bcc0b746e569749b655e06e2c02fc6ffec3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/login/session/user_session_manager.cc",
+      "reference_blob": "59774ccf18d04ee4e175ec7ea3241894f8e203de",
+      "upstream_blob": "09d408ec37996d3b01e9156187dddbf96a059400",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/login/wizard_controller.cc",
+      "reference_blob": "836830b35473250d7cbc0b8ad21ff5ad07ce2c97",
+      "upstream_blob": "b66ea8c30b8faa1226b13334f8af18d0be3f11a4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/login/wizard_controller_browsertest.cc",
+      "reference_blob": "d39910c38d4d15cc9f4f3facaeba58c6795a62ba",
+      "upstream_blob": "fd20af1d30ac305d2b863355ff55c03d54250ab8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/platform_keys/key_permissions/BUILD.gn",
+      "reference_blob": "3832169598c8e31eebec2f8e2cd0843d18fdc728",
+      "upstream_blob": "80c98d1cbcc05905d4abca42173d37043bac0224",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/platform_keys/key_permissions/key_permissions_manager_impl.cc",
+      "reference_blob": "ca92d3c2fba9dc9e62a6d9a489f953da66a6fa6f",
+      "upstream_blob": "5852efc5b02be22ea89d306c183df3157c2f1fbb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/platform_keys/key_permissions/key_permissions_manager_impl.h",
+      "reference_blob": "da224a29f1db0abedbe5b3d17b046ceb762cfc42",
+      "upstream_blob": "6c2c4b0c09deac439f496529755ef5f9fed926dc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/policy/enrollment/auto_enrollment_controller.cc",
+      "reference_blob": "400574f27ab4e17c9e0466c9eec3a6b80290d161",
+      "upstream_blob": "b49b22b06f2ec794ce96ada39ac6cb35ffca0c50",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/policy/enrollment/auto_enrollment_controller.h",
+      "reference_blob": "41c25efeb778229bbbc2fb5bf4b5572e6eb8e253",
+      "upstream_blob": "f00b991f7d560590e6ec898b1f3728a578f9d8e5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ash/policy/enrollment/auto_enrollment_controller_unittest.cc",
+      "reference_blob": "a59efbb8b75228c58d3a9733442f39b7d2063c3d",
+      "upstream_blob": "d71bc46ada3384fa11217cd68ee47cf8a43e9070",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/breadcrumbs/crash_reporter_breadcrumb_observer_unittest.cc",
+      "reference_blob": "5119398e962f9c2202b2f6e78b78e30fe0606b5f",
+      "upstream_blob": "cc017cbd5def2f74781a95a8847422663c5f5702",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/certificate_manager_model_ohos.cc",
+      "reference_blob": "f8bd41823d7a53782e06168367bb06ed0c7636e2",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/certificate_manager_model_ohos.h",
+      "reference_blob": "6fc7f8c83887fcaa7689081cba1ee9ca5afa1d0a",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/chooser_controller/BUILD.gn",
+      "reference_blob": "a6724da5d302f41269cd04723e8fd407c5dede06",
+      "upstream_blob": "92d896f521ed45949b86eb7fbc2f77398e94c234",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/chrome_browser_interface_binders.cc",
+      "reference_blob": "6dfb2f4d227d54bcefc84ec76608c4f73663e3d2",
+      "upstream_blob": "bb23f913c1b685f42e01d870f23ef99c38c7e97c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/chrome_browser_main.cc",
+      "reference_blob": "6628f807d4688ed5cd205d28886a85f1cfbb8b40",
+      "upstream_blob": "d202767ab4f3f71f7f8facddd439eb8bd005746e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/chrome_content_browser_client.cc",
+      "reference_blob": "0e0aa88b80fb5931dc4bcf38ea6708a32a3927f6",
+      "upstream_blob": "25b5c325f612d93e49088531ce68af96259f14b6",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/chrome_content_browser_client.h",
+      "reference_blob": "92494f7daeb0283e4389cef30eaf76fd47e76577",
+      "upstream_blob": "5d587e8473cb2f5b7ed28df856129c7f00376cc3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/chrome_content_browser_client_receiver_bindings.cc",
+      "reference_blob": "05a9fd1da6e418b877c292dc40cee3193bfbfdbb",
+      "upstream_blob": "0340dc97e87cdb03983de048d5e983fb0786a90f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/commerce/BUILD.gn",
+      "reference_blob": "5eb57086b6c4846df5e654b39b0b3ed3bec9cfde",
+      "upstream_blob": "fe10332abc32101c6617492c8f0b16a6a2c78446",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/commerce/coupons/android/junit/src/org/chromium/chrome/browser/commerce/coupons/DiscountsBottomSheetContentMediatorTest.java",
+      "reference_blob": "06d7e1f7d43928cd605722a729118c49b153c45e",
+      "upstream_blob": "ba5e22badc9390500f3239297eeb03791b2ac14f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/companion/text_finder/BUILD.gn",
+      "reference_blob": "091e819b41d1a29cba192d062fec55ec4f8af6bc",
+      "upstream_blob": "43334d7ca28e6ef6337a7cd27cf43c5cfba393a8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/content_settings/BUILD.gn",
+      "reference_blob": "37250c5b4084199dfce1c3afae4b93d96bff406e",
+      "upstream_blob": "7656155181feed97fb99d0de625a74d0aba79123",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/device_reauth/chrome_device_authenticator_factory.cc",
+      "reference_blob": "9434a0403342d2b99654c9189b06ba1bb6d39a50",
+      "upstream_blob": "9409cd263a83a19c14c32e5609395b7af4f83430",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/device_reauth/ohos/authenticator_ohos.cc",
+      "reference_blob": "8de92560401901b34035757c144add2dbd40eeab",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/device_reauth/ohos/authenticator_ohos.h",
+      "reference_blob": "cbe97da87b9f2162c72fda324efe3574f8e689d4",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/device_reauth/ohos/device_authenticator_ohos.cc",
+      "reference_blob": "2d6b7fe64794e818ad0dc6b87cbc01f65a394f4b",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/device_reauth/ohos/device_authenticator_ohos.h",
+      "reference_blob": "990ad63681f3f5f903568a0619827fd4454051d8",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/digital_credentials/digital_identity_provider_desktop.cc",
+      "reference_blob": "e279c875f45deb73f809315742bcb8867e603572",
+      "upstream_blob": "f1700bc1043e5ddec47ab0fbc94c43603e3c4336",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/chrome_download_manager_delegate.cc",
+      "reference_blob": "49449dbb6c1872e3fa5b560207b08dae4eb37dc1",
+      "upstream_blob": "16f38b6c8d6f93657d746adbcd48a9891aaedb3b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/chrome_download_manager_delegate.h",
+      "reference_blob": "e8f67c869d02390a620ea326694561286db5000e",
+      "upstream_blob": "7ae09b406f344a92a0cff8e3154d553800fd4acb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_commands.cc",
+      "reference_blob": "093d254fb4dc7d2af21573855e75acc6a6d4e559",
+      "upstream_blob": "b78d4f0c2442aa52e33d6db714dd0c734145a3ba",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_commands.h",
+      "reference_blob": "572dbb3ba4ed0b3e566b3bd81eb656168ebffdf6",
+      "upstream_blob": "19f8a9741a816434e84c2545c8227f2228222c51",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_history.cc",
+      "reference_blob": "08648a8884a69c91db22e58e74fca0d7323b916d",
+      "upstream_blob": "dd32bab999c593e0d6167b001f9014da1cb9536a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_item_model.cc",
+      "reference_blob": "67aca7ed8ede9fc2b21019f479b9e80ea19440e7",
+      "upstream_blob": "08a3033930ae3e1b34bb3440dfd494c3d855db55",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_prefs.cc",
+      "reference_blob": "9831322820d5da94460ef647be51032f591679e4",
+      "upstream_blob": "fe093083c3661c1cfc284b73b118a4b2034e570f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_prefs.h",
+      "reference_blob": "7487e8ffa345e6151c32ff79ce67b046ff74f4ff",
+      "upstream_blob": "44a663ce2f1ff9ad7ef07ac549179e96140220fc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_status_updater.cc",
+      "reference_blob": "853c1f470dd7f4f0f445594832f8b157ad4c07ae",
+      "upstream_blob": "0541165705d0c0e0468ab509b51e128bb0df81eb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_target_determiner.cc",
+      "reference_blob": "8fa234a30a2f08029c6fae29e16c03a1556f6ef6",
+      "upstream_blob": "f5734fdaaf90f2846266ec06080809a102adaa3d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_target_determiner.h",
+      "reference_blob": "dd9467aada0ccd6fd203dc45c99dd22960eddd57",
+      "upstream_blob": "95d3682061830ae3a9bcfda6434bdc54fabaa9d0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_target_determiner_delegate.h",
+      "reference_blob": "b87ed7bed38ac216cfaabc499369231a0d71eb48",
+      "upstream_blob": "de4e7770a215974f266d24faa651f8d7306e5c41",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/download_target_determiner_unittest.cc",
+      "reference_blob": "2fc556a85125142e87bff68771963aa045ecc28b",
+      "upstream_blob": "766516594c0db4e5ffd1d6839c8e4961b6cfeb0e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/download/save_package_file_picker.cc",
+      "reference_blob": "e21d7d98b3d9346699d910415be8db0e26bccf0e",
+      "upstream_blob": "435433a0cb7446c3888fab6007619347d56cb83e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/signals/client_certificate_fetcher_unittest.cc",
+      "reference_blob": "02f410e1bde150a467f90442fc234adb0fd2514b",
+      "upstream_blob": "558662c3605cc890b8d191a388f76e4617354084",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/signals/context_info_fetcher.cc",
+      "reference_blob": "0127a141459146cfcf7560d07e38a5d1bb50e9ee",
+      "upstream_blob": "9ee0009ec5d3c6ae5144eb3c968b1572cf849299",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/signin/enterprise_signin_service.h",
+      "reference_blob": "0114207b1c6bd896def6a20b4c2a90012bcc4a00",
+      "upstream_blob": "6214741f26a16c4d03832f2ce9ed2422d7358a41",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/util/managed_browser_utils.cc",
+      "reference_blob": "644c9b436dbe5350853a0ddf27dad08f4b5c7c89",
+      "upstream_blob": "a4e0bace0b1f5097e0ef88289ea125dab50ad6ab",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/util/managed_browser_utils.h",
+      "reference_blob": "2b0c3ea19cf50a179f04a7fe3f83095a1ca26e32",
+      "upstream_blob": "b9408be2f9a0b4623a2cff77d7b4c449e792dd40",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/enterprise/util/managed_browser_utils_unittest.cc",
+      "reference_blob": "a7fb615a853993dc4d46f1440d6af7aa87a890ac",
+      "upstream_blob": "df1c7be61792b1228e999b54ee4d4ad41b728466",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/BUILD.gn",
+      "reference_blob": "89d7d488d05ec065284fc7fd24731705fd31a7e3",
+      "upstream_blob": "132702a6a7ed2f8fd3333d25334cd0aa1f6f30d0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/autofill_private/autofill_private_api.cc",
+      "reference_blob": "e9e6a4b29747bc5935c5d7c0d486ae18973b82aa",
+      "upstream_blob": "ea08c109dab03f1f3f990fba6f8ba675534ae3a2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/developer_private/developer_private_api.cc",
+      "reference_blob": "ffe7ca0b4b8097e515ad86abf33aac4c03fffb1d",
+      "upstream_blob": "a5dad7163d40c683c60b62489d0a072dc49e409e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/developer_private/developer_private_api_unittest.cc",
+      "reference_blob": "0372a1476b72226027dc2a01142915a600e729a6",
+      "upstream_blob": "7e2bf865f2833103205a7220a236338fba1c1064",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/developer_private/extension_info_generator.cc",
+      "reference_blob": "d85312aa6d601c530b1af3e3fcac03a746fbb367",
+      "upstream_blob": "854892f76b3ded588f5d74019b79b53fe655dc93",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/developer_private/extension_info_generator_unittest.cc",
+      "reference_blob": "5ce6a2b8f2b34d8af3d68aa4dab2dc32c51259fa",
+      "upstream_blob": "999156c0b2544fc0b09908198a952f9382e1865c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/devtools/devtools_apitest.cc",
+      "reference_blob": "6c83951333b30e3bf485e93f7f336319379793cd",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/extensions/api/downloads/downloads_api.cc",
+      "reference_blob": "010c3275b52dd1461fd3a513b3fd5629dff9dc2a",
+      "upstream_blob": "08c3a75cfad3535178572da35efb159d3af5aa31",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/image_writer_private/removable_storage_provider_ohos.cc",
+      "reference_blob": "41cc562340822ecb9fe7c559d7c7bc8e41ede476",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/launch_context.cc",
+      "reference_blob": "8017c33ff5868e94043c1ffabbcb88630a9e9f21",
+      "upstream_blob": "70e3f90a263811f600e3489fef4b450fe0a6c6e9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/launch_context.h",
+      "reference_blob": "9f5affab29596a45970ae04d0ce5b3ad4405d540",
+      "upstream_blob": "2729eba3ae0ddf196d05d2c5d4c99e2f68dd2824",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/launch_context_posix.cc",
+      "reference_blob": "2c4084cf1db5b943c54ad8efda754f2947f0baae",
+      "upstream_blob": "ba312dece8db3c0a1b88dad2df9726693368bb0d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/native_message_process_host.cc",
+      "reference_blob": "bd99a7e526581efc3f0e92e205dfab6be7c8aaed",
+      "upstream_blob": "f58f28b552c196187020506cc1e3668070c08980",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/native_messaging_host_manifest.cc",
+      "reference_blob": "5c0aa38692f313edcc0748dfb5a231226df98c49",
+      "upstream_blob": "55bbd556e70014ba1237f11b33f8cd440faae63f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/messaging/native_messaging_host_manifest.h",
+      "reference_blob": "428632a086d26655a799c93e5a01cbb760ccb612",
+      "upstream_blob": "f28aa0de81dbe4a4a23f91d3c87d185e928c194b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/networking_private/BUILD.gn",
+      "reference_blob": "9adf225af4d89823d86783b2b742b935d5038a77",
+      "upstream_blob": "a225a2e4f8c85aecfb85f5a9f15261d05377f7b8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_impl.cc",
+      "reference_blob": "53c116fd4c5bd3e6f82fb018bf57eae8869df5f8",
+      "upstream_blob": "b1c5833a70b2152445fb74518eabac2690af2e75",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_impl.h",
+      "reference_blob": "0e3da61eb2fb7bea96d7be339be0a28fd6ec4b85",
+      "upstream_blob": "15cdd5a8002285a18ca5a86c4629686d5a062274",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/runtime/chrome_runtime_api_delegate.cc",
+      "reference_blob": "2f159116d5a54ff6b5370289847878df9a7ac7ea",
+      "upstream_blob": "6ad1ab7d4429676cc31d3f17757201eb57259449",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/settings_private/generated_prefs.cc",
+      "reference_blob": "603bee249547e1354c54aa3d6620716ff5c339f3",
+      "upstream_blob": "ef1a7c2d1c661198bbb1fa41461d4cdc5c9640a5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/settings_private/prefs_util.cc",
+      "reference_blob": "fb531f649841cb21059a05297f780127cc82b155",
+      "upstream_blob": "d506286648bde95d972f5ee8cb0a1bfad1f55844",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/tabs/tabs_api.cc",
+      "reference_blob": "29eef7768ec1c91c4403702cb0a9a8e78bd879e6",
+      "upstream_blob": "615e06c5e4086688ea3cb3f4fd07d8a1f2816286",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/api/web_request/web_request_apitest.cc",
+      "reference_blob": "f983307a179a0ae2e87eb7436f2f62c9d8df2431",
+      "upstream_blob": "4af66ef00df8962c72f87ba315963a3bff7d4a10",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/chrome_url_request_util.cc",
+      "reference_blob": "333355643a85ef78d12ca337a9600dc5c15d52ef",
+      "upstream_blob": "8ad6032c9b73bd583adbbc657d02fb3567ef0d88",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/delayed_setting_change_browsertest.cc",
+      "reference_blob": "87c0281240cede02b977ec6244ad628e609c768e",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_install_prompt_show_params.cc",
+      "reference_blob": "e85fd83212c3300062bd2b7abf2f50831748c134",
+      "upstream_blob": "6489f94b111bc0084c2aa666813143d41b207f20",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_prefs_unittest.cc",
+      "reference_blob": "78d453af8eab09fd92031b507ff4e92f91a2ef10",
+      "upstream_blob": "bcca1b72744fac523d17d6a802bad46d196a41ec",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_tab_util.cc",
+      "reference_blob": "0590ef554b40e01f41e563f7e93c507532058738",
+      "upstream_blob": "d5de30544c734bc5eea2822e58fe8fc9877ad145",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_tab_util.h",
+      "reference_blob": "114fd31592b0826c7f38e01403e4c2e2079235de",
+      "upstream_blob": "d593de551bb21eb36125ee1b826e203499bf20d0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_tab_util_unittest.cc",
+      "reference_blob": "d7cf15bdd2b4cd3abde836db0817010484b4b307",
+      "upstream_blob": "7ada4f4e3cbdd1662d0123d16bd6cd1f480e1a2a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/extensions/extension_util.cc",
+      "reference_blob": "b416fb0e57e038fe4338a9e9ca3c681656f474f1",
+      "upstream_blob": "851e6f0a4a5678dc32b338a8673f2e29dab1cf3a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/feedback/BUILD.gn",
+      "reference_blob": "fb02b8e8801fff4f0c2abc0ebe04a96c0c7993e6",
+      "upstream_blob": "3c27ac6318f5a13a5be3d6bd27372fa2c7033151",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/file_system_access/BUILD.gn",
+      "reference_blob": "4f228d927ff4bf38914fd18b57282ebabe96dec3",
+      "upstream_blob": "8d55e98d1c6b90a536fb3f32e1e073782cb2053b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/file_system_access/chrome_file_system_access_permission_context_browsertest.cc",
+      "reference_blob": "61f258eb32b44a763738f35c2b36c92321a1b10a",
+      "upstream_blob": "2d16191dc3386067aaa6069edc9bca33a28c2540",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/file_system_access/chrome_file_system_access_permission_context_unittest.cc",
+      "reference_blob": "067c4b11ad89d3f85972377bef71b372ea68af06",
+      "upstream_blob": "e97099475d6336018636da751c7f45cd8dbfaf96",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/first_run/first_run.cc",
+      "reference_blob": "59d3dfa829d5a060cc347879817db17dcc19f4c9",
+      "upstream_blob": "9447bb1c21f7637e341bfdb5c3c401733b9cdcbc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/first_run/first_run_dialog.h",
+      "reference_blob": "5aa87a8b426742661acc17e2f0293c7ea2af2d29",
+      "upstream_blob": "d4afc76d2623333bfee85913a1cad1ca83ef4809",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/first_run/first_run_unittest.cc",
+      "reference_blob": "285514d9cf55776fdb4b4b2c71e93de6ffc49616",
+      "upstream_blob": "14f772dbdb11d0f3e3cad3a20d67f18a25d85c79",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/first_run/upgrade_util_ohos.cc",
+      "reference_blob": "d5677a8eea6e9f94e9c087f820080d86c9109679",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/flag_descriptions.cc",
+      "reference_blob": "73b13f43180f11ab08773df9cf2e1b8d40b66661",
+      "upstream_blob": "040211cd9979f366e07fad1f95d62f185cc3298a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/flag_descriptions.h",
+      "reference_blob": "7dd1df5f83ade7dfc17ce7d1eaf057f163ce9d20",
+      "upstream_blob": "a2837a8268b5e48bd8cb74ab5988e1c98106a82f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/geolocation/geolocation_permission_context_delegate_unittest.cc",
+      "reference_blob": "62c612bf02d94bdedf76a46ab1cf7fd99fa3558a",
+      "upstream_blob": "8e4533dc1022b8d843b16ebfaddf76e1ec0cf9c6",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/global_features.cc",
+      "reference_blob": "2a21a61f90579c9fb7cb0753a31449a901fd2bb9",
+      "upstream_blob": "3a36ca1eab07bb81debd7af5d304eb27145e9a5f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/global_features.h",
+      "reference_blob": "72a86cce4443152c602159365c4356f8037b1d06",
+      "upstream_blob": "dd5e550b0eef98bd467ea74d21787269fe0a04c9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/hid/BUILD.gn",
+      "reference_blob": "ad4321aac1d0ee0cd5834605c5cf713b2cfffd0d",
+      "upstream_blob": "119aec4d0e28117eba82583e57776cbccc9da552",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/icon_loader.h",
+      "reference_blob": "2e2d8e08a682286b5da613b1171d621defc9367e",
+      "upstream_blob": "5698ea630a3daeb3b84cf6ea626a3d25ae16c09d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/icon_loader_ohos.cc",
+      "reference_blob": "7af95f18e7f18b5b59cc30171b612b5ca3bd14b2",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/image_editor/BUILD.gn",
+      "reference_blob": "957d605526165f3863a13d6b196982498976859a",
+      "upstream_blob": "0ca82494df53cca9caa923794d679242391729f2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/importer/BUILD.gn",
+      "reference_blob": "410c94ca91f7c7895eae7db1a2b782dd8823da86",
+      "upstream_blob": "185ecc2d2b828ec59da79d6bd59fad7315933cd3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/intranet_redirect_detector.h",
+      "reference_blob": "214c11fd15b20a9fd642c6e4ae1bb72c70bcf41e",
+      "upstream_blob": "23480b7e123855a54772ad27276162b17f948b13",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/lifetime/application_lifetime_desktop.cc",
+      "reference_blob": "530c90c89a1c08f8a81c7c42b08302f1d41e01c5",
+      "upstream_blob": "6bd4c3a014199c575511393ff838dc430bc05c84",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/lifetime/browser_close_manager.cc",
+      "reference_blob": "a8ea46487ddb5de0904cf388f5ea77cfd9afa8c8",
+      "upstream_blob": "43b8f2e2a18db6b0a8d8d8c5646d9e3bfa7038d0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/lifetime/browser_shutdown.cc",
+      "reference_blob": "b631e802bfe083a248a687d4f67ba1055081a7fd",
+      "upstream_blob": "e5f9e6a34971ac6cfa9aee44a23f1af4a2dc46ef",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/load_library_perf_test.cc",
+      "reference_blob": "c45ab591847b4b44f1835b8fa528b60e9302adb7",
+      "upstream_blob": "96f87e929c0b7877bc8a5690d207ee07addc9fa8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/lookalikes/lookalike_url_navigation_throttle_browsertest.cc",
+      "reference_blob": "b75b1f97d938e10d2916352594d7292fc3ed9236",
+      "upstream_blob": "37922b477836e2f70aba5a785bb390a21f03fcf5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager.cc",
+      "reference_blob": "fd19f3dff7782ebc9632e3a2388ff075bb012f56",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager.h",
+      "reference_blob": "fff1027d7a9884237cc05d97a9b37d499fd8d35f",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager_factory.cc",
+      "reference_blob": "2b717fec25e2f041bc328400e29369ab77b79dbe",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_origin_id_manager_factory.h",
+      "reference_blob": "2020ad3017f718edd0abc852d5eac50c745a3d34",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_storage_factory.cc",
+      "reference_blob": "817cc6705c261f8c7476c30e207668119488384c",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/ohos/cdm/media_drm_storage_factory.h",
+      "reference_blob": "8323c63d7486ffa6d44afccc990e460d2263cb67",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/media/router/discovery/BUILD.gn",
+      "reference_blob": "ab1c914815ecef2091344e919630042b6eb8c965",
+      "upstream_blob": "51c27662f2eac5ab6bbeebd766fb0f009fc21dce",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/BUILD.gn",
+      "reference_blob": "55353e6075c5ab8a1ad64640d32bc339aec875bf",
+      "upstream_blob": "f9e87cd16987d4b6b82743842eb3fd912c676dbb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/desktop_media_picker_factory_impl.cc",
+      "reference_blob": "b698734463c0a98072731bd103bb95dd624e8847",
+      "upstream_blob": "d2a7bc58df3d2eacdb3ec9719eed866f73164403",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/display_media_access_handler.cc",
+      "reference_blob": "5d2c5b3784850d14846025b651d8537fb0a29f3d",
+      "upstream_blob": "a22aaae4827af3f1b4a700e2e65ebc7a1270da1b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/display_media_access_handler_unittest.cc",
+      "reference_blob": "c4f8254e56239c84bbc22250f5344a30e74462de",
+      "upstream_blob": "89265313cb2e27b35331054774b4bd50e0efaa01",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/media_stream_device_permission_context.cc",
+      "reference_blob": "c7d23dfbb8ced05a240b84c7d4fc3419725fb4ff",
+      "upstream_blob": "62dc66004b03b2ffbd600ab58ed7949e2ca7c238",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/media_stream_device_permission_context.h",
+      "reference_blob": "09d1b28a87e9fc43f75d7cc15f419112b8ee0c4c",
+      "upstream_blob": "61d2003b9474b43901500a95b130f463eac6c962",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/media/webrtc/webrtc_log_uploader.cc",
+      "reference_blob": "a368a51ef0e0f90f31eff1131a3a15d4568346ab",
+      "upstream_blob": "bf310126502656449f54baf6ba372cc89b59e9d5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/memory_details.cc",
+      "reference_blob": "16384a00160f9d01ce842eacba331311e4c2130e",
+      "upstream_blob": "3c63ca6e4098df8ee51f51fe9f6cc0670c6a92d2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/metrics/power/process_monitor.cc",
+      "reference_blob": "bab74ae8a14b320d31e6524a50147b873e0c9601",
+      "upstream_blob": "64fca0eaef612b83f34488bb4986596c18d2c73c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/navigation_predictor/BUILD.gn",
+      "reference_blob": "adf95a2a6433123656fe2f0b07d54ffd54687d2b",
+      "upstream_blob": "fc1f870243706b87d05f1ffd08ab25eed371addb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/net/profile_network_context_service.cc",
+      "reference_blob": "0f1ea3e96d4d7531ae9f77b8fb381cc09bd475ef",
+      "upstream_blob": "3956f9fea2546b645e2712b5434414735e82ca79",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/notifications/notification_display_service_impl.cc",
+      "reference_blob": "03a2acd46d8096c121aacb39618a7b20a36a7d8b",
+      "upstream_blob": "52f7fc857ec38cd9be2cb9b0fbbc8498fabac0c4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/notifications/notification_platform_bridge_ohos.cc",
+      "reference_blob": "6db84cc184cd29698fb1eb90b2f6c5b53404af88",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/notifications/notification_platform_bridge_ohos.h",
+      "reference_blob": "3601ae2eab4464ada430d5fe5e76de381ba604c2",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/optimization_guide/BUILD.gn",
+      "reference_blob": "f6e5d5252e3f96a79c9e1f6b62bba5e0bddb1b32",
+      "upstream_blob": "20f18b658d4b9f1eabfd2702c3d983ed91dee44e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/password_manager/chrome_password_manager_client.cc",
+      "reference_blob": "bd0ba0949f1df7de5d0bd45533467dd2eaf52249",
+      "upstream_blob": "55ee373aa9db9592a7bf351dce10bbccf4382538",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/password_manager/password_manager_util_ohos.cc",
+      "reference_blob": "4a62d4375db705f5e6674a043f410dbbe871f2eb",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/password_manager/password_manager_util_ohos.h",
+      "reference_blob": "e5400283f28206b27e92aea5cfacda09a475a79e",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/password_manager/password_reuse_manager_factory.cc",
+      "reference_blob": "da62aa836db4af90915523783dcb01601c2e2136",
+      "upstream_blob": "ef84f3e5334b46bf795c248399ebcb1e864c8c0d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/password_manager/profile_password_store_factory.cc",
+      "reference_blob": "a56cd072e151ddf8d5e0985f500b5fc0138e67e8",
+      "upstream_blob": "4d1ad455fbe6fa2994bbe29ece55275f2d7f4ea1",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/performance_manager/chrome_browser_main_extra_parts_performance_manager.cc",
+      "reference_blob": "8bc3951c33788d207fd80113017349f5f5d6105a",
+      "upstream_blob": "419554cb6bc9d5b38c3f55017dc633aacd80cb44",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/performance_manager/policies/page_discarding_helper.cc",
+      "reference_blob": "60e1b7befba813b29c604541d66d8b68f6ec67fe",
+      "upstream_blob": "07a142857e94c6dd9f0c7831ce798754cdb9f3cf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/performance_manager/policies/page_discarding_policy_ohos.cc",
+      "reference_blob": "d7f45fb8a79943e6ef9d3e64157fa8d1b3f1b173",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/performance_manager/policies/page_discarding_policy_ohos.h",
+      "reference_blob": "3c4548f081d1d33636200bf4fe151dc576ba305f",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/picture_in_picture/BUILD.gn",
+      "reference_blob": "8ff5ed19e8bd22780b85342b43984f5f071fae21",
+      "upstream_blob": "ed6dce081ce6aa1ec9d10f8e0387606edc628480",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/platform_util_ohos.cc",
+      "reference_blob": "7a09d806c5f54e2c3da216ebfafe6cbeeaec25aa",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/policy/BUILD.gn",
+      "reference_blob": "c20d9f1c957e7d1a2f503f73dc8329d5f3b1e19d",
+      "upstream_blob": "0776c010de8992e1a807f5d8c0fa5de5fb284acb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/policy/chrome_browser_cloud_management_controller_desktop.cc",
+      "reference_blob": "19692c23ccf2f56b98d3e208ea1706f115cfa0bd",
+      "upstream_blob": "22c7dff573af6db7fcfc231a87053b511df09a19",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/policy/chrome_browser_policy_connector.cc",
+      "reference_blob": "5d7da6a83b59efa63b7a98af4cad76580af4c1f3",
+      "upstream_blob": "440b8aaca8f0f54d8a4b3ffd3a2ab73147b7bc42",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/policy/configuration_policy_handler_list_factory.cc",
+      "reference_blob": "e15b54676d91e1609d28509fde862a1813ecc640",
+      "upstream_blob": "6c1ffd5e00f4b638ca9cbad50001b8ceb6b7ac51",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/policy/policy_path_parser_ohos.cc",
+      "reference_blob": "017d2540e074016eb85e16a2548c3a202aae379e",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/predictors/autocomplete_action_predictor.cc",
+      "reference_blob": "ca43c628b8c217cd1edc27d8b5898a26e19a8be9",
+      "upstream_blob": "fce3d1baf7b4d535bdcc984391b66f9539bc0ee9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/predictors/autocomplete_action_predictor.h",
+      "reference_blob": "5ac80efd1c8f7afc2a4fe63d0ccdc073bc9a8b7f",
+      "upstream_blob": "92549c79f58d63e9925decb55f62d79d0d60afea",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/predictors/predictors_features.cc",
+      "reference_blob": "dbfda51357333e52bd4c00419c74183f21f22e30",
+      "upstream_blob": "bc12e314c51e20e2a4fee7bdf9844c48161e56df",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/prefs/BUILD.gn",
+      "reference_blob": "5d208dded171dda79bf995fed7af21a0534a0c08",
+      "upstream_blob": "156a2f34d89f54b05e699978b064126a05b42df7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/prefs/browser_prefs.cc",
+      "reference_blob": "760b76db4a7a0215970ff8cc3314d21aa53228f7",
+      "upstream_blob": "7d352058fb59f8ab77c8a35a8b16f15a2f3d216d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/preloading/prefetch/search_prefetch/search_preload_test_response_utils.cc",
+      "reference_blob": "cc89482f2da5f0001ba4ebda47c6cc2ed50279a1",
+      "upstream_blob": "cc79595eb05b37be4fd0b71946d06d66bea2edef",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/preloading/prefetch/search_prefetch/search_preload_test_response_utils.h",
+      "reference_blob": "e3ec6422dbb5f49e1b336eec9842152dcd10530d",
+      "upstream_blob": "db9449037c59a98c058b47831f1cd923c9f30fae",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/printing/printer_manager_dialog_ohos.cc",
+      "reference_blob": "8a4c7e485ee0a6f582360b660c7ca2f1b13007c0",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.cc",
+      "reference_blob": "594e7ba042ef7444a521039d7107521ea7e3c7fd",
+      "upstream_blob": "668d8994e77643db48641028d18e63ca4b3192fe",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/renderer_preferences_util.cc",
+      "reference_blob": "e99b6277f7e99865ffaced1f2561b1b448769fcb",
+      "upstream_blob": "60554970aa2b5366ed6c9861b18f1e07a7a20f99",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/BUILD.gn",
+      "reference_blob": "62a132d92188650c6adb7e4ee09899b9d25beaf3",
+      "upstream_blob": "c7c7e0489831189d4bbb5d9ea148e92d021482a1",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/app_home/BUILD.gn",
+      "reference_blob": "681652c0d169d4edcff74fd7d5ea5c928c17841c",
+      "upstream_blob": "3e527b1f149f1e0ff071d13f8702a9ec5fe4e57e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/app_settings/BUILD.gn",
+      "reference_blob": "10096f838fa78399f7237afc1bcdf57d99bdbabd",
+      "upstream_blob": "103136357a6af746cb30e3e6f071c5a5a9f498e1",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/browser_switch/BUILD.gn",
+      "reference_blob": "813cad6e9b1ff307a142f70ac0ccf50d288930e4",
+      "upstream_blob": "3e7e3204c8c4f6b04b8f6d42e93c769a9e022e60",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/downloads/item.css",
+      "reference_blob": "b2a70b2e497ede145e53c15bac55a95ef64a8be8",
+      "upstream_blob": "f5c2357c5c986e34e7d1256558036e37ecd2effd",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/downloads/item.html.ts",
+      "reference_blob": "62da45c54532f8e6b3ea823ec413a22d800492c6",
+      "upstream_blob": "1e0f2c895d70894e24922608be1f5fa98f17b133",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/extensions/detail_view.html.ts",
+      "reference_blob": "cffd6919daab0e014595e26aff459d2c47ce1c7d",
+      "upstream_blob": "a154e128b60d29b06b533126e76c1eb3a8d2524c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/extensions/detail_view.ts",
+      "reference_blob": "ca5f92aa9b1dd4e8230b9ed39da207f7eda8e2a4",
+      "upstream_blob": "a662e08c8d5a009c8773a8ca9dcc2b5bf75a1899",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/extensions/item_util.ts",
+      "reference_blob": "8961e1101e4a2ddd54a0f4feb9a454033bf2651a",
+      "upstream_blob": "32a60fc41f19a812574dde7b5fff4bc1d19c27b0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/new_tab_page_instant/BUILD.gn",
+      "reference_blob": "e8d5bd71dba750ccf2bfb50e7fb61a9dc1687233",
+      "upstream_blob": "d63f6317c5053f093d0a40dd50f0623b3cc44796",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/on_device_translation_internals/BUILD.gn",
+      "reference_blob": "24442bc750a4923f64dfc8c390cf1ba83cbad471",
+      "upstream_blob": "06215b2432cc2fba41688a7cb8839f2e5e3e3300",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/password_manager/settings_section.html",
+      "reference_blob": "90d387e4fe5977af817824fe99ba99594bf7bc03",
+      "upstream_blob": "e9e370c22256f4b584309f4aabda9ff7a459aa7e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/password_manager/settings_section.ts",
+      "reference_blob": "b85db291601d73a03c59042d08b3f92d5dca7eb6",
+      "upstream_blob": "c8eb187661b1994581f2ce48882ae199a3b4f88f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/pdf/pdf_viewer.ts",
+      "reference_blob": "8e0a8ea7a73b9099a5551d8bcf99083acaf76da1",
+      "upstream_blob": "a861c34084b90561beab221ac13929bef295ac6d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/native_layer.ts",
+      "reference_blob": "07afba22ceb2b375ce5c0319ce08e8f8624b0007",
+      "upstream_blob": "4834eb60023425d4e618f33c30a7c747665086f9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/ui/destination_select.html",
+      "reference_blob": "0500fac945271671f55e091b1043f45fa8765297",
+      "upstream_blob": "51ffa3ba02126747c60e07eda0078583a6133a4e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/ui/destination_settings.ts",
+      "reference_blob": "5359c9715b0d584ea373a4581ee00c593ea5cdcb",
+      "upstream_blob": "d474a1812e0bbe3bb83b673c6798ac53662fefbd",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/ui/link_container.html",
+      "reference_blob": "0dd5c488173883f8d3a492181be000890d64681d",
+      "upstream_blob": "9c483864f6cf0f0a2c7ae4d7cbe08ec69a09cacf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/ui/margin_control_container.html",
+      "reference_blob": "1d699f2c2b0de39b06ad15ac0012879e84b52668",
+      "upstream_blob": "09f1d4965217933b940b2c6b11ba1c0dff90b953",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/print_preview/ui/margin_control_container.ts",
+      "reference_blob": "04c3ddfa9264255a2e1f0fdbcb04c72bd664abac",
+      "upstream_blob": "93da10f9fec29034356fd1886d8139739718bc60",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/BUILD.gn",
+      "reference_blob": "e4d66d3a23e01b0a0a0f56633f0a999f4eed10e0",
+      "upstream_blob": "15fe00363df93896ee6a64ec238744491e8efe91",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/a11y_page/a11y_page.html",
+      "reference_blob": "70096c8dabcd555dee4f630e072839ea1be66879",
+      "upstream_blob": "4ce7254d914fe3889e26d6d2094a7116b2438475",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/a11y_page/a11y_page.ts",
+      "reference_blob": "2ca7ef8f56f85a32c33624e322813c5b706ba9a8",
+      "upstream_blob": "dad172b1394aeb17a58ab25b959acc3f92fb6b2a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/ensure_lazy_loaded.ts",
+      "reference_blob": "d6f476aa93aab5b7163e3b6838d467cfc5126d0e",
+      "upstream_blob": "4971eebe458d69b64c50bb4d33a99baf3354a602",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/lazy_load.ts",
+      "reference_blob": "f6754c05ef48fc6fe4526488e6a0e99f5d8388d4",
+      "upstream_blob": "c30f1d27232314ce00a6611076deff51b45517ed",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/privacy_page/privacy_page.html",
+      "reference_blob": "5bbd77cf514d24d0838ddad82c4347856a4639c6",
+      "upstream_blob": "7d47622af880c66e12fb72faa574cfe4feb6fcb3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/privacy_page/security_page.html",
+      "reference_blob": "c967d39c7c93403248acebdb447424fa6cc45bf9",
+      "upstream_blob": "6ac062af92b06a6e36c9d7e9ecb615bd3c8e8282",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/privacy_page/security_page.ts",
+      "reference_blob": "aa8472e5337f91dced8120b526035e76f5369057",
+      "upstream_blob": "552f3b5534b015f378e55fd21bed04bc65ca4b0d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/route.ts",
+      "reference_blob": "40bb6aa13147265297f9a0084bf5cca28b1e5e94",
+      "upstream_blob": "12390b95903a69f209c8bd708c944011f1d8c682",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/settings_menu/settings_menu.html",
+      "reference_blob": "d2b82c2bd8728f0a76955548529eccb2bcf10ae7",
+      "upstream_blob": "5f0ac710c3a63df3900252deb694a331d8f14f74",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/settings_menu/settings_menu.ts",
+      "reference_blob": "5a5d60b896d44f9f4c767c34fbad5d6eb493ffb0",
+      "upstream_blob": "d756de3d8e76cb10c4ad04184411fce87f7a7c86",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/settings/system_page/system_page.html",
+      "reference_blob": "2a22774dd109baf6cfda281737b358bee92c8c84",
+      "upstream_blob": "f7d21639af81bfa5d777980f4d78cd3a5767edea",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/resources/tab_search/BUILD.gn",
+      "reference_blob": "6474161b1e8f7b8f163a744f68cb8af3e2336ea4",
+      "upstream_blob": "ad79bca105373d140b8f9ce0ef564bf821880d14",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/safe_browsing/download_protection/download_protection_service.cc",
+      "reference_blob": "f0e5696479912eb35b444995a1011cbfd821b400",
+      "upstream_blob": "27d7b4d204274aa8a75287f67cd7cba7922b94bf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/safe_browsing/download_protection/path_sanitizer_unittest.cc",
+      "reference_blob": "bf968f18e7287d5f9e79340ed8259fed0e0fd6b5",
+      "upstream_blob": "d428fd808b08ad3783638ef695bcdb0a6e53eeb3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/safe_browsing/generated_advanced_security_mode_pref.cc",
+      "reference_blob": "6077af91b747d9977c93c3cd27af7c6e29dd8fe0",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/safe_browsing/generated_advanced_security_mode_pref.h",
+      "reference_blob": "9fee8030a0e69b54341681b25df6cae32b5ba82c",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/search/BUILD.gn",
+      "reference_blob": "3f591d9430277961087b28570e3463acaaf20a4f",
+      "upstream_blob": "7327a4d1ad814d6325058ba54790373c1ef91bd2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/search/background/BUILD.gn",
+      "reference_blob": "04dc98971a97b46844edc7788f34992370424976",
+      "upstream_blob": "8ed84e3db292499700cfa30cae11ae72add08008",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/search_engine_choice/BUILD.gn",
+      "reference_blob": "fcf10e47be23e7a16b26b925c5c95363e4da7073",
+      "upstream_blob": "64ea7d923b29959f9dac114f5cddb21e773d4b76",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/search_engines/BUILD.gn",
+      "reference_blob": "8e45d8000ba623bc14ca65d328fefe0ff7f97590",
+      "upstream_blob": "236b3704929498b329691676392bb5eb5d8103ba",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/send_tab_to_self/receiving_ui_handler_registry.cc",
+      "reference_blob": "ded2d4f860029cd23f65c995e88d9bc08587947a",
+      "upstream_blob": "b17347b7d5e2924fd2f80abcbf2598dd29bf1b88",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/shell_integration_ohos.cc",
+      "reference_blob": "ae9d30bcab9bd585e367dbffb5d0399eaa44c17b",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/shortcuts/create_shortcut_for_current_web_contents_task.cc",
+      "reference_blob": "a0b8ba94bc2a7e5f722f270221fa15a2a465a59d",
+      "upstream_blob": "c45edb24c39f276db32c759b2f2b51c3bed0206f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/shortcuts/icon_badging.cc",
+      "reference_blob": "6228af08fc74a1e721a133ed5eb20e95aa93cccb",
+      "upstream_blob": "4fda3913e3f2c9dfbd46b5a97d3d28215e32d5ac",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/shortcuts/icon_badging_unittest.cc",
+      "reference_blob": "bdcb03ddeb6e63ebbf244fea87d8742f26453d66",
+      "upstream_blob": "0f5e315004c0abf1a1e28416f639021cea96b88e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/supervised_user/supervised_user_browser_utils.cc",
+      "reference_blob": "43ff04358a6b4ecff97edcc2fe7f4068c8b4bfd6",
+      "upstream_blob": "2602020a56a34ddc25cf39c32639530c6e2eac7a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/supervised_user/supervised_user_browser_utils.h",
+      "reference_blob": "5d416141172e4eea0f4a0d9cdd67808d6aea4a1f",
+      "upstream_blob": "6857124a045da469f1fd579636f5d07754735db2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/supervised_user/supervised_user_google_auth_navigation_throttle.cc",
+      "reference_blob": "d1ec0b0b81638cdbe988fbc53e67ee2bd8867676",
+      "upstream_blob": "40989d75a2353eab1090b2f83513013722ded143",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/supervised_user/supervised_user_navigation_observer.cc",
+      "reference_blob": "52c9eb37629b1d78d3f371029230d87208b6878c",
+      "upstream_blob": "fee9504ed34ec635a3b8d406e0dfc84b8cfc89ea",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/sync/BUILD.gn",
+      "reference_blob": "ebab556edad96354d0eb85a53383909db70f6a8e",
+      "upstream_blob": "fefd67ef0184e128b93283331e9a9db6defe3e95",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/sync/sync_service_factory.cc",
+      "reference_blob": "fdf43bd9bbe0c8c6bae87cb8300e1a24054a60db",
+      "upstream_blob": "4073dd7527643e47db1ff1e2792390ca42daa6f5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/task_manager/BUILD.gn",
+      "reference_blob": "2872e65508209bed61378e99d30c753e634e5e9e",
+      "upstream_blob": "285f91ae3d38a2d8aac9bae7888b7708fc914166",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/themes/BUILD.gn",
+      "reference_blob": "111ade3bd46b1349f8fa18c53d262c330cdc9509",
+      "upstream_blob": "260dd2569f053973512acd4e485074ef1bf45ea0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/themes/theme_service_factory.cc",
+      "reference_blob": "3eccc524c01e4a6567ff6f0671e59836ffec9f9d",
+      "upstream_blob": "a7d34da3cbdafd629c50735ad520820c02a090e6",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/themes/theme_service_ohos.cc",
+      "reference_blob": "4fa4b4d6d257fe270c0a2ba0c55ce3095cb3566f",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/themes/theme_service_ohos.h",
+      "reference_blob": "0e25f7c6ed506b7de7ad09a94851287407eccc93",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/BUILD.gn",
+      "reference_blob": "80935f17729965622722110a5ced2f5a689d00e5",
+      "upstream_blob": "df9b0eed0776196f652070972b6feb11af354fc0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/apps/BUILD.gn",
+      "reference_blob": "8e02885e2ec69b31eb6dbbaaace3d7d1d1564a20",
+      "upstream_blob": "473708dca9d8264b2112c16cb73291e9f4a786aa",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/apps/chrome_app_window_client.cc",
+      "reference_blob": "30938d3ee293304b1eb100e162edffaf6642306c",
+      "upstream_blob": "a65eb42550d5a3c03c6a1658214f063e3945aa3c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/ash/main_extra_parts/chrome_browser_main_extra_parts_ash.cc",
+      "reference_blob": "c71dacedcaaa128afad09a3120b29e745e4cc3e6",
+      "upstream_blob": "3ab3584f23023efdb542c95661b43c0bd461d2b3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/autofill/BUILD.gn",
+      "reference_blob": "0ee51ad3da6db66d48fdd20136834164f5bcfaa6",
+      "upstream_blob": "b2929020c9476cf42677cadc295f70dfba4aeb3c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/autofill/chrome_autofill_client.cc",
+      "reference_blob": "d51efddf327f427b597d542ec21ba13e280a395b",
+      "upstream_blob": "28cf950b57e13acea39dd9cea284828e6255844f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/autofill/payments/BUILD.gn",
+      "reference_blob": "91fd3597d9b14f37199599486a5d9f6533db893a",
+      "upstream_blob": "bf06ea1d991846efaaf2629f4dc03ec4b1a5f042",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/blocked_content/BUILD.gn",
+      "reference_blob": "eb365248bac28a3fa2bb69117b698afce248bf55",
+      "upstream_blob": "e9e4c3ee768b52e55aaba804cee3c093017a8b0b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/bluetooth/BUILD.gn",
+      "reference_blob": "87b600ce12553117dfd3d38a594a8083306c6432",
+      "upstream_blob": "ba0dd9c8a3f9fd789881e06e9b6ae1fc53002e9a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/bookmarks/BUILD.gn",
+      "reference_blob": "541bce82684fa204bc86eed3397ee1b8d223a2ac",
+      "upstream_blob": "611fade17dae9d42b1006e9dfd818584f8781d4f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/bookmarks/bookmark_utils_desktop.cc",
+      "reference_blob": "0ff1d15e72c198d801062205fd5ae397be4dd44d",
+      "upstream_blob": "8a48a2c43b98e08c6122bac084df80881ee056f7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser.cc",
+      "reference_blob": "ce9cd5ce580f51663fb4b70bd2ae7162cf35654e",
+      "upstream_blob": "f313979ca1b0a305291c1fb5df57210324000f52",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser.h",
+      "reference_blob": "ceae6f7729cd41637c7a5791a19a9e37176ffe9a",
+      "upstream_blob": "8057f6fcc87c482f2ad477240528191e0043c08c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser_list.cc",
+      "reference_blob": "026ce1f191b97498b4b836a32776b61d262aaa25",
+      "upstream_blob": "c45242d9d8ba417974b765df99e156f47d240d5f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser_navigator.cc",
+      "reference_blob": "e7a0325c78b34864f00eca19a86c6bee6ede71dc",
+      "upstream_blob": "61a46e74464e0af6da4c02d6b86071ae75c1987c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser_ui_prefs.cc",
+      "reference_blob": "29fd805d553266bf9693edfbdbfc70e291582086",
+      "upstream_blob": "6beaa87108b322443497156d49c147c314b8212b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/browser_window/BUILD.gn",
+      "reference_blob": "d938cda62df50a6bce19d7bf4a72156e00cbd1c2",
+      "upstream_blob": "e1062053574dab9e8bbe6b06b0fe3bfcb80e1c0d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/chrome_pages.cc",
+      "reference_blob": "93b775f27e3f1975ee108723bb5920c408676b09",
+      "upstream_blob": "4c3a5981dbf5c94845cf9c259483d7e10d8f3424",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/chrome_pages.h",
+      "reference_blob": "95514950a7340160a3bc53294afe477752cf1de2",
+      "upstream_blob": "efb40efa3e1798f5ca40df4b626fbab62a92ed3e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/commerce/BUILD.gn",
+      "reference_blob": "c5e910c123fc34d99fe82ca2bd46c4dae915e009",
+      "upstream_blob": "7f2527ca1fb9bd2411fe896dd5c4e43350f5c452",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/content_settings/BUILD.gn",
+      "reference_blob": "cc835785f2386b8244a17421b54b8564caa6f275",
+      "upstream_blob": "494d73ed5649360bbc59542993cd316d5bd8bfcb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/cookie_controls/BUILD.gn",
+      "reference_blob": "ef445fd70f3ac72fa10309f6dc9fbc41371f7d8b",
+      "upstream_blob": "7ec6e9a8d5dfaef75615c05ec64c6a65f5a8ef00",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/customize_chrome/BUILD.gn",
+      "reference_blob": "8868825784a46970e6c8794565eb95eb975afbd1",
+      "upstream_blob": "006ff49abb98b3da635272188e9c7d96b9bb36aa",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/digital_credentials/BUILD.gn",
+      "reference_blob": "be7b7badeb16fb3339b7a9c3af4ec827f5ea0d6f",
+      "upstream_blob": "8295df15d6cd70f76c92b63edd6117d989be5f60",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/download/BUILD.gn",
+      "reference_blob": "26bb6e08136a210cd81a85c166fbea82176942a6",
+      "upstream_blob": "8f977bab2cfffda3ae28e52d0d2a2322e5788192",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/exclusive_access/BUILD.gn",
+      "reference_blob": "6b3732ff8275e7769d8d3752401086c5c7fcf3ea",
+      "upstream_blob": "c50db15ac0c5d450c3f24c3d08fa525f6a7913e0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/extensions/settings_api_bubble_helpers.cc",
+      "reference_blob": "2c013c062f5d1c6444fbd7d870bf6878c90f22cb",
+      "upstream_blob": "2d324e4e57a06677b777840eedec0a8ef65d213a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/file_system_access/BUILD.gn",
+      "reference_blob": "13f1c9809ac892a17d409f3e489898162ecd3d56",
+      "upstream_blob": "1ef26b8abb5a55bab2fc800d22d8bbf370747101",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/find_bar/BUILD.gn",
+      "reference_blob": "b968d653d48547b41a7602343462b8703c26a2d0",
+      "upstream_blob": "97ade0717ee16a4cb04cf1d582b24b074cc35545",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/frame/BUILD.gn",
+      "reference_blob": "985be0738cc3c79edc91cdfcd4cd5e39047f8501",
+      "upstream_blob": "a140a8bfbc3d94fca6167ffaafd8e56c21eabe83",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/global_error/BUILD.gn",
+      "reference_blob": "f79e09383c87867224facd23b4f41904e34dbe9c",
+      "upstream_blob": "cf8504a0688ec4e946f3743468f0d9764779dd23",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/global_media_controls/BUILD.gn",
+      "reference_blob": "b465c1b44735aaef787407ceaff01a62a3cdf9d0",
+      "upstream_blob": "7684862d29caa23b3ae84c9d241a45dae7bca830",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/hats/BUILD.gn",
+      "reference_blob": "2667dce99db2998f680dbf4c616d04d178e126b7",
+      "upstream_blob": "a5278ce7fc947f07647dc5baec81f164fe0cc9f2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/hid/BUILD.gn",
+      "reference_blob": "5e6b8786da4ba285a52130d9e8c46bfc2796f4eb",
+      "upstream_blob": "c1b7d6709724cee52c18c68909709a4236b91734",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/hung_renderer/BUILD.gn",
+      "reference_blob": "17192f7bb602ce512dffaa6ea5028b0cdc9e719f",
+      "upstream_blob": "58dd8e3184a5b6e0ae4aea3a6cbb27c28b573a76",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/interventions/BUILD.gn",
+      "reference_blob": "e1118feb2bd6af22304df1ad9b5d1501de049ad7",
+      "upstream_blob": "379c4ef148280fb53c648a039a44ae0756a9275b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/javascript_dialogs/BUILD.gn",
+      "reference_blob": "29c47693b8bb034037c8729283bf84c89f5dabba",
+      "upstream_blob": "66c2d97d2c4a5e5bec8e5f24028026af40046723",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/layout_constants.cc",
+      "reference_blob": "ac37999af1a2ede5691e92097ab55c249739b5de",
+      "upstream_blob": "517331685e9edde24619f2efa92e29bc971e4daf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/lens/lens_permission_bubble_controller.cc",
+      "reference_blob": "90c64845a4d012b1b95a04f50388e9f502d0a758",
+      "upstream_blob": "5b7b94f79ea27d7a2278485eff3546c09ba288e4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/login/BUILD.gn",
+      "reference_blob": "0c9f0d1f8e704154d93a1898abe1e258a2817a81",
+      "upstream_blob": "bdc7e72608b83e16c8e5b99f28234b8746217f00",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/media_router/BUILD.gn",
+      "reference_blob": "794e767ff79089ab5f5f4ea673526f736451d010",
+      "upstream_blob": "3ca4a061dd60435465c7a5e94a5261712d0a1cef",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/browser_exit_monitor_ohos.cc",
+      "reference_blob": "e5e0bf3dcb5311ac89badacb3d688c7dd3f4fe76",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/browser_exit_monitor_ohos.h",
+      "reference_blob": "0b821633be8bacd4ea0d0126e0a16cd9521efbaa",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/browser_list_observer_ohos.cc",
+      "reference_blob": "bad8f03b02ba820a6efc6c3e74b7c15bb5e57f06",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/browser_list_observer_ohos.h",
+      "reference_blob": "37aa73692ec8a4b5940bac4567c7336c5a76aff3",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/execute_command_singleton.cc",
+      "reference_blob": "4a58d7c18b6304d783f5ce3e23b07b99ee3c3cee",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/ohos/execute_command_singleton.h",
+      "reference_blob": "86a418537282ee9efe033cdb40a27ee2a5f41657",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/omnibox/BUILD.gn",
+      "reference_blob": "9d6b33fb75ac830150699d23c3bb6f36d7364dcf",
+      "upstream_blob": "a93af5b766a1c7a78172c2721e703b591fd4de10",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/omnibox/chrome_omnibox_client.cc",
+      "reference_blob": "7371e77eeb7d260628f93fc0ac1c9930397badc0",
+      "upstream_blob": "8a8b4c567c4a96a7bfa4fdad70deafb4d23ea04f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/omnibox/chrome_omnibox_client.h",
+      "reference_blob": "52f32da816bf196ee33cf938bc8fb0345d13ff84",
+      "upstream_blob": "e13c48e733b29acfc935b5af6cdf66b460aac116",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/omnibox/clipboard_utils.cc",
+      "reference_blob": "87e8ec6942640741171cb697eb7b1a485b9caa55",
+      "upstream_blob": "814f43927d7361eedccd6a1c87c8cdda53d73ecf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/omnibox/clipboard_utils.h",
+      "reference_blob": "a1e8119018144d91b788f7028f53ac2ea267cdbf",
+      "upstream_blob": "46e15367e8e9623dda12e5b1c320ef1dc8c9e885",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/page_action/BUILD.gn",
+      "reference_blob": "f30aee22953d9ccff20175ed37f90c1709030872",
+      "upstream_blob": "d40afb000ddede5783462530fb0870dc060b313c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/page_info/BUILD.gn",
+      "reference_blob": "1602d9b1ae5f3ff9a1f37637418f2e55d8940f5e",
+      "upstream_blob": "cac1c1bfb665c2c9cbe5848b43ca4673e9ed1e84",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/bubble_controllers/biometric_authentication_confirmation_bubble_controller.cc",
+      "reference_blob": "ad47241738ede3e49e7eed37f719315091715816",
+      "upstream_blob": "d6bb5ef92835edab12720b8e20c58ca7a0cd6bec",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/bubble_controllers/biometric_authentication_for_filling_bubble_controller.cc",
+      "reference_blob": "160fe27d04e1e89a63067656f86c5ebb93fdb005",
+      "upstream_blob": "7a3457feadfc1a00967ebeb57d144c1a6c077429",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/bubble_controllers/manage_passwords_bubble_controller.cc",
+      "reference_blob": "459617582772706a5ac2ce9de661c92206a11bdc",
+      "upstream_blob": "70b19a673bae51fb39e31f83cc3a484d9aa36456",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/bubble_controllers/save_update_bubble_controller.cc",
+      "reference_blob": "b3a464d1868b5135bd595d04aef6c0ac8d937faa",
+      "upstream_blob": "eb47edca55a042791d8714b91c27508ea4d1acbc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/manage_passwords_ui_controller.cc",
+      "reference_blob": "7e196a90c668862c4023e155e854959f7b157431",
+      "upstream_blob": "67d5d05886fe9c12a767be01f5281c5b2c248693",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/passwords/manage_passwords_ui_controller.h",
+      "reference_blob": "3c3f84785be96ff73079b2354f1b8b921bde3f0d",
+      "upstream_blob": "b774f112f15f3542eb2aca3404360933f9d701d0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/permission_bubble/BUILD.gn",
+      "reference_blob": "d4003e4b49dd9f25c9d38ed7411f33e7b1daaa5f",
+      "upstream_blob": "2728d4cce742e6501a13f1926cfcd6dfcae16e5b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/prefs/BUILD.gn",
+      "reference_blob": "06048dd4de444801bb6a2fc61762ddcf2dffe8d4",
+      "upstream_blob": "c208487b61761d8ead22bbacbd7b2f9771095151",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/qrcode_generator/BUILD.gn",
+      "reference_blob": "700fa0c5f80eef3e17a5ce8e9d01189e9314e13a",
+      "upstream_blob": "597eb1eb9abd2c4280ab68341412e2646ae73f1f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/safety_hub/BUILD.gn",
+      "reference_blob": "c613ceb166077727980ffa2ed9c10b49d04cb972",
+      "upstream_blob": "7b2a65a5c248e69391abfdcc5eca356103483b65",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/sharing_hub/sharing_hub_bubble_controller.h",
+      "reference_blob": "b7fbca8545c805f326d980fc8d280797e82aecea",
+      "upstream_blob": "c93fb2fd9ed80e9430f2374a1b6e0b554e432647",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/startup/infobar_utils.cc",
+      "reference_blob": "b3d6bc25d8b573029150fce29fe2852fe990ffed",
+      "upstream_blob": "371869078eab568553fc325965f614eefedcb56d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/startup/startup_tab_provider.cc",
+      "reference_blob": "6beb7a9834a5effa5f5b79b73555168d12d3feb4",
+      "upstream_blob": "e09a6fc72924290a986318c90e552c0e1d18cfa3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/tab_contents/BUILD.gn",
+      "reference_blob": "4ed0d024daf0b0d2420973bcd81a2fae5b04c15e",
+      "upstream_blob": "00dda55986d0711824af27ac5529b80a468de63d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/tab_helpers.cc",
+      "reference_blob": "2008d38722ebdb1331480ec6f293e1d828fb3d37",
+      "upstream_blob": "6e28cc6a869369ec5d23904b802bc10f24e51908",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/tab_process_logger_ohos.cc",
+      "reference_blob": "4a0b21b4a230fbcf1cdab8ca0c42311b0962d21f",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/tab_process_logger_ohos.h",
+      "reference_blob": "8c80e38a43a4dd903b4b21a3b39bce89af9a2607",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/tabs/BUILD.gn",
+      "reference_blob": "cf33ac3f0e940f1bbc2f10329b014c735f982605",
+      "upstream_blob": "ebd5f4f6a4f68dd549af56e86c62c173cbdb795c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/toasts/BUILD.gn",
+      "reference_blob": "b0731d975f11da97975b09e22f293cbc44b9b08c",
+      "upstream_blob": "d3d2cb75d15523264ee255131998b31d4198fd7f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/toolbar/cast/BUILD.gn",
+      "reference_blob": "4d8022e4a26764cf6c5841d80ba2de71d3cfb74e",
+      "upstream_blob": "24a2ebd0b18c5985effbe9dbe52fd9ba15434423",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/unload_controller.cc",
+      "reference_blob": "c1ce272e335d4a0bc33b0bb8710d4f87f69d003f",
+      "upstream_blob": "828eff173284ae20165bec6294267ad3708365fb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/unload_controller.h",
+      "reference_blob": "f5700b13432632d1cdd76cde67ef5bdad79cdfad",
+      "upstream_blob": "65005f44ffcdfe877508d8ccc75252d460d0e9bc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/user_education/BUILD.gn",
+      "reference_blob": "ed8acae39851772658a66537ab1010c3a28a2acf",
+      "upstream_blob": "842fdb3125c0dd2803f2e70db49c650b7324c4a0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/accelerator_table.cc",
+      "reference_blob": "d3487d3a9c165666cceeb0a2d3ef0d2f12b05bec",
+      "upstream_blob": "c1bc5c9bc5cb60d403bd6508c063b577fa6cacb7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/autofill/popup/popup_base_view.cc",
+      "reference_blob": "2c768077396839449d004dcbc0130e90a41589b3",
+      "upstream_blob": "d9516497dc01690ef86ae426de955ade37fcc8ef",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/autofill/popup/popup_view_utils.cc",
+      "reference_blob": "982efcfd05d2b35fb81ce5799c7c719abdb1798e",
+      "upstream_blob": "43359bbafa68baf7ebf81554c6fcaf37ab805059",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/autofill/popup/popup_view_utils.h",
+      "reference_blob": "ecbc51f810283bd7c939e498d9b4425d41e56c56",
+      "upstream_blob": "9b952a2354923015162f6fb4660a5e9cba9310ff",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/autofill/popup/popup_view_views.cc",
+      "reference_blob": "40fc65d8e2d465c1e4a8843d16314f9992deddf1",
+      "upstream_blob": "122c378fafc110c8a87b4c5bfe8d4d26d2524f86",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/autofill/popup/popup_view_views_unittest.cc",
+      "reference_blob": "a22d66ccd4f33dc5d4c84a08fa2b9419246fa2cc",
+      "upstream_blob": "05b5d6abe9bcfbe13edd354ca470dc6cd4f09bd5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/bookmarks/bookmark_bar_view.cc",
+      "reference_blob": "6c474106218046ad023bd71369a17ec69b3ddb7f",
+      "upstream_blob": "dcb649fed35d683a6018d7768b37dad1294f374c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/bookmarks/bookmark_drag_drop_views.cc",
+      "reference_blob": "93f09e511247358e0d0d30f8f4ef3047ac374cf5",
+      "upstream_blob": "7604c9de03bec0422ca59fe5c6d01a043bcbab8e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/bookmarks/bookmark_menu_delegate.cc",
+      "reference_blob": "74a4a88b858a0d223d5999e98c158fd4c313e85f",
+      "upstream_blob": "83e06aee791099969f01639863492a5683013d7c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/bubble/BUILD.gn",
+      "reference_blob": "6c3173f5945e0f7984091719e6457f62a47d9049",
+      "upstream_blob": "50628fd06133446893ab6af85ad0a8f272751401",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/chrome_browser_main_extra_parts_views_ohos.cc",
+      "reference_blob": "f4e2b483e8101bb60873e0e8160602cc6ff5bde0",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/chrome_browser_main_extra_parts_views_ohos.h",
+      "reference_blob": "85350368658dac0512ff33e2c5914beb3509f6cb",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/chrome_views_delegate_ohos.cc",
+      "reference_blob": "e9404088cdecf3e714669156e5dff4ce9257d62a",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/create_application_shortcut_view.cc",
+      "reference_blob": "bcb6b3bab920a6f04e909af8b01e8aac98599797",
+      "upstream_blob": "261cfac5ea79d8a818d91711463103ab9cd46d85",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/create_application_shortcut_view.h",
+      "reference_blob": "8ca05eda4650bbae08430fd214778c0f4ef370f7",
+      "upstream_blob": "1283cb6358927727440b524b751aac01022f7fda",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/desktop_capture/desktop_media_list_view.cc",
+      "reference_blob": "10360753f07ba677f1f857111b7797f7a4a7ebac",
+      "upstream_blob": "50df755e0866f4775f88c4edf5e83fbd5722cdee",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.cc",
+      "reference_blob": "be9481d5f0cc0c6773240964d4bfadb881a5a409",
+      "upstream_blob": "d051228f9c73e01c2fd2ec745a3fc2d3d5dfba54",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.h",
+      "reference_blob": "4b39420b1d87c282adb94324284f4669056eaa83",
+      "upstream_blob": "e688730e3201c5c1deb7b08ba9ce19a003ccdb73",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/desktop_capture/share_audio_view.cc",
+      "reference_blob": "b318998a8be47b32b59a1f9bdb62d3718fac47fe",
+      "upstream_blob": "559c6238acf8612b75f2c046529dea0ac5065f73",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/desktop_capture/share_audio_view.h",
+      "reference_blob": "7a5530a2bbc1deb0545ac3b6895d29c773fde196",
+      "upstream_blob": "92a2af7709ba70374407a875aa047d859bd917f5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc",
+      "reference_blob": "25b618ed0feed671d3da0e63e91828c1e0ffe486",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h",
+      "reference_blob": "9accee72b80815c9452867d886d26c3c7d34b490",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_frame.cc",
+      "reference_blob": "3bac3a77e3f7b9fcf2557aad9b06c84fc78f1ba3",
+      "upstream_blob": "cc1dbe66664682dd46f73ffe658c69773a3f2da3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_frame_view_ohos.cc",
+      "reference_blob": "5902a941dd450ef0e2eeb78f26b7f53cfd7aff8a",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_frame_view_ohos.h",
+      "reference_blob": "be64e01051238093defa861bf02796ef48f2d440",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_non_client_frame_view_factory_views.cc",
+      "reference_blob": "ce78944dfc6b2b2041c2224f1c682db90933d0e2",
+      "upstream_blob": "f893b23ccc2cdc0c9494fdc573270e50a0a6c59f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_root_view.cc",
+      "reference_blob": "76fd5ac11f22ac2aceb26c298789a9fb8b575a61",
+      "upstream_blob": "0089bb5496d5af920eba6c2b0fbb5275458fc760",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_root_view.h",
+      "reference_blob": "8f1587e7eee937f25598e1170c6be62fc6234604",
+      "upstream_blob": "3452bc06203702878edc034682405ba103f2ce5b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/browser_view.cc",
+      "reference_blob": "411f83b2c25114c120edc259e39dbf18ec4ecbf6",
+      "upstream_blob": "3944e4463304da9eb5a7969eba9a1b35efb42bbc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/desktop_browser_frame_aura_ohos.cc",
+      "reference_blob": "2622934c082003993f2ecf8197fe4cd87f17767d",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/desktop_browser_frame_aura_ohos.h",
+      "reference_blob": "c0cd0523910b8f4a3a50c0a79dc565c3f0c1cba7",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/frame/tab_strip_region_view.cc",
+      "reference_blob": "a05b946a40ec480355c28fcaaec7cef70df3815b",
+      "upstream_blob": "7314ee1ae10b475f75c430349fd3b999b6971c22",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/location_bar/location_bar_view.cc",
+      "reference_blob": "9d9ae92ac4362e1fdd854e8a9dceee7a61923ee4",
+      "upstream_blob": "4ed68ad88117fe48d9608d871f7d0d65ba9253e1",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/location_bar/location_bar_view.h",
+      "reference_blob": "a1141adee044bc00c06881b93fa6f82cd93d14ef",
+      "upstream_blob": "7595a6b3b45c09042b12ed8af31d7ad84b7daa73",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/omnibox/omnibox_view_views.cc",
+      "reference_blob": "f2bb6ef4108c9b402d5722fa77a22d003922a639",
+      "upstream_blob": "3e2be8b5199a534a9507135fc1c4538b42afc598",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/overlay/video_overlay_window_views.cc",
+      "reference_blob": "d63a5a189fe59f918b335ade59da29949450ba7f",
+      "upstream_blob": "0ca5d6f5680e5e1342a3ad75e4b0ebbda5122805",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/page_info/page_info_permission_content_view.cc",
+      "reference_blob": "b7ac6d8cdb8d7f80ffb04dedde17dc69dffb96a7",
+      "upstream_blob": "6e9a60d56a46505ca73d95dc9f4df02a37870bd4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/passwords/biometric_authentication_confirmation_bubble_view.cc",
+      "reference_blob": "0e1e0e2467d0c7b3cc2682990a96ec6dbe71da07",
+      "upstream_blob": "bc8dfadd979e55773975adb33412a7aa7cf9357e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/passwords/password_bubble_view_base.cc",
+      "reference_blob": "a7ebc70243b3f80ebb38ad5f2869524d756f56ea",
+      "upstream_blob": "4537dde415d65f3e79690368f8c2ddf723cedfce",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/profiles/profile_picker_view.cc",
+      "reference_blob": "cc4bb25df07201ebf372eb6ae333fba408b00732",
+      "upstream_blob": "31cb5bf1a9070a9240179bce15dd0c0cd38bd7cc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/screen_capture_notification_ui_views.cc",
+      "reference_blob": "d4811188fb6a52545420d184d690f05ac703bb28",
+      "upstream_blob": "0d66bd7b29df898c903c43581c4a41ce39121a3e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/side_panel/BUILD.gn",
+      "reference_blob": "04c2a2e5719194fafe49eee423a70435ce66804b",
+      "upstream_blob": "206af0bdfe1e491ab78f525cac3c60bc786936ae",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/status_icons/status_tray_ohos.cc",
+      "reference_blob": "ee2b44a4bcc397196eb8ad879f62370d519ef14a",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/fade_label_view.cc",
+      "reference_blob": "6eb56f683863966451a9390facb78c0c54b7efd8",
+      "upstream_blob": "f0708ed5c3878329ec3f4530bc0892d754ed16b4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/fade_label_view.h",
+      "reference_blob": "fde6b7b053ec421691f29e03914f3afacd6fbf3f",
+      "upstream_blob": "0c58d31e77ed6e79793057629bdc574d7e16849e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab.cc",
+      "reference_blob": "dc26e0e773683c6a9f638b13864cc85bc6ee26a2",
+      "upstream_blob": "22c12b3d128b497d042793b971b066e8a7685a58",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab.h",
+      "reference_blob": "26fc04b85c8d8302f7583182841c7522b284bad4",
+      "upstream_blob": "f872e7553db154b47e6bc389201d9bc977939069",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab_drag_controller.cc",
+      "reference_blob": "5480c203db3c6a5095e2e2fba399a85104db7fa8",
+      "upstream_blob": "089a54601beb99db9b63f31b68309ba1bf1be3bb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab_drag_controller.h",
+      "reference_blob": "edef0bb51f0b306df438d5e996333a988bd3e6b8",
+      "upstream_blob": "87b5707cebc099196b8a5861f0b38a4b34bc0689",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.cc",
+      "reference_blob": "4d014ec9455f8441326cac2cb53656297d7d43de",
+      "upstream_blob": "0b2a535f2c3a0a9a0edd1d267be8239aad2b336c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/tab_strip.cc",
+      "reference_blob": "4fc795cc1949b26f915329f9fcb4d72be693b905",
+      "upstream_blob": "f8d62e947251f221388daba8648e0b6e2e21adbe",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/window_finder.cc",
+      "reference_blob": "dbe373bd47003c7424eaba597841031ed71d762c",
+      "upstream_blob": "8cd6b7d2a36ed5d728f992af20bcad319314ad93",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/tabs/window_finder.h",
+      "reference_blob": "202767fc40db9d2308364af7a8e947acbee9e2fc",
+      "upstream_blob": "4724a21e3e1194ee1e22882d9a5472b9e83ed1b4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/toolbar/BUILD.gn",
+      "reference_blob": "fc5398e4c4529cb2d96ad2b1776bcb43d8c793ef",
+      "upstream_blob": "8250b5e64561a2fa10f246f1161c0c4fd4cde444",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/toolbar/app_menu.cc",
+      "reference_blob": "4745db2c0b834c688989ff34b9e26ef5656d824c",
+      "upstream_blob": "e96fca7585c60a7041d23ba2fe710e267d6483e9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_browsertest.cc",
+      "reference_blob": "7250ee4d838fa3f743570b2057a2acb669edde65",
+      "upstream_blob": "7d055bb5651c30f18874a6c6107a6015aa4d8d63",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_toolbar_button_container.cc",
+      "reference_blob": "f9a1d2c21f14ee4476c9c1bac717d798364a19e2",
+      "upstream_blob": "6ce53838c4d53cd91c528e361856c44441f08906",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/views/webid/account_selection_view_base.h",
+      "reference_blob": "418ba27f693ad636b465d959e6f267e18f3b05fb",
+      "upstream_blob": "ca5f5f37e9b33b52d560a8507f09e3eb3ea8d70e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/web_applications/web_app_browser_controller.cc",
+      "reference_blob": "21e59e2e5dff0bda7bbe563e4fcf3e147eb02d3a",
+      "upstream_blob": "c266ffbcb0a25885ca72c4896f8736cc5f335fbd",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/web_applications/web_app_dialogs.h",
+      "reference_blob": "5f24a2c0ea7f8c3202d71027eeb3aa2ef3f48fc4",
+      "upstream_blob": "2adb2336fd73add6bb1ec04dbdf569e6677e74e5",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/BUILD.gn",
+      "reference_blob": "93995b6555d354249c9ee68f0df264c63687b963",
+      "upstream_blob": "73bb6d80bcf25b246aa501781bda77fcd138b170",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/app_home/BUILD.gn",
+      "reference_blob": "3efaf557d1f6a6259c6ea7c309f73079742f7379",
+      "upstream_blob": "7aa8e1d6869d12f610392bee0b14b6232f2b3d18",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/app_home/app_home_page_handler.cc",
+      "reference_blob": "879278e9665285b3390571e75f3be3889931b510",
+      "upstream_blob": "37b4f6d0b22b729b5731bf0a58391efcef806b26",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/app_home/app_home_page_handler.h",
+      "reference_blob": "d2b11fef9038f11993b92651dbade8a6aaf7034d",
+      "upstream_blob": "3ebc6a4870a8097e92354717c8bc2f6c45b6765a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificate_manager/certificate_manager_handler.cc",
+      "reference_blob": "410efdc1802e4632c52f2d0fa8c6ca97526ed17b",
+      "upstream_blob": "34ec7b411d6a666b7e955dc2579ba31ba20a446c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificate_manager/certificate_manager_handler.h",
+      "reference_blob": "752d3e05e9b230d61c822bc8e86dff241e4a2d03",
+      "upstream_blob": "3f62df02a469f6e799aee05c6e5dac9c9373fd7f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificate_manager/certificate_manager_ui.cc",
+      "reference_blob": "7afccbf4eaadf39658731d645fdf86bfbe55a9a8",
+      "upstream_blob": "63935683aecf0781e7651584d6cda02769419da2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificate_manager/client_cert_sources.cc",
+      "reference_blob": "e6adf15cea857e20ee4f15f77f64d2e6176a031c",
+      "upstream_blob": "adb963ce98485a54ab9a601d130cbd64a70fafe2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificate_manager/client_cert_sources.h",
+      "reference_blob": "1ae0db0c3bbcb39b55f5baad3544f6c29e980696",
+      "upstream_blob": "24151cff4d13a7f440bf83dea7f6fb8e2dca9fa0",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificates_handler.cc",
+      "reference_blob": "048ce1080d1dd8a35c38c82df24c15df57ca9996",
+      "upstream_blob": "b0125fffadcfd3db97f714d397a9002f4af28b6c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/certificates_handler.h",
+      "reference_blob": "a7e85bc9fda53c8b37e31c4ae0c41ff8da647671",
+      "upstream_blob": "8b0c344889d9ecaa10d3dd3adcb3d4b4be2ae785",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/chrome_web_ui_configs.cc",
+      "reference_blob": "d9452bdf1a5021480e44f7a394d2780dd03f61b9",
+      "upstream_blob": "8b877339c4179f6a1587d085ce00108aa0505700",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/connectors_internals/connectors_internals_page_handler.cc",
+      "reference_blob": "72554a9abbbd9022e5716422ea22d9d47d5c1a96",
+      "upstream_blob": "7d55d98d30bd5c2b25f02da9c6e0456f3db0a1e2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/connectors_internals/device_trust_utils.cc",
+      "reference_blob": "c4019537c5c9f48eea6fec9a498ea6f02dfd2cbc",
+      "upstream_blob": "eaf9c51730deaa0a13728889670e4246f0ce8682",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/extensions/extensions_ui.cc",
+      "reference_blob": "8569b851caca418e3c3b3cc0705c19ad8c2a4e1e",
+      "upstream_blob": "6e8b117acb7beafbb5e358cbc9cd24d4cefb2eae",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/password_manager/password_manager_ui.cc",
+      "reference_blob": "788ec70da21b884538e722584d410eb6431c14dc",
+      "upstream_blob": "3660871334259a96c71d0daf12a1c9290e3cfef7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/print_preview/print_preview_handler.cc",
+      "reference_blob": "cdde19dc9b47793a16520ec9fef7a788902d2359",
+      "upstream_blob": "7e6bf0f563824a1f7f7d557af2b93664494902da",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/print_preview/print_preview_handler.h",
+      "reference_blob": "11ddd5f9e07cdf20e67b113b360a817c7c7e8786",
+      "upstream_blob": "ebb0dd7a62a92b3d6e210d22c1fa4c82d049efe8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/print_preview/print_preview_ui.cc",
+      "reference_blob": "12c2c87e2087a2994c0c9b3d6df2b0bb3c0110b4",
+      "upstream_blob": "82d2bf5da99493cd244dda010c10e789f9886856",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/print_preview/print_preview_ui.h",
+      "reference_blob": "5169f976ecde9f00326710ea21ebb425f436937c",
+      "upstream_blob": "535908083f37f60a625677df06adcd6a5d535f79",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/safe_browsing/BUILD.gn",
+      "reference_blob": "4f42d1b6d07085b3326361bd19e7bfd507a92180",
+      "upstream_blob": "6696dfd0e340024120138c65d60dee2e354d8f6a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/searchbox/BUILD.gn",
+      "reference_blob": "63da4877afa0f49eef8031999bb4a21c55a249ec",
+      "upstream_blob": "33529107a97066f40c52dbe81bf5ed4c9b8034a3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/BUILD.gn",
+      "reference_blob": "f1a762a3aa4bde47aa15cd1753e02095b3b77996",
+      "upstream_blob": "9b6a8c3ff56a48fa5e71d697bd6cb69dab340b85",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/downloads_handler.cc",
+      "reference_blob": "775367181d0894a92eec13e892d42e1aefa3dfb7",
+      "upstream_blob": "6ab9624da42863d41d909a62debbd5592aca409e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc",
+      "reference_blob": "a961004e20b4314a94ac1319c626ba221cca479f",
+      "upstream_blob": "c3faec081edf270e779c9939cf8e463af8741e15",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/settings_ui.cc",
+      "reference_blob": "15fcb6b2aea064aa347acad40fe3cb80d364be23",
+      "upstream_blob": "89f3190f3bde5b09c9701f93834c99abdc7f9432",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/settings_utils.h",
+      "reference_blob": "18d5631b5c48d57d9b06d79e70541bc799640599",
+      "upstream_blob": "b89bd9c52bd89b779ec4e5db4ad6b0a6da234dcb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/settings_utils_ohos.cc",
+      "reference_blob": "b447e427d890678f5cf658cbc3b9fb63c144195b",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/ui/webui/settings/system_handler.cc",
+      "reference_blob": "4c85b2f78fc11105e314e761653ff8e1e6a1ca5b",
+      "upstream_blob": "3cd0c1c514f405e819d1e5abcefde94a9a236688",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.cc",
+      "reference_blob": "a1d6f4f4e007e61775d42668d3186fc49fb31a29",
+      "upstream_blob": "6dbc53ac62cd6766f267af604110afc18203155a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/tab_search/BUILD.gn",
+      "reference_blob": "0a0ce4626d79e6e5a2533c957d9bbc818a55196c",
+      "upstream_blob": "48539b48e5b5851c179430ce13ed71ddd5fb9ac7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/webui/util/BUILD.gn",
+      "reference_blob": "cf01969aab2445b0f1a3159644ec46f03309e25f",
+      "upstream_blob": "fec7b4da3001761c8f531f00e5bf888c5b8656e9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/window_name_prompt/window_name_prompt.cc",
+      "reference_blob": "bc9e3ba210ef77bddd26cf78cdeec2bced47137e",
+      "upstream_blob": "1698265904c715e95948eb09dd686d57826e4673",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/window_sizer/window_sizer.cc",
+      "reference_blob": "1d0415c08b525482fb69538f354a8b3cf87c0faf",
+      "upstream_blob": "d4b6617fdf9fa33c6962f4df80a7d105395e9fff",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/window_sizer/window_sizer.h",
+      "reference_blob": "63298fc84f226ce4803b499897c6ec33a24f7ea9",
+      "upstream_blob": "e5fca1f109e199f34cef50121d9a417aec83acbc",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/window_sizer/window_sizer_aura.cc",
+      "reference_blob": "fbb8e042cc66221f144e2a7e289cc36895d442fc",
+      "upstream_blob": "f9b5c8a9055ace13df5d566f0c92d8adbf777389",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/ui/zoom/BUILD.gn",
+      "reference_blob": "1713c77fd139c22c6fb30dd11b0d1aaf1d7e9843",
+      "upstream_blob": "302e928629ee56ec84905190a87d96384e65896c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/usb/usb_chooser_controller.cc",
+      "reference_blob": "c191819de4b90e02bd9112ad8e396b890eb7ced2",
+      "upstream_blob": "fae7decadcf5ca7b508068aa803e11a9027dde1e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/usb/usb_chooser_controller.h",
+      "reference_blob": "8e1bb06e8fcfbe3feeb4bd30452fb5d6d546074c",
+      "upstream_blob": "de5d7fb1a3be1c356f291b444175bbf375d0bf83",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/BUILD.gn",
+      "reference_blob": "44ecfbf608dbd2c96fa15e87c5409634a6b58606",
+      "upstream_blob": "002c3d455773c0e7e2599cd2df616a59927abeda",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/chromeos_web_app_experiments_unittest.cc",
+      "reference_blob": "10ef46a2f8770bdc56221dcd16d8e22230312dcd",
+      "upstream_blob": "c9836815b35e8cb3c3203b774318e794c57af4d2",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/commands/fetch_manifest_and_install_command.h",
+      "reference_blob": "b02291dc8d7670c04003660e0a2be91835a41f94",
+      "upstream_blob": "f91d82d1445cf38db7cf9232d74f5f8e902fe61c",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/extension_status_utils.h",
+      "reference_blob": "c46e28ff4f55e64b9923aa764e543b24227993ea",
+      "upstream_blob": "962bd65b5422ab853320de4f25e80ddebae7f769",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/extensions/extension_status_utils.cc",
+      "reference_blob": "75c4c39e762e53221d7f155ec86db294f4b007f1",
+      "upstream_blob": "d9c9c6da0d5ceeb2bcf53557506295013a12ab76",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/os_integration_manager.cc",
+      "reference_blob": "daa5637cdd68703ce974c8778553bece7cdc4a96",
+      "upstream_blob": "b2c14a6a5e89f67b16f1b2f1d47230e1e768d855",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/web_app_shortcut.cc",
+      "reference_blob": "adb9c1d518bcc2b22c0d37be4a9be8b968c2f000",
+      "upstream_blob": "71ea668803dd5fa09e7f83166e6774618657717a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/web_app_shortcut.h",
+      "reference_blob": "3b6b24c0a9a1004d10c1c02852fad4159d9af4a4",
+      "upstream_blob": "3d5e54a5ea9f35f4e9af73582a0a945b86757d3a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/web_app_shortcut_ohos.cc",
+      "reference_blob": "5dc5c6cc29dd908859a0f932a33c829de4540ca3",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/web_app_shortcut_ohos.h",
+      "reference_blob": "fad43afc4948a99a36413ca908451e6b40a74ba8",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/browser/web_applications/os_integration/web_app_stubs.cc",
+      "reference_blob": "8324e8f6b645f1f64a38d75917eeb21daf06bff0",
+      "upstream_blob": "6840e1d6015ea62eb3ed33117f1a0bf8ae86bf14",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/web_app_command_scheduler.cc",
+      "reference_blob": "023545d313ecb26e67a539e6e55428f36a33d00b",
+      "upstream_blob": "ad1b7c2a5eb50e6593251fd0fb722e85332f0ada",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/web_app_command_scheduler.h",
+      "reference_blob": "ac8b07e424ac530043cb13f66a4c3c952bab803b",
+      "upstream_blob": "c8917d211bd4109de55a75cb6c22ec59be09314a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/web_applications/web_app_install_info.h",
+      "reference_blob": "c14ebf5a63451ef21233184800579e47e3936da0",
+      "upstream_blob": "1e3105b270e5adc6e43eaab923bdc0a42575142d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/browser/webauthn/BUILD.gn",
+      "reference_blob": "e7c4cd6f5660c3518b12a80f3e2cb1f021ff2128",
+      "upstream_blob": "144ffa46951248504fd36b9e93ff1fc8b8a12ecf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/chrome_paks.gni",
+      "reference_blob": "4b086f68154b31cdc5b67adf67651273b2e2d822",
+      "upstream_blob": "ca413e1286916c94d2a599a7e5acc9e52f6c6284",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/BUILD.gn",
+      "reference_blob": "7881c7b51124a1f74e5e8e6e1def5caff392c2e0",
+      "upstream_blob": "d8aae1b4cb41444828721172b9df75cf878b1ccf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_content_client.cc",
+      "reference_blob": "54ba24061e6f785341450916bc9c88d6bfd1674c",
+      "upstream_blob": "aa28db3f8aaa3142e42ce6f4b975485f25056a20",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_content_client.h",
+      "reference_blob": "35a871df2d710f51aa64c8cb2da2ea1e2be0d219",
+      "upstream_blob": "80d8599eca7b7dc6b476347fecf74c8d5ec0827b",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_features.cc",
+      "reference_blob": "47ac37c86377f4247ee7cbf1da60b020f9584817",
+      "upstream_blob": "1010d8d4b20a730b5f6435cd7a55e476a00b65a3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_features.h",
+      "reference_blob": "bb10ccc2cd22792f1cd7bc5955f8f11a500f32fa",
+      "upstream_blob": "bfc01f941f786f8b2979179890e2b0cd91029480",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_paths.h",
+      "reference_blob": "6ca5a3c16f42c44799947927b6676f68db50c021",
+      "upstream_blob": "fbfe597d09d9aa6254c715c3a9ed4ead857f611f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_paths_ohos.cc",
+      "reference_blob": "b3158bc905fe4666f066e3a35fcbfe4aa1255eb0",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/common/chrome_paths_unittest.cc",
+      "reference_blob": "7165fe68cea5661a6e3d29b1495a7d19b0b444a4",
+      "upstream_blob": "eb062c1f8a398521aa2624b2de3be046509a32b9",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_switches.cc",
+      "reference_blob": "5727a09dafd41cdd502817c87f78e06345718005",
+      "upstream_blob": "7aefd89c7528234d7ee923fa4e68d2a400a24676",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/chrome_switches.h",
+      "reference_blob": "3b672a8bf22434a871fe9ddde46d28d38255e282",
+      "upstream_blob": "2e1cc153e6ff39c5bb0ecc386dc2c168a5b0aaa4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/extensions/api/developer_private.idl",
+      "reference_blob": "c097fb91fcd9513e0e213806adda2f7cc27e5108",
+      "upstream_blob": "64f615524f6704258059fb4a852fb65fd40a2711",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/extensions/manifest_tests/chrome_manifest_test.cc",
+      "reference_blob": "e5969927da78a97fe279799c59cd0c50bdfafa20",
+      "upstream_blob": "49b7e9ce3cd1c8a9af408f4fd34b9b22175c2452",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/features.gni",
+      "reference_blob": "dc594ca62255d00d0011cbe8faf9ac27048ac066",
+      "upstream_blob": "418e78ecb356b7bf9ce27dcca2bb24d9217620b3",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/importer/BUILD.gn",
+      "reference_blob": "9cf0f4211bb56584fc72524aaeeb38a6aefd7059",
+      "upstream_blob": "a64ef03ece1748adf2042bb21c5f82f73d7b79a4",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/importer/firefox_importer_utils_ohos.cc",
+      "reference_blob": "9a038691bd51eb2f5b837e728cd39f1c92863b13",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/common/logging_chrome.cc",
+      "reference_blob": "194f51485dd552c2878a171f0abcdfdbe6d02f6d",
+      "upstream_blob": "3c1a175f5d764376e8514d84da743287fc6e2e98",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/media/cdm_registration.cc",
+      "reference_blob": "b3cdb0baccf3488733779b10c398217efd3630b6",
+      "upstream_blob": "a2550d667fc26d7a7a0b2b1a59379a8e02bafebf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/media/ohos_chrome_media_drm_bridge_client.cc",
+      "reference_blob": "e76ea28f68360e2e9f2645a02db27423bae775f2",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/common/media/ohos_chrome_media_drm_bridge_client.h",
+      "reference_blob": "1f474449431f38832600030757d2aa2d5b498c6e",
+      "upstream_blob": null,
+      "kind": "added"
+    },
+    {
+      "path": "chrome/common/pref_names.h",
+      "reference_blob": "54a072a69738691de450a4dbba50dbd18a0116be",
+      "upstream_blob": "aa1d0490f24bcde22c8d256dc311510f50d0722f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/url_constants.h",
+      "reference_blob": "10e31c03f0c47c2f0d91fc5b9da733b43ea3a10e",
+      "upstream_blob": "6a382e69c9766712ae79a98aaad86997832f4c7f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/webui_url_constants.cc",
+      "reference_blob": "6aa587c1c55a7efe4a0240aa8ee658e8d7991f30",
+      "upstream_blob": "47932e80c59ea89b66a8967518b3fd170bef7512",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/common/webui_url_constants.h",
+      "reference_blob": "7f3d845fff80d374f058776ab7445cbd3aa0b1d8",
+      "upstream_blob": "9fa26adc16d4fa64eabd940bdfe75d8c29a6810e",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/renderer/BUILD.gn",
+      "reference_blob": "9ec2bc843b4b0f48655b086397d55bde8cc5f536",
+      "upstream_blob": "2e4dc8c6f3e4af1adeb74caccbae5c84178c6bcf",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/renderer/chrome_content_renderer_client.cc",
+      "reference_blob": "331b0c17469c363426e8fbaffec6da65986be953",
+      "upstream_blob": "a00e0e601bcebe65f9d4c63210dcbd64f97e9ac8",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/renderer/url_loader_throttle_provider_impl.cc",
+      "reference_blob": "a622cad55c56d2adb87e0f9e34f6a0d5819272e6",
+      "upstream_blob": "6c99f510c97852654c5ab587777baa76af54eece",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/services/sharing/nearby/platform/ble_v2_medium.cc",
+      "reference_blob": "20b5e62ac38490cae5db8ef90d049b3204b6e990",
+      "upstream_blob": "e15e9f387f24cbb790000edb350592b01816a799",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/services/sharing/nearby/platform/ble_v2_medium_unittest.cc",
+      "reference_blob": "960eee270dac77a8ad0afd755e75da708b7203e0",
+      "upstream_blob": "ad6d08062e4368aa688d4048d65bfd219cd56bd7",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/services/sharing/nearby/test_support/fake_adapter.cc",
+      "reference_blob": "ba2d2abf5aa98e4215aad70650ebc0c0c3f87d49",
+      "upstream_blob": "0d60e89e9e02dc64093292e1de2583e3d8c12e26",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/services/sharing/nearby/test_support/fake_adapter.h",
+      "reference_blob": "866da5ee5dd352bbc223ff9fd2135fa46913ff51",
+      "upstream_blob": "7a8d567f077e1027b6aac3349d1bad5ce5854e2d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/services/speech/buildflags/buildflags.gni",
+      "reference_blob": "fe24503c021aab407e3914b8f39b1a039820b850",
+      "upstream_blob": "0e7d1bb856ae64044ae8bd8db971959c874c01d1",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/BUILD.gn",
+      "reference_blob": "2a8f0fc6258415bc11b6ef9c8148773ac9114243",
+      "upstream_blob": "7a945c6bac66f8f4c579ae3e2bae6f228c453d8f",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/base/chrome_test_launcher.cc",
+      "reference_blob": "f7f9e69814ea26a20e610f8931e42e9dc9b7283b",
+      "upstream_blob": "8866645db30b8387d3a4e9e7b43e838318ba6839",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/base/test_browser_window.h",
+      "reference_blob": "d3500e1c753fbb489ea7db635f09704fed80c522",
+      "upstream_blob": "4e650fb634d95b4772d9d5a49febc6c596027bcb",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/chromedriver/chrome/chrome_finder.cc",
+      "reference_blob": "f8b8e3fb96ee8981a821f796ec6f3791ff1ef423",
+      "upstream_blob": "2dcaee196f89e277757b1da426e2b989540ce11a",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/chromedriver/chrome/chrome_finder_unittest.cc",
+      "reference_blob": "e13dfd2a81277bfc82917c343056e37872223173",
+      "upstream_blob": "4d1d76f30fcc490c76237f6404d5992b11807252",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/test/chromedriver/key_converter_unittest.cc",
+      "reference_blob": "106b4cb523dc944e4d4958f22d12ce059a9cd893",
+      "upstream_blob": "68745de194832c9885067780229b97c0dc299d27",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/utility/BUILD.gn",
+      "reference_blob": "a3460899292dd735ffada6b0e219649ab0b0ed84",
+      "upstream_blob": "185e70a1b7de0943c52ab752a0e5830a6d48e48d",
+      "kind": "modified"
+    },
+    {
+      "path": "chrome/utility/importer/importer_creator.cc",
+      "reference_blob": "cda4f16a02f76b7d31ada58133aaac26199618b8",
+      "upstream_blob": "bca57d332db1fa3977315d7dfc75f13bfbb271da",
+      "kind": "modified"
+    }
+  ]
+}

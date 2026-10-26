@@ -1,0 +1,20 @@
+diff --git a/oh-package.json5 b/oh-package.json5
+index c1270a4..11b9d3a 100644
+--- a/oh-package.json5
++++ b/oh-package.json5
+@@ -5,7 +5,7 @@
+     "@ohos/hypium": "1.0.6"
+   },
+   "author": "",
+-  "name": "chromium2in1",
++  "name": "chromium-hap",
+   "description": "Chromium browser HAP for HarmonyOS 2 in 1 devices.",
+   "main": "",
+   "version": "1.0.0",
+diff --git a/.idea/.name b/.idea/.name
+new file mode 100644
+index 0000000..81433b3
+--- /dev/null
++++ b/.idea/.name
+@@ -0,0 +1 @@
++chromium-hap

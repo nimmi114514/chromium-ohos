@@ -1,0 +1,47 @@
+diff --git a/scripts/prepare_chromium_runtime.sh b/scripts/prepare_chromium_runtime.sh
+--- a/scripts/prepare_chromium_runtime.sh
++++ b/scripts/prepare_chromium_runtime.sh
+@@ -22,10 +22,27 @@
+   "${OUT_DIR}/chrome_100_percent.pak"
+   "${OUT_DIR}/chrome_200_percent.pak"
+   "${OUT_DIR}/icudtl.dat"
+-  "${OUT_DIR}/snapshot_blob.bin"
+-  "${OUT_DIR}/v8_context_snapshot.bin"
+   "${OUT_DIR}/locales"
+ )
++
++# Select the snapshots that Chromium actually built. Modern desktop builds use
++# the context snapshot alone; the two-snapshot mode is an Android build option.
++SNAPSHOT_FLAGS="${OUT_DIR}/gen/tools/v8_context_snapshot/buildflags.h"
++if [[ ! -f "${SNAPSHOT_FLAGS}" ]]; then
++  echo "Missing generated V8 snapshot configuration: ${SNAPSHOT_FLAGS}" >&2
++  exit 1
++fi
++snapshot_flags="$(<"${SNAPSHOT_FLAGS}")"
++snapshot_files=()
++if [[ "${snapshot_flags}" == *'BUILDFLAG_INTERNAL_USE_V8_CONTEXT_SNAPSHOT() (1)'* ]]; then
++  snapshot_files+=("v8_context_snapshot.bin")
++fi
++if [[ ${#snapshot_files[@]} -eq 0 || "${snapshot_flags}" == *'BUILDFLAG_INTERNAL_INCLUDE_BOTH_V8_SNAPSHOTS() (1)'* ]]; then
++  snapshot_files+=("snapshot_blob.bin")
++fi
++for snapshot in "${snapshot_files[@]}"; do
++  required_files+=("${OUT_DIR}/${snapshot}")
++done
+ 
+ for path in "${required_files[@]}"; do
+   if [[ ! -e "${path}" ]]; then
+@@ -65,8 +82,11 @@
+ cp "${OUT_DIR}/chrome_100_percent.pak" "${RESOURCE_DIR}/"
+ cp "${OUT_DIR}/chrome_200_percent.pak" "${RESOURCE_DIR}/"
+ cp "${OUT_DIR}/icudtl.dat" "${RESOURCE_DIR}/"
+-cp "${OUT_DIR}/snapshot_blob.bin" "${RESOURCE_DIR}/"
+-cp "${OUT_DIR}/v8_context_snapshot.bin" "${RESOURCE_DIR}/"
++# Remove prior staged snapshots before copying the selected current snapshots.
++rm -f "${RESOURCE_DIR}/snapshot_blob.bin" "${RESOURCE_DIR}/v8_context_snapshot.bin"
++for snapshot in "${snapshot_files[@]}"; do
++  cp "${OUT_DIR}/${snapshot}" "${RESOURCE_DIR}/"
++done
+ rm -rf "${RESOURCE_DIR}/locales"
+ cp -R "${OUT_DIR}/locales" "${RESOURCE_DIR}/"
+ 

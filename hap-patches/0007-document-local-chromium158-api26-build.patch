@@ -1,0 +1,30 @@
+diff --git a/README.md b/README.md
+index aea21d5..a736b59 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,25 @@
+ # Chromium 2in1 HAP
+ 
++本地工作区的移植目标为 **Google Chromium 158.0.8116.0 / OHOS arm64 / API 26**，
++源码固定在 Google main 提交 `566635fe3ce2912169a6ca76a00a7ee1d8e400e9`。
++使用本机 DevEco Studio 26 内置的 API 26 SDK，原生移植工程位于
++[`../chromium158-ohos/`](../chromium158-ohos/README.md)。
++完整浏览器与 HAP 是否已经生成，以该工程的
++[STATUS.md](../chromium158-ohos/STATUS.md) 和实际构建产物为准。
++
++在已配置好的 WSL 工作区中构建 158：
++
++```sh
++cd ../chromium158-ohos
++python3 scripts/build_native.py --stage chrome --jobs 8 --keep-going 0
++python3 scripts/build_hap.py --stage hap
++```
++
++以下保留原始 132 工程说明，供追溯上游依赖与工程来源；本地 158 的构建方式
++和当前验证范围以上述移植工程为准。
++
++## 原始 132 工程说明
++
+ 将 OpenHarmony Chromium `pc_chromium_132` 分支打包为 **HarmonyOS 6.1.1（API 24）** Stage 模型的 HAP，适配 **2in1 / 平板** 设备。
+ 
+ ## 特性

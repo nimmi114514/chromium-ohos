@@ -1,0 +1,137 @@
+{
+  "label": "native107-password-fill-reauth",
+  "chromiumVersion": "158.0.8116.0",
+  "upstreamRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
+  "hapCommit": "70f25c139422c00760f4c931f22b0fa36b4013e3",
+  "bundleName": "com.example.ohos.chromium",
+  "artifact": {
+    "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
+    "size": 200849302,
+    "sha256": "1a55d6dd5a0d831c06ee1cb68790e7543f6d0b633d6c234ed32e4f408989b1fd"
+  },
+  "nativeBuildIds": {
+    "libadapter.so": "8c0e5b2bf9681d3b00c0c6a080ff8e82f2367285",
+    "libchrome_main_web.so": "fa14853850a5f0625db4e487bd03d2202b1f17b3"
+  },
+  "changes": [
+    "Restore OHOS screen-lock authentication settings and translated UI",
+    "Allow reading and observing the protected authentication preference",
+    "Require separate OS authentication for every OHOS password fill, including immediately after enabling the setting",
+    "Restore localized fill-purpose messages in automatic/manual, HTTP-auth and Credential API flows",
+    "Release window privacy after the last protected-media owner is gone"
+  ],
+  "buildValidation": {
+    "nativeReleaseBuildPassed": true,
+    "hapReleaseBuildPassed": true,
+    "nativeAndResourceFilesVerified": 235,
+    "cryptographicSignatureVerified": true,
+    "provisioningBundleMatches": true,
+    "nativePatchReplayMatches": true,
+    "nativePatchCount": 10,
+    "hapPatchReplayMatches": true,
+    "hapPatchCount": 19
+  },
+  "hostChecks": {
+    "native105-screen-lock-adapter-tests.json": {
+      "scope": "Real ArkTS adapter with simulated OS; actual user verification not performed",
+      "passed": true,
+      "results": [
+        {
+          "name": "PIN available",
+          "passed": true
+        },
+        {
+          "name": "PIN not enrolled",
+          "passed": true
+        },
+        {
+          "name": "SUCCESS",
+          "passed": true
+        },
+        {
+          "name": "FAIL",
+          "passed": true
+        },
+        {
+          "name": "CANCELED",
+          "passed": true
+        },
+        {
+          "name": "TIMEOUT",
+          "passed": true
+        },
+        {
+          "name": "NOT_ENROLLED",
+          "passed": true
+        },
+        {
+          "name": "OS start exception",
+          "passed": true
+        }
+      ]
+    },
+    "native106-window-privacy-lifecycle.json": {
+      "productionMethodExecuted": true,
+      "windowApiSimulated": true,
+      "deviceScreenshotVerified": false,
+      "passed": true,
+      "cases": [
+        "enable",
+        "shared-window-owner-release",
+        "last-owner-release",
+        "duplicate-release",
+        "independent-windows",
+        "owner-window-move",
+        "release-after-widget-destruction",
+        "unknown-widget"
+      ]
+    },
+    "native106-screen-lock-chinese-pack.json": {
+      "compiledLocale": "zh-CN",
+      "passed": true,
+      "strings": {
+        "IDS_PASSWORD_MANAGER_UI_BIOMETRIC_AUTHENTICATION_FOR_FILLING_TOGGLE_LABEL_OHOS": "填充密码时使用屏幕锁定",
+        "IDS_PASSWORD_MANAGER_UI_BIOMETRIC_AUTHENTICATION_FOR_FILLING_TOGGLE_SUBLABEL_OHOS": "如果您与他人共用此设备，那么您每次使用已保存的密码时，都可使用屏幕解锁方式来验证身份"
+      }
+    },
+    "native107-password-fill-authentication.json": {
+      "passed": true,
+      "productionClientAndAuthenticationMethodsExecuted": true,
+      "osAuthenticationSimulated": true,
+      "devicePasswordFillingVerified": false,
+      "cases": [
+        "old-60-second-setting-auth-reuse-reproduced",
+        "immediate-fill-requests-authentication",
+        "repeated-fill-requests-authentication",
+        "failed-or-canceled-authentication-blocks-fill",
+        "pin-only-fill-requests-authentication",
+        "pin-failure-blocks-fill",
+        "no-prior-authentication"
+      ]
+    }
+  },
+  "installation": {
+    "label": "native107-password-fill-reauth",
+    "installed": true,
+    "installedAt": "2026-10-26T22:51:39.708498+08:00",
+    "hapSha256": "1a55d6dd5a0d831c06ee1cb68790e7543f6d0b633d6c234ed32e4f408989b1fd",
+    "bundleName": "com.example.ohos.chromium",
+    "applicationDataPreserved": true,
+    "applicationLaunchedByAgent": false,
+    "postInstallDeviceTestsRun": false,
+    "postInstallTestsSkippedAtUserRequest": true
+  },
+  "deviceValidation": {
+    "applicationLaunchedByAgent": false,
+    "postInstallTestsRun": false,
+    "skippedAtUserRequest": true,
+    "passwordFillingAndSystemScreenshotAcceptance": "Not verified on device for this candidate"
+  },
+  "scope": {
+    "drmWorkStopped": true,
+    "menusDeferred": true,
+    "googleCredentialConfigurationUnchanged": true,
+    "privateSigningConfigurationCommitted": false,
+    "pushedOrPublished": false
+  }
+}

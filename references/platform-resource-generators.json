@@ -1,0 +1,12 @@
+{
+  "safe_browsing": [
+    "Add OHOS platform enum 7, matching the donor wire value and preserving reserved/deprecated Fuchsia enum 6",
+    "Generate the current Google file type policy for OHOS using unchanged pruning/default rules",
+    "Decoded output: all 412 file types preserved, version 69; exactly one pruned platform setting per entry"
+  ],
+  "domain_reliability": [
+    "Keep the current Google validated baked-in configs for OHOS",
+    "Remove 21 unused M132 donor JSON configs containing https://xxx/ placeholders; retain whitelist validation"
+  ],
+  "scope": "Resource generation and protobuf decode checks passed in the API 26 window integration build; full browser runtime not validated"
+}

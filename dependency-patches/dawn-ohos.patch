@@ -1,0 +1,70 @@
+diff --git a/scripts/dawn_features.gni b/scripts/dawn_features.gni
+index 9605846a7..b0db4d7d4 100644
+--- a/scripts/dawn_features.gni
++++ b/scripts/dawn_features.gni
+@@ -87,7 +87,7 @@ if (build_with_chromium) {
+ dawn_is_winuwp = is_win && target_os == "winuwp"
+ dawn_use_windows_ui = is_win
+ 
+-if (is_android || is_ios) {
++if (is_android || is_ios || is_ohos) {
+   dawn_use_swiftshader = false
+ } else {
+   declare_args() {
+@@ -160,7 +160,7 @@ declare_args() {
+   # Disables vulkan when compiling for UWP, since UWP only supports d3d
+   dawn_enable_vulkan = dawn_maximal != false || is_linux || is_chromeos ||
+                        (is_win && !dawn_is_winuwp) || is_fuchsia ||
+-                       is_android || dawn_use_swiftshader
++                       is_android || is_ohos || dawn_use_swiftshader
+ 
+   # Enables error injection for faking failures to native API calls
+   dawn_enable_error_injection = is_debug || use_fuzzing_engine
+diff --git a/src/dawn/common/BUILD.gn b/src/dawn/common/BUILD.gn
+index 6669c9ea2..b872bba53 100644
+--- a/src/dawn/common/BUILD.gn
++++ b/src/dawn/common/BUILD.gn
+@@ -153,7 +153,7 @@ dawn_generator("dawn_gpu_info_gen") {
+ # all of Chromium's OSes so we explicitly make the target visible only on
+ # systems we know Dawn is able to compile on.
+ if (is_win || is_linux || is_chromeos || is_mac || is_fuchsia || is_android ||
+-    is_ios || is_wasm) {
++    is_ios || is_wasm || is_ohos) {
+   static_library("common") {
+     sources = [
+       "Algebra.h",
+diff --git a/src/dawn/native/BUILD.gn b/src/dawn/native/BUILD.gn
+index 2cfaa98d3..4ee645339 100644
+--- a/src/dawn/native/BUILD.gn
++++ b/src/dawn/native/BUILD.gn
+@@ -1007,7 +1007,7 @@ source_set("sources") {
+       "vulkan/external_semaphore/SemaphoreServiceImplementation.h",
+     ]
+ 
+-    if (is_android || is_linux || is_chromeos) {
++    if (is_android || is_linux || is_chromeos || is_ohos) {
+       sources += [
+         "vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp",
+         "vulkan/external_semaphore/SemaphoreServiceImplementationFD.h",
+@@ -1018,7 +1018,7 @@ source_set("sources") {
+           "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.cpp",
+           "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.h",
+         ]
+-      } else if (is_linux || is_chromeos) {
++      } else if (is_linux || is_chromeos || is_ohos) {
+         sources += [
+           "vulkan/external_memory/MemoryServiceImplementationDmaBuf.cpp",
+           "vulkan/external_memory/MemoryServiceImplementationDmaBuf.h",
+diff --git a/src/dawn/native/vulkan/BackendVk.cpp b/src/dawn/native/vulkan/BackendVk.cpp
+index f55dc878f..88fd0b353 100644
+--- a/src/dawn/native/vulkan/BackendVk.cpp
++++ b/src/dawn/native/vulkan/BackendVk.cpp
+@@ -58,7 +58,7 @@ constexpr char kSwiftshaderLibName[] = "libvk_swiftshader.dylib";
+ #endif
+ 
+ #if DAWN_PLATFORM_IS(LINUX)
+-#if DAWN_PLATFORM_IS(ANDROID)
++#if DAWN_PLATFORM_IS(ANDROID) || defined(__OHOS__)
+ constexpr char kVulkanLibName[] = "libvulkan.so";
+ #else
+ constexpr char kVulkanLibName[] = "libvulkan.so.1";

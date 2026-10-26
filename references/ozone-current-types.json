@@ -1,0 +1,13 @@
+{
+  "files": [
+    "ui/ozone/platform/ohos/ozone_platform_ohos.cc",
+    "ui/ozone/platform/ohos/gpu/ohos_surface_factory.h",
+    "ui/ozone/platform/ohos/gpu/ohos_surface_factory.cc",
+    "ui/ozone/platform/ohos/host/ohos_toplevel_window.h",
+    "ui/ozone/platform/ohos/host/ohos_toplevel_window.cc"
+  ],
+  "changes": [
+    "Replace removed Abseil optional API with std::optional",
+    "Update SurfaceFactoryOzone override to current viz::SharedImageFormat"
+  ]
+}

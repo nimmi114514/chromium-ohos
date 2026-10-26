@@ -1,0 +1,45 @@
+diff --git a/web_engine/src/main/ets/adapter/DeviceUserAuthAdapter.ets b/web_engine/src/main/ets/adapter/DeviceUserAuthAdapter.ets
+index ed7610e..05db6df 100644
+--- a/web_engine/src/main/ets/adapter/DeviceUserAuthAdapter.ets
++++ b/web_engine/src/main/ets/adapter/DeviceUserAuthAdapter.ets
+@@ -100,6 +100,15 @@ export class DeviceUserAuthAdapter extends BaseAdapter {
+     }
+   }
+ 
++  checkScreenLockAvailable(callback: (result: boolean) => void): void {
++    try {
++      userAuth.getAvailableStatus(userAuth.UserAuthType.PIN, userAuth.AuthTrustLevel.ATL3);
++      callback(true);
++    } catch (error) {
++      callback(false);
++    }
++  }
++
+   startUserAuth(prompt_string: string, callback: Function, enableBiom: boolean, biomType: number){
+     widgetParam.title = prompt_string;
+     try {
+@@ -120,10 +129,8 @@ export class DeviceUserAuthAdapter extends BaseAdapter {
+         onResult(result) {
+           userAuthInstance.off('result');
+           if (result.result !== userAuth.UserAuthResultCode.SUCCESS) {
+-            // the user has not enrolled the authenticator, regard user auth successful
+-            const state: boolean = result.result == userAuth.UserAuthResultCode.NOT_ENROLLED;
+-            LogUtil.error(TAG, `userAuthInstance callback result failed: ${JSON.stringify(result)}`);
+-            callback(state);
++            LogUtil.error(TAG, `User authentication failed: ${result.result}`);
++            callback(false);
+             return;
+           }
+           callback(true);
+diff --git a/web_engine/src/main/ets/jsbindings/DeviceUserAuthAdapterBind.ets b/web_engine/src/main/ets/jsbindings/DeviceUserAuthAdapterBind.ets
+index 82e074d..be9f68c 100644
+--- a/web_engine/src/main/ets/jsbindings/DeviceUserAuthAdapterBind.ets
++++ b/web_engine/src/main/ets/jsbindings/DeviceUserAuthAdapterBind.ets
+@@ -47,5 +47,7 @@ export class DeviceUserAuthAdapterBind {
+   static bind() {
+     JsBindingUtils.bindFunction("DeviceUserAuthAdapter.StartUserAuth", startUserAuth);
+     JsBindingUtils.bindFunction("DeviceUserAuthAdapter.CheckBiometricAvailable", checkBiometricAvailable);
++    JsBindingUtils.bindFunction("DeviceUserAuthAdapter.CheckScreenLockAvailable",
++      (callback: (result: boolean) => void) => implDeviceUserAuthAdapter().checkScreenLockAvailable(callback));
+   }
+ }

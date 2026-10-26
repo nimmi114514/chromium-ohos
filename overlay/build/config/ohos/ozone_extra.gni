@@ -1,0 +1,10 @@
+# Register the native backend using Chromium 158's external Ozone interface.
+import("//build/config/ozone_extra.gni")
+import("//build/config/ohos/ozone.gni")
+
+if (ozone_platform_ohos) {
+  ozone_external_platforms += [ "ohos" ]
+  ozone_external_platform_deps += [ "//ui/ozone/platform/ohos" ]
+  ozone_external_platform_ui_test_support_deps +=
+      [ "//ui/ozone/platform/ohos:test_support" ]
+}

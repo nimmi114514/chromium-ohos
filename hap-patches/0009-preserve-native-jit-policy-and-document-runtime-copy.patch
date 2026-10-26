@@ -1,0 +1,41 @@
+diff --git a/README.md b/README.md
+index 0861339..0f6f894 100644
+--- a/README.md
++++ b/README.md
+@@ -7,6 +7,21 @@
+ 完整浏览器与 HAP 是否已经生成，以该工程的
+ [STATUS.md](../chromium158-ohos/STATUS.md) 和实际构建产物为准。
+ 
++DevEco Studio 打开本目录；Chromium C++ 改动在相邻的 `chromium158-ohos`
++工作区进行，其中 `src` 指向 WSL 中的源码。两者通过运行时准备脚本连接：
++
++| 文件位置 | 用途 |
++| --- | --- |
++| `../chromium158-ohos/src/out/OHOS/` | Chromium 原生编译输出 |
++| `chromium/libs/arm64-v8a/` | 打包使用的 `libchrome_main_web.so` 与 `libadapter.so` |
++| `web_engine/src/main/resources/resfile/` | 打包使用的 ICU、PAK 和 V8 快照 |
++| `chromium/build/default/outputs/default/chromium-default-signed.hap` | 安装到设备的签名包 |
++
++每次更新内核后，`build_hap.py --stage hap --build-mode release` 会调用
++`scripts/prepare_chromium_runtime.sh` 同步库和资源，再生成新 HAP。
++安装该新 HAP 才会更新设备中的内核。应用外壳的 `1.0.0` 版本号与
++Chromium 内核的 `158.0.8116.0` 分别记录。
++
+ 入口模块已启用 `compressNativeLibs: true`。运行时准备脚本保留全部语言
+ PAK，排除仅供构建分析的 `.pak.info` 文件。
+ 
+diff --git a/web_engine/src/main/ets/utils/CmdArgsHelper.ets b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+index ed8854f..fdc6060 100644
+--- a/web_engine/src/main/ets/utils/CmdArgsHelper.ets
++++ b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+@@ -123,7 +123,9 @@ export class CmdArgsHelper {
+       vec_args = vec_args.concat(cmdArgs);
+     } else {
+       jsFlagsValue = CmdArgsHelper.buildJsFlags();
+-      vec_args.push(CmdArgsHelper.stringifyOne({ name: 'js-flags', value: jsFlagsValue }));
++      if (jsFlagsValue) {
++        vec_args.push(CmdArgsHelper.stringifyOne({ name: 'js-flags', value: jsFlagsValue }));
++      }
+     }
+ 
+     // 检查 vec_args 中是否包含 CAN_BE_REPLACED_ARGS 中的参数

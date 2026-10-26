@@ -1,0 +1,13 @@
+{
+  "changes": [
+    "Port the OHOS native browser widget to current BrowserNativeWidgetAura and BrowserWidget, honoring caller ownership",
+    "Wire OHOS native browser host, native widget factory and frame view into current split GN targets",
+    "Use current GetCaptionButtonBounds instead of removed GetBoundsForTabStripRegion; expose caption bounds through PlatformWindow rather than a private Ozone backend header",
+    "Restore OHOS Widget::InitParams fields and forward declare the PIP controller without adding a Views dependency on Content",
+    "Notify OHOS window initialization through DesktopWindowTreeHost::OnWidgetInitDone",
+    "Expose adapter component headers through the shared library public API rather than duplicating static adapter implementations in Chrome",
+    "Restore OHOS NativeViewAccessible as NativeElementWrapper*, using a forward declaration in gfx",
+    "Migrate OHOS AX platform node factories and browser ownership to the current AXPlatformNode::Pointer and delegate reference API"
+  ],
+  "scope": "All 13 targeted browser window factory/host/frame, IME, Views and AXPlatformNodeOHOS objects compiled with API 26; new GN target header dependency check passed. Content BrowserAccessibilityOHOS ownership migration still awaits full compilation; no device behavior verified"
+}

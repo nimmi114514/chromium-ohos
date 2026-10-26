@@ -1,0 +1,33 @@
+// Self-contained generated render fixture for the release HAP, without CDP.
+import http from 'node:http';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+const [reportPath,statePath]=process.argv.slice(2);
+let previousUrl;try{previousUrl=new URL(JSON.parse(fs.readFileSync(statePath,'utf8')).url);}catch{}
+const pagePath=previousUrl?.origin==='http://127.0.0.1:19235'&&/^\/chromium-test-render-[a-f0-9-]+$/.test(previousUrl.pathname)?previousUrl.pathname:'/chromium-test-render-'+crypto.randomUUID();
+const reportRoute=pagePath+'/report';
+const popupPath=pagePath+'/popup';
+let state={generatedContent:true,cdpUsed:false,url:'http://127.0.0.1:19235'+pagePath,events:[],complete:false};
+try{const prior=JSON.parse(fs.readFileSync(reportPath,'utf8'));if(prior.url===state.url)state=prior;}catch{}
+const html=`<!doctype html><meta charset="utf-8"><title>CHROMIUM_TEST_RENDER</title>
+<style>html,body{margin:0;background:#f4f4f4;color:#222;font:18px sans-serif}h1{font-size:22px;padding:16px}#stage{position:relative;height:480px;overflow:hidden}i{position:absolute;width:22px;height:22px;background:#37a65a;border-radius:5px}canvas{position:absolute;top:0;left:0}#marker{position:fixed;bottom:0;width:100%;height:8px;background:#37a65a}</style>
+<h1>CHROMIUM_TEST_RENDER</h1><button aria-label="CHROMIUM_TEST_POPUP" onclick="window.open(location.pathname+'/popup','CHROMIUM_TEST_POPUP','popup,width=640,height=480')">CHROMIUM_TEST_POPUP</button><label>CHROMIUM_TEST_SELECT <select aria-label="CHROMIUM_TEST_SELECT"><option>GREEN TEST ONE</option><option>GREEN TEST TWO</option><option>GREEN TEST THREE</option></select></label><div id="stage"></div><pre id="status">Waiting for visibility</pre><div id="marker"></div>
+<script>
+const route=${JSON.stringify(reportRoute)},stage=document.querySelector('#stage');
+function send(value){fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}).catch(()=>{});}
+const viewport=()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,visibility:document.visibilityState});
+addEventListener('resize',()=>send({kind:'resize',...viewport()}));document.addEventListener('visibilitychange',()=>send({kind:'visibility',...viewport()}));send({kind:'loaded',...viewport()});
+const items=Array.from({length:120},(_,i)=>{const e=document.createElement('i');e.style.left=(i%20)*38+'px';e.style.top=Math.floor(i/20)*38+'px';stage.append(e);return e;});
+const visible=()=>document.visibilityState==='visible'?Promise.resolve():new Promise(r=>{function f(){if(document.visibilityState==='visible'){document.removeEventListener('visibilitychange',f);r();}}document.addEventListener('visibilitychange',f);});
+async function measure(mode){
+ await visible();const canvas=document.createElement('canvas');canvas.width=768;canvas.height=384;
+ const gl=mode==='webgl'?canvas.getContext('webgl'):null,ctx=mode==='canvas'?canvas.getContext('2d'):null;if(mode!=='dom')stage.append(canvas);if(mode==='webgl'&&!gl)throw new Error('WebGL unavailable');
+ const intervals=[];let start,prev,request;
+ try{await new Promise((resolve,reject)=>{const guard=setTimeout(()=>{cancelAnimationFrame(request);reject(new Error('sample interrupted; visibility='+document.visibilityState));},10000);function frame(t){if(document.visibilityState!=='visible'){clearTimeout(guard);reject(new Error('sample hidden'));return;}if(start===undefined){start=prev=t;request=requestAnimationFrame(frame);return;}intervals.push(t-prev);prev=t;if(mode==='dom')items.forEach((e,i)=>e.style.transform='translateY('+Math.sin(t/400+i)*90+'px)');if(ctx){ctx.fillStyle='#f4f4f4';ctx.fillRect(0,0,768,384);ctx.fillStyle='#37a65a';for(let i=0;i<120;i++)ctx.fillRect((i%20)*38,Math.floor(i/20)*38+Math.sin(t/400+i)*90,22,22);}if(gl){gl.clearColor(.2,.7,.3,1);gl.clear(gl.COLOR_BUFFER_BIT);}if(t-start>=4000){clearTimeout(guard);resolve();}else request=requestAnimationFrame(frame);}request=requestAnimationFrame(frame);});const elapsed=intervals.reduce((a,b)=>a+b,0);return {kind:'sample',mode,frames:intervals.length,elapsedMs:elapsed,fps:intervals.length*1000/elapsed,...viewport()};}finally{canvas.remove();}
+}
+(async()=>{if(location.search.includes('edgeOnly')){send({kind:'complete',...viewport()});return;}for(let round=0;round<3;round++)for(const mode of ['dom','canvas','webgl']){try{const r=await measure(mode);send({round,...r});status.textContent=mode+' '+r.fps.toFixed(1)+' fps';}catch(e){send({kind:'interrupted',round,mode,message:e.message,...viewport()});await visible();}}send({kind:'complete',...viewport()});status.textContent='Controlled measurements finished';})();
+</script>`;
+const popupHtml=`<!doctype html><meta charset="utf-8"><title>CHROMIUM_TEST_RENDER_POPUP</title><style>html,body{margin:0;background:#f4f4f4;color:#222;font:18px sans-serif}#marker{position:fixed;bottom:0;width:100%;height:8px;background:#37a65a}</style><h1>CHROMIUM_TEST_RENDER_POPUP</h1><p>Generated popup geometry fixture.</p><div id="marker"></div><script>function report(){fetch(${JSON.stringify(reportRoute)},{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'popup_loaded',width:innerWidth,height:innerHeight,visibility:document.visibilityState})}).catch(()=>{});}addEventListener('resize',report);report();setTimeout(()=>window.close(),300000);</script>`;
+const server=http.createServer((req,res)=>{if(req.method==='GET'&&req.url===popupPath){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(popupHtml);return;}if(req.method==='GET'&&(req.url===pagePath||req.url?.startsWith(pagePath+'?'))){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(html);return;}if(req.method==='POST'&&req.url===reportRoute){let body='';req.on('data',chunk=>{body+=chunk;if(body.length>16384)req.destroy();});req.on('end',()=>{try{const event=JSON.parse(body);if(['loaded','resize','visibility','sample','interrupted','complete','popup_loaded'].includes(event.kind)){state.events.push({receivedAt:new Date().toISOString(),...event});if(event.kind==='complete')state.complete=true;fs.writeFileSync(reportPath,JSON.stringify(state,null,2));}res.writeHead(204);res.end();}catch{res.writeHead(400);res.end();}});return;}res.writeHead(404);res.end();});
+await new Promise(r=>server.listen(19235,'127.0.0.1',r));fs.writeFileSync(statePath,JSON.stringify({url:state.url,title:'CHROMIUM_TEST_RENDER',generatedContent:true,serverPid:process.pid}));fs.writeFileSync(reportPath,JSON.stringify(state,null,2));console.log('Controlled release render fixture ready.');
+setTimeout(()=>{server.closeAllConnections();server.close();},1800000);

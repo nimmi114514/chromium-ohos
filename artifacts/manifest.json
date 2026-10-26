@@ -1,0 +1,1231 @@
+{
+  "created": "2026-10-26T14:50:56.160915+00:00",
+  "chromiumVersion": "158.0.8116.0",
+  "chromiumRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
+  "api": 26,
+  "architecture": "arm64-v8a",
+  "buildMode": "release",
+  "signed": true,
+  "runtimeTested": false,
+  "runtimeValidation": "pending",
+  "hap": {
+    "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
+    "size": 200849302,
+    "sha256": "1a55d6dd5a0d831c06ee1cb68790e7543f6d0b633d6c234ed32e4f408989b1fd"
+  },
+  "unsignedHap": {
+    "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-unsigned.hap",
+    "size": 200798806,
+    "sha256": "06698d304814b0f77ac8b4c34904d35631888cc060557319591d96f1ac953998"
+  },
+  "nativeLibraries": [
+    {
+      "path": "libs/arm64-v8a/libadapter.so",
+      "sha256": "2561dd4da0a05c52a9da7f41ee1c331f464cdc311eeca3d4da90c60d97213ff9",
+      "sizeBytes": 1438160,
+      "zipCompressionMethod": 8,
+      "buildSourceSha256": "0f5db7f7441fd82fa02f9a4d8bbf46fa58b8cfdb41404dac8e85f98af730cc15",
+      "allocatedSectionsMatchBuild": true,
+      "allocatedSectionsChecked": 25,
+      "symbolsStripped": true
+    },
+    {
+      "path": "libs/arm64-v8a/libchrome_main_web.so",
+      "sha256": "0ec4a32249085e00e4be60d83a0166241656d681a9cb1180002509794344fbae",
+      "sizeBytes": 254041096,
+      "zipCompressionMethod": 8,
+      "buildSourceSha256": "eed1d8fc0be953a6cf0ec8a58d07b8dbf9bec97b46b26b6ca68f9f2271dee665",
+      "allocatedSectionsMatchBuild": true,
+      "allocatedSectionsChecked": 27,
+      "symbolsStripped": true
+    }
+  ],
+  "nativeBuildIds": {
+    "libadapter.so": "8c0e5b2bf9681d3b00c0c6a080ff8e82f2367285",
+    "libchrome_main_web.so": "fa14853850a5f0625db4e487bd03d2202b1f17b3"
+  },
+  "resources": [
+    {
+      "path": "resources/resfile/icudtl.dat",
+      "sha256": "02a01b3188b6a41a756f7322fdb5e6b5ca6573b327b01dfc8ed662d571a6f769",
+      "sizeBytes": 10824432
+    },
+    {
+      "path": "resources/resfile/resources.pak",
+      "sha256": "5ea8ca0a52555471c7b51e50b5510ed2f9de70bf4ae82837c5c6cc11113e308c",
+      "sizeBytes": 21143756
+    },
+    {
+      "path": "resources/resfile/chrome_100_percent.pak",
+      "sha256": "d5bf9be263cd56b25d4f16eaf66bcbccf25c4cdcf702f4b5c1cfcc0de6d65114",
+      "sizeBytes": 577228
+    },
+    {
+      "path": "resources/resfile/chrome_200_percent.pak",
+      "sha256": "a82e1232d9fd661563bd767a0612c26fe421f68029c074a4e48a6eecbdfb43d1",
+      "sizeBytes": 935693
+    },
+    {
+      "path": "resources/resfile/snapshot_blob.bin",
+      "sha256": "0d9c88de1746a597f14f96d4fca41f73e6df41c9f1bfd4fd9700d18a265741dd",
+      "sizeBytes": 356096
+    },
+    {
+      "path": "resources/resfile/locales/af.pak",
+      "sha256": "58bc5d115b4d92680d7b877bf0148647d04860d095a934593d42deeee2709fff",
+      "sizeBytes": 647360
+    },
+    {
+      "path": "resources/resfile/locales/af_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/af_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/af_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/am.pak",
+      "sha256": "e28b00bdf56e59ced6465100751db72a4d2d5492e577815dfc933c1803911f7d",
+      "sizeBytes": 1046827
+    },
+    {
+      "path": "resources/resfile/locales/am_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/am_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/am_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar-XB.pak",
+      "sha256": "8f143c60ee07f648e66c0526ccfc912d44a424e9bdb388a2761ddf2150a84f94",
+      "sizeBytes": 1069123
+    },
+    {
+      "path": "resources/resfile/locales/ar-XB_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar-XB_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar-XB_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar.pak",
+      "sha256": "5262dafcbb96d7ce36f1ec61834d1134a71b3c26a10964f364500b11fe574508",
+      "sizeBytes": 1167563
+    },
+    {
+      "path": "resources/resfile/locales/ar_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ar_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bg.pak",
+      "sha256": "e21d9c81a1f4c48801f749266bd7459ba6a9ce2055a6755d5de3e02dbf434bae",
+      "sizeBytes": 1198863
+    },
+    {
+      "path": "resources/resfile/locales/bg_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bg_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bg_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bn.pak",
+      "sha256": "bcb0b1cc03b986c5a666a9021236e4d5c38215f8ec8ebf0d1a201651988f76bf",
+      "sizeBytes": 1534279
+    },
+    {
+      "path": "resources/resfile/locales/bn_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bn_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/bn_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ca.pak",
+      "sha256": "4e41a96a8b83c5ac41d4af01e584cecd204f9dc44976e5ad5484063bd41b5372",
+      "sizeBytes": 738738
+    },
+    {
+      "path": "resources/resfile/locales/ca_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ca_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ca_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/cs.pak",
+      "sha256": "610168634618b8c9796b61eb302a306329bbc5e0db26cf0a9f751eaa8c8627b0",
+      "sizeBytes": 763513
+    },
+    {
+      "path": "resources/resfile/locales/cs_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/cs_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/cs_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/da.pak",
+      "sha256": "0389af248b59a94f5860063c7af9a14b3f6e6507521432a42139fd2e14bd486d",
+      "sizeBytes": 685902
+    },
+    {
+      "path": "resources/resfile/locales/da_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/da_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/da_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/de.pak",
+      "sha256": "fa40a20a00c1b9c9aa7b44728fea25f760f18a61332c1d045f77b6fc965a6bc6",
+      "sizeBytes": 742286
+    },
+    {
+      "path": "resources/resfile/locales/de_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/de_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/de_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/el.pak",
+      "sha256": "f600abbc7945dbdf03a00ef929b3d7454b73bbdf37e99f5f366ec218c3098e1f",
+      "sizeBytes": 1315226
+    },
+    {
+      "path": "resources/resfile/locales/el_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/el_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/el_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-GB.pak",
+      "sha256": "2794b644e7f8f8d0b22d06a81b7b5cca3e9507a3438368943ea2451640c9ac9f",
+      "sizeBytes": 591075
+    },
+    {
+      "path": "resources/resfile/locales/en-GB_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-GB_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-GB_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-US.pak",
+      "sha256": "59a1bcfa9838f141c145bd34992a001e62f4379ebdb556cb40546b53dc74b4ae",
+      "sizeBytes": 598711
+    },
+    {
+      "path": "resources/resfile/locales/en-US_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-US_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-US_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-XA.pak",
+      "sha256": "a49b30f6d9495a67dc718957f07438709534d41315a2e04e5ca3d7b3fe7d492a",
+      "sizeBytes": 1335695
+    },
+    {
+      "path": "resources/resfile/locales/en-XA_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-XA_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/en-XA_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es-419.pak",
+      "sha256": "27bf57e7af44d6700b86980c3d17900f24f8790384760bc1443d958bdaa83916",
+      "sizeBytes": 723577
+    },
+    {
+      "path": "resources/resfile/locales/es-419_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es-419_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es-419_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es.pak",
+      "sha256": "aac84db50ccf192cf3595cd2dab393e7b6592c65f0fa445f8fc099fc97d209a4",
+      "sizeBytes": 718166
+    },
+    {
+      "path": "resources/resfile/locales/es_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/es_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/et.pak",
+      "sha256": "d851f173f02822bbe242bda2d7e683810283c9c7aa3ccca567bf66141b58190c",
+      "sizeBytes": 658808
+    },
+    {
+      "path": "resources/resfile/locales/et_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/et_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/et_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fa.pak",
+      "sha256": "69694e55006a1377095757ea2c9cfd689b32c9d70e5be480fed0d8dca8c54d31",
+      "sizeBytes": 1086373
+    },
+    {
+      "path": "resources/resfile/locales/fa_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fa_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fa_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fi.pak",
+      "sha256": "2df297fd36590a0f39930cf6d92013a16419d5c13f0f1fb750e206bca5e1f5d6",
+      "sizeBytes": 670419
+    },
+    {
+      "path": "resources/resfile/locales/fi_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fi_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fi_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fil.pak",
+      "sha256": "e8afc1a8c6813c4e58a00bbb080f211bced3caf242d04bea186c98e8271d1100",
+      "sizeBytes": 757185
+    },
+    {
+      "path": "resources/resfile/locales/fil_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fil_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fil_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fr.pak",
+      "sha256": "24f35095e90b01bc6d62f3c1e316514ff681e48cea571251dadda0acc2937274",
+      "sizeBytes": 787677
+    },
+    {
+      "path": "resources/resfile/locales/fr_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fr_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/fr_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/gu.pak",
+      "sha256": "2a88a309625be8a4f6fd07d3cf79ed1fe7a79df2c027f4b4cf682ddd9a0fbc5d",
+      "sizeBytes": 1522044
+    },
+    {
+      "path": "resources/resfile/locales/gu_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/gu_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/gu_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/he.pak",
+      "sha256": "f48c2c10ea738dfd33862d2ad8a2a3bb946e882f259d1beb572891e3112ca3ab",
+      "sizeBytes": 955609
+    },
+    {
+      "path": "resources/resfile/locales/he_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/he_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/he_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hi.pak",
+      "sha256": "dc2051a42d24d0e4dbf6503e3cb47c90071ab92b2073f0922fd3c2494fbd63c5",
+      "sizeBytes": 1625097
+    },
+    {
+      "path": "resources/resfile/locales/hi_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hi_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hi_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hr.pak",
+      "sha256": "1df115716e42ea5cc61c7ba64c853f35abbacc11bd4c055d1eed2c78dba6f51a",
+      "sizeBytes": 734455
+    },
+    {
+      "path": "resources/resfile/locales/hr_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hr_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hr_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hu.pak",
+      "sha256": "d632e4dcbe00d1fa04b449abe9c481ce8957b8e4fef333cedffee26f9728a894",
+      "sizeBytes": 781294
+    },
+    {
+      "path": "resources/resfile/locales/hu_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hu_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/hu_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/id.pak",
+      "sha256": "4016134efe8657f78a5030cc621cd2f68100775e02b5fcab97e8c700d4c58e4c",
+      "sizeBytes": 650226
+    },
+    {
+      "path": "resources/resfile/locales/id_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/id_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/id_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/it.pak",
+      "sha256": "df0407b38f082a5be263bb37f62aa3f426da72edf437679fad963f31e1cd14d5",
+      "sizeBytes": 714216
+    },
+    {
+      "path": "resources/resfile/locales/it_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/it_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/it_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ja.pak",
+      "sha256": "2c3ff24903958049edfdc023e76c4513146f6d2cec50d1df9605077ff52e353b",
+      "sizeBytes": 865424
+    },
+    {
+      "path": "resources/resfile/locales/ja_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ja_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ja_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/kn.pak",
+      "sha256": "ad05bcfdf0174a3db89e95f21dfd0166185bd724553564f305a5a55dd3df66c0",
+      "sizeBytes": 1746910
+    },
+    {
+      "path": "resources/resfile/locales/kn_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/kn_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/kn_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ko.pak",
+      "sha256": "f6d7d3141d3b43fb0e261daf915b21feb48d792bbe6820a143d5e315ef427982",
+      "sizeBytes": 738344
+    },
+    {
+      "path": "resources/resfile/locales/ko_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ko_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ko_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lt.pak",
+      "sha256": "b897fc6269df051095a9d7c06cbee92d5fd3eed851423c6d8d190892ce9d58a8",
+      "sizeBytes": 799282
+    },
+    {
+      "path": "resources/resfile/locales/lt_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lt_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lt_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lv.pak",
+      "sha256": "2c3b24ab9b0e127397f4a3920acaccfd7252ed7f19076b2d19447315186f9456",
+      "sizeBytes": 794794
+    },
+    {
+      "path": "resources/resfile/locales/lv_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lv_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/lv_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ml.pak",
+      "sha256": "300803fd41fe1f3b3f393143e7b90cc02075d68e1a62329eb60da79b36b95b1f",
+      "sizeBytes": 1788948
+    },
+    {
+      "path": "resources/resfile/locales/ml_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ml_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ml_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/mr.pak",
+      "sha256": "a467802bd4b662504f17064933c798bd143cc5353b82da2738ee74fbcc97fd97",
+      "sizeBytes": 1487097
+    },
+    {
+      "path": "resources/resfile/locales/mr_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/mr_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/mr_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ms.pak",
+      "sha256": "754716bc582cd736ccabdac2e65df8130ac8cd8713c0f83f0c992790b8c795f4",
+      "sizeBytes": 684770
+    },
+    {
+      "path": "resources/resfile/locales/ms_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ms_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ms_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nb.pak",
+      "sha256": "261e0ae9876081e4912df45d774c676f1c9f8163364214455d355a49cbdd36d9",
+      "sizeBytes": 650655
+    },
+    {
+      "path": "resources/resfile/locales/nb_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nb_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nb_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nl.pak",
+      "sha256": "0be326320562634f4c6330c29f9a5479b90edd3c4a3f03d96cc51f28973210c6",
+      "sizeBytes": 679402
+    },
+    {
+      "path": "resources/resfile/locales/nl_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nl_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/nl_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pl.pak",
+      "sha256": "65c9688230cb8833639cfd0f92c297c5cbb97c5ad6819265d25ecd5eeedead34",
+      "sizeBytes": 764795
+    },
+    {
+      "path": "resources/resfile/locales/pl_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pl_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pl_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-BR.pak",
+      "sha256": "fa2b35feacbb4c1a753473831ba56ad0f763e859b13482971c3f28cc69a3b6ba",
+      "sizeBytes": 713729
+    },
+    {
+      "path": "resources/resfile/locales/pt-BR_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-BR_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-BR_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-PT.pak",
+      "sha256": "95acd60b1481025a6fc3a68f0b855ea0d565c2205f002ead8d0bd38238d90e6e",
+      "sizeBytes": 715773
+    },
+    {
+      "path": "resources/resfile/locales/pt-PT_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-PT_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/pt-PT_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ro.pak",
+      "sha256": "41eb5d65c9797ef04dfea9b56ee4ed79bca6278ac94ad9a83bc7375aad93e077",
+      "sizeBytes": 741714
+    },
+    {
+      "path": "resources/resfile/locales/ro_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ro_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ro_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ru.pak",
+      "sha256": "6274e62d749fac4db5c82b8bad8ff4442fb98e339d1cce817a8a26db6b3de3d0",
+      "sizeBytes": 1230154
+    },
+    {
+      "path": "resources/resfile/locales/ru_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ru_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ru_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sk.pak",
+      "sha256": "a60225adde8074782803f9da52fa233b28e2da69e6a9f50c4d327b377ab6e319",
+      "sizeBytes": 775261
+    },
+    {
+      "path": "resources/resfile/locales/sk_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sk_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sk_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sl.pak",
+      "sha256": "f79c1baebaba0813d8cd65612ed02fed457f54d0f9d933a6a811c8551a5b849b",
+      "sizeBytes": 740617
+    },
+    {
+      "path": "resources/resfile/locales/sl_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sl_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sl_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sr.pak",
+      "sha256": "01c1bfac187424fd3c5d45df6b196d119ad38ca7f7f6d63c44d58204e6c1bce6",
+      "sizeBytes": 1136865
+    },
+    {
+      "path": "resources/resfile/locales/sr_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sr_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sr_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sv.pak",
+      "sha256": "68ef55907a4d3a4f41d0ccb5d1784f90464215aaf72c631b4f2fc733ea5b5691",
+      "sizeBytes": 661902
+    },
+    {
+      "path": "resources/resfile/locales/sv_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sv_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sv_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sw.pak",
+      "sha256": "c86f24043ccd39d3ce312c6fc4144226c1413e47f5449e776779c23401f52242",
+      "sizeBytes": 699096
+    },
+    {
+      "path": "resources/resfile/locales/sw_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sw_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/sw_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ta.pak",
+      "sha256": "e49d9d851c4c0bcb24b34a3c6e7a69ffbb13be401443e0b680f02cc1a691269a",
+      "sizeBytes": 1781480
+    },
+    {
+      "path": "resources/resfile/locales/ta_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ta_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ta_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/te.pak",
+      "sha256": "3d7b80f8d0962423bd4a0e968f583171838862ebf382cf674379bc3371875522",
+      "sizeBytes": 1651198
+    },
+    {
+      "path": "resources/resfile/locales/te_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/te_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/te_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/th.pak",
+      "sha256": "952476f2bc95d15c98f8b2c81c4b81fcd6eee891ced5a400757d8c43af811dcd",
+      "sizeBytes": 1384390
+    },
+    {
+      "path": "resources/resfile/locales/th_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/th_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/th_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/tr.pak",
+      "sha256": "1f5fcb9cd9896aa20bc141b244318254f2e5c341d54691762e697fd2ef98ab72",
+      "sizeBytes": 713758
+    },
+    {
+      "path": "resources/resfile/locales/tr_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/tr_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/tr_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/uk.pak",
+      "sha256": "d4eb7ccb97fe308cd5dc3ec1d072be95056649baf07d01f3a8d715e17768690c",
+      "sizeBytes": 1239154
+    },
+    {
+      "path": "resources/resfile/locales/uk_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/uk_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/uk_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ur.pak",
+      "sha256": "106345dbc48dac90daf7f6eb33ae659f0c86228d9a1db56b87185602e96c5204",
+      "sizeBytes": 1063812
+    },
+    {
+      "path": "resources/resfile/locales/ur_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ur_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/ur_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/vi.pak",
+      "sha256": "bec9220753535a888503995a7744189840d9acf6d87d4e204eb1b7a3719ef059",
+      "sizeBytes": 847018
+    },
+    {
+      "path": "resources/resfile/locales/vi_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/vi_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/vi_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-CN.pak",
+      "sha256": "b68993b0fe6fc357508fba2000c173297b7f9f53a74fd196627f06a63ef2c96a",
+      "sizeBytes": 607477
+    },
+    {
+      "path": "resources/resfile/locales/zh-CN_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-CN_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-CN_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-TW.pak",
+      "sha256": "a49a3d078753aeb71699e2a3898105ded5e8ceae456a0d2091d4aae044a18d81",
+      "sizeBytes": 601171
+    },
+    {
+      "path": "resources/resfile/locales/zh-TW_FEMININE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-TW_MASCULINE.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    },
+    {
+      "path": "resources/resfile/locales/zh-TW_NEUTER.pak",
+      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
+      "sizeBytes": 18
+    }
+  ],
+  "moduleMetadata": {
+    "bundleName": "com.example.ohos.chromium",
+    "compileSdkVersion": "26.0.0.105",
+    "minAPIVersion": 260000026,
+    "targetAPIVersion": 260000026,
+    "versionName": "1.0.0",
+    "debug": false,
+    "deviceTypes": [
+      "2in1",
+      "tablet"
+    ]
+  },
+  "runtimeResourceFilesVerified": true,
+  "allLocalePaksPreserved": true,
+  "localePakCount": 228,
+  "compressNativeLibs": true,
+  "identityReport": "reports/api26-latest-signed-hap-identity.json"
+}

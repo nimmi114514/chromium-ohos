@@ -1,0 +1,16 @@
+diff --git a/build-profile.json5 b/build-profile.json5
+--- a/build-profile.json5
++++ b/build-profile.json5
+@@ -3,9 +3,9 @@
+     "products": [
+       {
+         "name": "default",
+-        "compileSdkVersion": "6.1.1(24)",
+-        "compatibleSdkVersion": "6.1.1(24)",
+-        "targetSdkVersion": "6.1.1(24)",
++        "compileSdkVersion": "26.0.0",
++        "compatibleSdkVersion": "26.0.0",
++        "targetSdkVersion": "26.0.0",
+         "runtimeOS": "HarmonyOS",
+         "buildOption": {
+           "nativeLib": {

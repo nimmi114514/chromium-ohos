@@ -1,0 +1,18 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 5a73707..d21222a 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -60,6 +60,13 @@ config("vulkan_internal_config") {
+       "FALLBACK_DATA_DIRS=\"/usr/local/share:/usr/share\"",
+     ]
+   }
++  if (is_ohos) {
++    defines += [
++      "SYSCONFDIR=\"/system/etc\"",
++      "FALLBACK_CONFIG_DIRS=\"/system/etc\"",
++      "FALLBACK_DATA_DIRS=\"/system/usr/share\"",
++    ]
++  }
+   if (is_apple && !vulkan_loader_shared) {
+     defines += [ "APPLE_STATIC_LOADER" ]
+   }

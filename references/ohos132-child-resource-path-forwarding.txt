@@ -1,0 +1,44 @@
+content/browser/browser_child_process_host_impl.cc
+
+  const base::CommandLine& browser_command_line =
+      *base::CommandLine::ForCurrentProcess();
+  static const char* const kForwardSwitches[] = {
+      switches::kDisableInProcessStackTraces,
+      switches::kDisableBestEffortTasks,
+      switches::kIPCConnectionTimeout,
+      switches::kLogBestEffortTasks,
+      switches::kPerfettoDisableInterning,
+      switches::kTraceToConsole,
+#if BUILDFLAG(IS_OHOS)
+      switches::kBundleInstallationDir,
+      switches::KDisableOcclusionFeature,
+      switches::KDisablePartialSwap,
+      switches::kOhosTrace,
+#endif
+  };
+  cmd_line->CopySwitchesFrom(browser_command_line, kForwardSwitches);
+
+  // All processes should have a non-empty metrics name.
+
+content/browser/renderer_host/render_process_host_impl.cc
+      switches::kSchedulerBoostUrgent,
+#endif
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+      switches::kLacrosEnablePlatformHevc,
+      switches::kLacrosUseChromeosProtectedMedia,
+      switches::kLacrosUseChromeosProtectedAv1,
+#endif
+#if BUILDFLAG(IS_OHOS)
+      switches::kBundleInstallationDir,
+      switches::KDisableBlinkFeatures,
+      switches::kEnabledAdvancedSecurityMode,
+      switches::kOhosTrace,
+#endif
+  };
+  renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames);
+
+  // |switches::kGaiaConfig| can be set via browser command-line arguments,
+  // usually by developers working on signin code. The switch, however, cannot
+  // be passed as is, because the renderer cannot read the file anyway. In those
+  // cases (and only in those cases) GaiaConfig::GetInstance() returns non-null,
+  // and it can be used to serialize its content (usually <2 KB) into a

@@ -1,0 +1,21 @@
+if (target_os == "") {
+  target_os = "ohos"
+}
+if (target_cpu == "") {
+  target_cpu = "arm64"
+}
+if (current_os == "") {
+  current_os = target_os
+}
+if (current_cpu == "") {
+  current_cpu = target_cpu
+}
+assert(target_os == "ohos" && target_cpu == "arm64")
+set_default_toolchain("//ohos/bringup:clang_arm64")
+
+set_defaults("shared_library") {
+  configs = [
+    "//build/config/ohos:compiler",
+    "//build/config/ohos:runtime_library",
+  ]
+}

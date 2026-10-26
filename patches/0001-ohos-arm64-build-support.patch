@@ -1,0 +1,334 @@
+diff --git a/build/config/BUILD.gn b/build/config/BUILD.gn
+index 2b957b8c6d..41faac07e6 100644
+--- a/build/config/BUILD.gn
++++ b/build/config/BUILD.gn
+@@ -78,6 +78,9 @@ config("feature_flags") {
+   if (is_asan) {
+     defines += [ "ADDRESS_SANITIZER" ]
+   }
++  if (is_ohos && is_hwasan) {
++    defines += [ "HWADDRESS_SANITIZER" ]
++  }
+   if (is_lsan) {
+     defines += [ "LEAK_SANITIZER" ]
+   }
+diff --git a/build/config/BUILDCONFIG.gn b/build/config/BUILDCONFIG.gn
+index c178646473..1b982975c6 100644
+--- a/build/config/BUILDCONFIG.gn
++++ b/build/config/BUILDCONFIG.gn
+@@ -264,6 +264,10 @@ if (target_os == "android") {
+   # Targeting android on Mac is best-effort and not guaranteed to work.
+   assert(host_os == "linux", "Android builds are only supported on Linux.")
+   _default_toolchain = "//build/toolchain/android:android_clang_$target_cpu"
++} else if (target_os == "ohos") {
++  assert(host_os == "linux", "OHOS cross-builds currently require Linux.")
++  assert(target_cpu == "arm64", "Initial OHOS port supports arm64 only.")
++  _default_toolchain = "//build/toolchain/ohos:ohos_clang_arm64"
+ } else if (target_os == "chromeos" || target_os == "linux") {
+   # See comments in build/toolchain/cros/BUILD.gn about board compiles.
+   if (is_clang) {
+@@ -338,6 +342,7 @@ is_chromeos = current_os == "chromeos"
+ is_fuchsia = current_os == "fuchsia"
+ is_ios = current_os == "ios"
+ is_linux = current_os == "linux"
++is_ohos = current_os == "ohos"
+ is_mac = current_os == "mac"
+ is_wasm = current_os == "emscripten"
+ is_watchos = current_os == "watchos"
+@@ -346,6 +351,10 @@ is_win = current_os == "win" || current_os == "winuwp"
+ is_apple = is_ios || is_mac || is_watchos
+ is_posix = !is_win && !is_fuchsia
+ 
++if (is_ohos) {
++  import("//build/config/ohos/config.gni")
++}
++
+ # =============================================================================
+ # TARGET DEFAULTS
+ # =============================================================================
+diff --git a/build/config/arm.gni b/build/config/arm.gni
+index 1e63071f4a..fa15bb8a63 100644
+--- a/build/config/arm.gni
++++ b/build/config/arm.gni
+@@ -82,6 +82,8 @@ if (current_cpu == "arm" || v8_current_cpu == "arm") {
+       # MSAN build) where the target platform is x64, but V8 is configured to
+       # use the arm64 simulator.
+       arm_control_flow_integrity = "standard"
++    } else if (is_ohos && target_cpu == "arm64") {
++      arm_control_flow_integrity = "pac"
+     }
+ 
+     if (host_os == "mac" && host_cpu == "arm64") {
+diff --git a/build/config/clang/BUILD.gn b/build/config/clang/BUILD.gn
+index f81d22c25c..992986f899 100644
+--- a/build/config/clang/BUILD.gn
++++ b/build/config/clang/BUILD.gn
+@@ -177,6 +177,10 @@ group("llvm-symbolizer_data") {
+   }
+ }
+ 
++if (is_ohos) {
++  import("//build/config/ohos/config.gni")
++}
++
+ template("clang_lib") {
+   if (!defined(invoker.libname) || is_wasm) {
+     not_needed(invoker, "*")
+@@ -249,6 +253,8 @@ template("clang_lib") {
+         } else {
+           assert(false)  # Unhandled cpu type
+         }
++      } else if (is_ohos) {
++        _dir = ohos_target_triple
+       } else if (current_os == "aix") {
+         _dir = "aix"
+         _suffix = "-powerpc64"
+@@ -257,6 +263,9 @@ template("clang_lib") {
+       }
+ 
+       _clang_lib_dir = "$clang_base_path/lib/clang/$clang_version/lib"
++      if (is_ohos && ohos_clang_resource_dir != "") {
++        _clang_lib_dir = "$ohos_clang_resource_dir/lib"
++      }
+       _lib_file = "${_prefix}clang_rt.${_libname}${_suffix}.${_ext}"
+       libs = [ "$_clang_lib_dir/$_dir/$_lib_file" ]
+     }
+diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
+index d0b1e809a2..791cbb9546 100644
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -350,6 +350,8 @@ config("compiler") {
+     configs += [ "//build/config/win:compiler" ]
+   } else if (is_android) {
+     configs += [ "//build/config/android:compiler" ]
++  } else if (is_ohos) {
++    configs += [ "//build/config/ohos:compiler" ]
+   } else if (is_chromeos) {
+     configs += [
+       "//build/config/linux:compiler",
+@@ -544,7 +546,7 @@ config("compiler") {
+ 
+   # Linux/Android/Fuchsia common flags setup.
+   # ---------------------------------
+-  if (is_linux || is_chromeos || is_android || is_fuchsia) {
++  if (is_linux || is_chromeos || is_android || is_fuchsia || is_ohos) {
+     asmflags += [ "-fPIC" ]
+     cflags += [ "-fPIC" ]
+     ldflags += [ "-fPIC" ]
+@@ -687,7 +689,7 @@ config("compiler") {
+ 
+   # C11/C++11 compiler flags setup.
+   # ---------------------------
+-  if (is_linux || is_chromeos || is_android || current_os == "aix") {
++  if (is_linux || is_chromeos || is_android || is_ohos || current_os == "aix") {
+     if (is_clang) {
+       standard_prefix = "c"
+ 
+@@ -1787,6 +1789,8 @@ config("runtime_library") {
+     configs += [ "//build/config/mac:runtime_library" ]
+   } else if (is_android) {
+     configs += [ "//build/config/android:runtime_library" ]
++  } else if (is_ohos) {
++    configs += [ "//build/config/ohos:runtime_library" ]
+   }
+ 
+   if (is_component_build) {
+diff --git a/build/config/compiler_cpu_abi.gn b/build/config/compiler_cpu_abi.gn
+index ae62bab587..a18b70f573 100644
+--- a/build/config/compiler_cpu_abi.gn
++++ b/build/config/compiler_cpu_abi.gn
+@@ -83,7 +83,11 @@ if ((is_posix && !is_apple) || is_fuchsia) {
+       "-mfloat-abi=$arm_float_abi",
+     ]
+   } else if (current_cpu == "arm64") {
+-    if (is_clang && !is_android && !is_fuchsia && !is_chromeos_device) {
++    if (is_ohos) {
++      import("//build/config/ohos/config.gni")
++      cpu_abi_cflags += [ "--target=$ohos_target_triple" ]
++      cpu_abi_ldflags += [ "--target=$ohos_target_triple" ]
++    } else if (is_clang && !is_android && !is_fuchsia && !is_chromeos_device) {
+       cpu_abi_cflags += [ "--target=aarch64-linux-gnu" ]
+       cpu_abi_ldflags += [ "--target=aarch64-linux-gnu" ]
+     }
+diff --git a/build/config/freetype/BUILD.gn b/build/config/freetype/BUILD.gn
+index a5d5ec6a47..e840cd2612 100644
+--- a/build/config/freetype/BUILD.gn
++++ b/build/config/freetype/BUILD.gn
+@@ -31,4 +31,8 @@ group("freetype") {
+     "//components/services/font:font_service_unittests",
+     "//skia",
+   ]
++  if (is_ohos) {
++    # The original OHOS font-name service scans system fonts with FreeType.
++    visibility += [ "//content/browser:browser" ]
++  }
+ }
+diff --git a/build/config/logging.gni b/build/config/logging.gni
+index 73915fef4f..c64ecca47f 100644
+--- a/build/config/logging.gni
++++ b/build/config/logging.gni
+@@ -10,7 +10,7 @@ declare_args() {
+   # tools/valgrind/asan/asan_symbolize.py. By piping stderr through this script,
+   # and also enabling symbol_level = 2, you can get much more detailed stack
+   # traces with file names and line numbers, even in non-ASAN builds.
+-  print_unsymbolized_stack_traces = is_asan || is_lsan || is_msan || is_tsan
++  print_unsymbolized_stack_traces = is_asan || is_lsan || is_msan || is_tsan || (is_ohos && is_hwasan)
+ 
+   # Enables the DWARF line number reader on Linux. This only has an effect if
+   # print_unsymbolized_stack_traces is false.
+diff --git a/build/config/sysroot.gni b/build/config/sysroot.gni
+index e7aaa18479..8f498c4949 100644
+--- a/build/config/sysroot.gni
++++ b/build/config/sysroot.gni
+@@ -29,6 +29,9 @@ if (sysroot == "") {
+ 
+     # Android uses unified headers, and thus a single compile time sysroot
+     sysroot = "$android_toolchain_root/sysroot"
++  } else if (is_ohos) {
++    import("//build/config/ohos/config.gni")
++    sysroot = ohos_sysroot
+   } else if ((is_linux || is_chromeos) && use_sysroot) {
+     # By default build against a sysroot image downloaded from Cloud Storage
+     # during gclient runhooks.
+diff --git a/build/modules/BUILD.gn b/build/modules/BUILD.gn
+index 27ba1a128f..454ce356ef 100644
+--- a/build/modules/BUILD.gn
++++ b/build/modules/BUILD.gn
+@@ -101,7 +101,7 @@ if (use_unified_system_module) {
+     extra_headers += [ ":ios_sysroot(${default_toolchain})" ]
+   } else if (is_mac && use_system_xcode) {
+     extra_headers += [ ":mac_sysroot(${default_toolchain})" ]
+-  } else if (is_linux || is_mac || is_android || is_chromeos) {
++  } else if (is_linux || is_mac || is_android || is_chromeos || is_ohos) {
+     root_include_dir = "usr/include"
+   } else if (is_fuchsia) {
+     root_include_dir = "include"
+diff --git a/build_overrides/partition_alloc.gni b/build_overrides/partition_alloc.gni
+index f5956013a8..595c2637e9 100644
+--- a/build_overrides/partition_alloc.gni
++++ b/build_overrides/partition_alloc.gni
+@@ -77,6 +77,14 @@ _disable_partition_alloc_everywhere =
+ 
+ use_allocator_shim_default = true  # Updated below:
+ 
++# HAP loads the native adapter before the browser library. Their public C++
++# interfaces transfer strings and containers between the two DSOs, so both
++# must use the same libc heap. The adapter's eager libc bindings cannot be
++# redirected by an allocator shim loaded later with the browser library.
++if (is_ohos) {
++  use_allocator_shim_default = false
++}
++
+ # Sanitizers replace the allocator, don't use our own.
+ if (is_asan || is_hwasan || is_lsan || is_tsan || is_msan) {
+   use_allocator_shim_default = false
+diff --git a/build/config/ohos/BUILD.gn b/build/config/ohos/BUILD.gn
+new file mode 100644
+index 0000000000..eee01c1a14
+--- /dev/null
++++ b/build/config/ohos/BUILD.gn
+@@ -0,0 +1,40 @@
++import("//build/config/ohos/config.gni")
++
++assert(current_os == "ohos")
++
++config("compiler") {
++  cflags = [
++    "--target=$ohos_target_triple",
++    "--sysroot=" + rebase_path(ohos_sysroot, root_build_dir),
++    "-ffunction-sections",
++    "-fdata-sections",
++    "-pthread",
++  ]
++  if (ohos_clang_resource_dir != "") {
++    cflags += [ "-resource-dir=" +
++                rebase_path(ohos_clang_resource_dir, root_build_dir) ]
++  }
++  asmflags = cflags
++  defines = [
++    "OSOHOS",
++    "__MUSL__",
++  ]
++}
++
++config("runtime_library") {
++  ldflags = [
++    "--target=$ohos_target_triple",
++    "--sysroot=" + rebase_path(ohos_sysroot, root_build_dir),
++    "-L" + rebase_path("$ohos_sdk_native/llvm/lib/$ohos_target_triple",
++                       root_build_dir),
++    "-Wl,-z,defs",
++    "-Wl,-z,max-page-size=4096",
++  ]
++  if (ohos_clang_resource_dir != "") {
++    ldflags += [
++      "-resource-dir=" + rebase_path(ohos_clang_resource_dir, root_build_dir),
++      "-B" + rebase_path("$ohos_clang_resource_dir/lib/$ohos_target_triple",
++                         root_build_dir),
++    ]
++  }
++}
+diff --git a/build/config/ohos/config.gni b/build/config/ohos/config.gni
+new file mode 100644
+index 0000000000..46320e411e
+--- /dev/null
++++ b/build/config/ohos/config.gni
+@@ -0,0 +1,30 @@
++# OHOS arm64 bring-up for Chromium 158.
++# Platform layout follows OpenHarmony-TPC's pc_chromium_132 port.
++
++declare_args() {
++  # Native SDK directory containing sysroot/ and llvm/.
++  ohos_sdk_native = "//ohos_sdk/openharmony/native"
++
++  # Keep Chromium's compiler by default. The old SDK compiler has not been
++  # validated against Chromium 158's language and compiler requirements.
++  ohos_clang_root = "//third_party/llvm-build/Release+Asserts"
++
++  # Optional resource overlay: current Clang builtin headers plus OHOS SDK
++  # compiler-rt/startup objects. Created by scripts/prepare_toolchain.py.
++  ohos_clang_resource_dir = ""
++
++  # Adapter entry point loaded by the HAP.
++  ohos_build_target = "chromium"
++  isolated_level = 0
++  enable_ohos_bytrace = true
++  product_name = "all"
++  gpu_switch = "on"
++  ohos_enable_media_router = false
++}
++
++ohos_sysroot = "$ohos_sdk_native/sysroot"
++ohos_target_triple = "aarch64-linux-ohos"
++
++if (current_os == "ohos") {
++  assert(current_cpu == "arm64", "Initial OHOS port supports arm64 only.")
++}
+diff --git a/build/toolchain/ohos/BUILD.gn b/build/toolchain/ohos/BUILD.gn
+new file mode 100644
+index 0000000000..82f5d5c6af
+--- /dev/null
++++ b/build/toolchain/ohos/BUILD.gn
+@@ -0,0 +1,22 @@
++import("//build/config/ohos/config.gni")
++import("//build/toolchain/gcc_toolchain.gni")
++
++# Chromium's current gcc_toolchain template also defines its Rust and host
++# proc-macro tools. Do not copy the older template from Chromium 132.
++gcc_toolchain("ohos_clang_arm64") {
++  toolchain_args = {
++    current_os = "ohos"
++    current_cpu = "arm64"
++    is_clang = true
++    use_lld = true
++  }
++
++  _bin = rebase_path("$ohos_clang_root/bin", root_build_dir)
++  cc = "$_bin/clang"
++  cxx = "$_bin/clang++"
++  ar = "$_bin/llvm-ar"
++  ld = cxx
++  nm = "$_bin/llvm-nm"
++  readelf = "$_bin/llvm-readobj"
++  loadable_module_extension = ".so"
++}

@@ -1,0 +1,64 @@
+diff --git a/AppScope/app.json5 b/AppScope/app.json5
+index b7851b2..7d5010c 100644
+--- a/AppScope/app.json5
++++ b/AppScope/app.json5
+@@ -1,6 +1,6 @@
+ {
+   "app": {
+-    "bundleName": "com.example.ohos.chromium2in1",
++    "bundleName": "com.example.ohos.chromium",
+     "vendor": "openharmony-tpc",
+     "versionCode": 1000000,
+     "versionName": "1.0.0",
+diff --git a/AppScope/resources/base/element/string.json b/AppScope/resources/base/element/string.json
+index 7b7406f..2c3ded1 100644
+--- a/AppScope/resources/base/element/string.json
++++ b/AppScope/resources/base/element/string.json
+@@ -2,7 +2,7 @@
+   "string": [
+     {
+       "name": "app_name",
+-      "value": "Chromium 2 in 1"
++      "value": "Chromium 158"
+     }
+   ]
+ }
+diff --git a/chromium/src/main/resources/base/profile/shortcuts_config.json b/chromium/src/main/resources/base/profile/shortcuts_config.json
+index f8f3215..f0dec63 100644
+--- a/chromium/src/main/resources/base/profile/shortcuts_config.json
++++ b/chromium/src/main/resources/base/profile/shortcuts_config.json
+@@ -5,7 +5,7 @@
+       "label": "$string:OpenNewWindow_label",
+       "wants": [
+         {
+-          "bundleName": "com.example.ohos.chromium2in1",
++          "bundleName": "com.example.ohos.chromium",
+           "moduleName": "chromium",
+           "abilityName": "EntryAbility",
+           "parameters": {
+diff --git a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+index 9f80ff8..0bf7f81 100644
+--- a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
++++ b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+@@ -53,7 +53,7 @@ const TAG: string = 'AppWindow';
+ @injectable()
+ export class AppWindowAdapter extends BaseAdapter {
+   private abilityManager: AbilityManager;
+-  private bundleName: string = 'com.example.ohos.chromium2in1';
++  private bundleName: string = 'com.example.ohos.chromium';
+   private bundleFlags = bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION |
+                         bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_METADATA;
+   private queryWindowNum: number = 10;                      
+diff --git a/web_engine/src/main/ets/adapter/WebAppAdapter.ets b/web_engine/src/main/ets/adapter/WebAppAdapter.ets
+index 977b60d..d62bb37 100644
+--- a/web_engine/src/main/ets/adapter/WebAppAdapter.ets
++++ b/web_engine/src/main/ets/adapter/WebAppAdapter.ets
+@@ -62,7 +62,7 @@ export class WebAppAdapter extends BaseAdapter {
+       LogUtil.error(TAG, 'getBundleInfoForSelfSync failed. Cause: ' + JSON.stringify(exception));
+     }
+     const want: Want = {
+-      bundleName: "com.example.ohos.chromium2in1",
++      bundleName: "com.example.ohos.chromium",
+       moduleName: this.moduleName,
+       abilityName: "EntryAbility",
+       parameters: {

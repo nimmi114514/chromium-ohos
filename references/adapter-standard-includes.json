@@ -1,0 +1,238 @@
+{
+  "ohos/adapter/notification/notification_adapter.h": [
+    "vector",
+    "functional"
+  ],
+  "ohos/adapter/window/app_window_adapter.h": [
+    "vector"
+  ],
+  "ohos/adapter/window/window_common.h": [
+    "string_view"
+  ],
+  "ohos/adapter/accessibility/accessibility_delegate_ohos_registry.h": [
+    "string",
+    "memory"
+  ],
+  "ohos/adapter/screenlock_monitor/screenlock_monitor_adapter.h": [
+    "functional"
+  ],
+  "ohos/adapter/common/util.h": [
+    "functional"
+  ],
+  "ohos/adapter/common/trace.h": [
+    "string"
+  ],
+  "ohos/adapter/file_picker/file_select_picker.h": [
+    "vector",
+    "string"
+  ],
+  "ohos/adapter/geolocation/location_proxy_adapter_impl.h": [
+    "memory"
+  ],
+  "ohos/adapter/ocr/ocr_adapter.h": [
+    "vector",
+    "functional"
+  ],
+  "ohos/adapter/native_theme/native_theme_adapter.h": [
+    "memory"
+  ],
+  "ohos/adapter/screen/screen_adapter.h": [
+    "functional"
+  ],
+  "ohos/adapter/drag_drop/node_handle_drag_drop_ohos_adapter.h": [
+    "atomic"
+  ],
+  "ohos/adapter/drag_drop/drag_drop_common.h": [
+    "vector",
+    "memory"
+  ],
+  "ohos/adapter/drag_drop/drag_drop_ohos_adapter.h": [
+    "atomic"
+  ],
+  "ohos/adapter/cert_manager/cert_manager_adapter.h": [
+    "vector"
+  ],
+  "ohos/adapter/print/ohos_print_adapter.h": [
+    "memory"
+  ],
+  "ohos/adapter/battery/battery_adapter.h": [
+    "memory"
+  ],
+  "ohos/adapter/browser/browser_adapter.h": [
+    "unordered_map",
+    "memory"
+  ],
+  "ohos/adapter/aki_hook/aki_hook.h": [
+    "string"
+  ],
+  "ohos/adapter/multiprocess/child_process_manager.h": [
+    "memory",
+    "mutex"
+  ],
+  "ohos/adapter/cursor/cursor.h": [
+    "memory"
+  ],
+  "ohos/adapter/device/device_adapter.h": [
+    "memory"
+  ],
+  "ohos/adapter/speech/text_to_speech_adapter.h": [
+    "vector",
+    "functional"
+  ],
+  "ohos/adapter/test/mock_app_window_adapter.h": [
+    "vector",
+    "string"
+  ],
+  "ohos/adapter/test/mock_input_method_ohos_adapter.h": [
+    "string"
+  ],
+  "ohos/adapter/web_entry/shell/content_shell_loader.h": [
+    "vector",
+    "string"
+  ],
+  "ohos/adapter/web_entry/chrome/chrome_loader.h": [
+    "vector",
+    "string"
+  ],
+  "ohos/adapter/multiprocess/native_child_process/native_child_process_args_wrapper.h": [
+    "memory"
+  ],
+  "ohos/adapter/multiprocess/native_child_process/native_child_process_monitor.h": [
+    "memory"
+  ],
+  "ohos/adapter/multiprocess/gpu/gpu_native_process.h": [
+    "string"
+  ],
+  "ohos/adapter/multiprocess/gpu/gpu_native_process_host.h": [
+    "vector",
+    "string",
+    "memory"
+  ],
+  "ohos/adapter/xcomponent/event/input_event_common.h": [
+    "string"
+  ],
+  "ohos/adapter/xcomponent/event/window_event_filter_adapter.h": [
+    "atomic"
+  ],
+  "ohos/adapter/res_sched/manager/res_api_wrapper.h": [
+    "atomic"
+  ],
+  "third_party/aki/include/aki/binding.h": [
+    "string",
+    "map"
+  ],
+  "third_party/aki/include/aki/jsbind.h": [
+    "vector"
+  ],
+  "third_party/aki/include/aki/value.h": [
+    "functional",
+    "memory"
+  ],
+  "third_party/aki/include/aki/function.h": [
+    "string"
+  ],
+  "third_party/aki/include/aki/reflect/type_meta.h": [
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/constructor_binder.h": [
+    "memory"
+  ],
+  "third_party/aki/include/aki/task_runner/task_runner.h": [
+    "string",
+    "memory"
+  ],
+  "third_party/aki/include/aki/value/value.h": [
+    "memory",
+    "limits"
+  ],
+  "third_party/aki/include/aki/value/value_trait.h": [
+    "string"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_method_binder.h": [
+    "string",
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_setter_binder.h": [
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_pmethod_binder.h": [
+    "string",
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_constructor_binder.h": [
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_pfunction_binder.h": [
+    "string",
+    "array"
+  ],
+  "third_party/aki/include/aki/binder/napi/napi_function_binder.h": [
+    "string"
+  ],
+  "third_party/aki/include/aki/checker/napi/napi_checker.h": [
+    "string",
+    "array"
+  ],
+  "third_party/aki/include/aki/callback/napi/safety_callback.h": [
+    "memory"
+  ],
+  "third_party/aki/include/aki/value/napi/napi_value_trait.h": [
+    "vector",
+    "string",
+    "functional",
+    "unordered_map",
+    "unordered_set",
+    "map",
+    "memory",
+    "optional",
+    "array",
+    "limits"
+  ],
+  "third_party/aki/include/aki/value/napi/napi_value.h": [
+    "vector",
+    "string",
+    "functional",
+    "unordered_map",
+    "unordered_set",
+    "map",
+    "memory",
+    "optional",
+    "array",
+    "limits"
+  ],
+  "third_party/aki/include/aki/value/napi/napi_value_base.h": [
+    "string"
+  ],
+  "third_party/aki/include/aki/value/napi/js_function.h": [
+    "memory"
+  ],
+  "third_party/aki/src/binding.cpp": [
+    "map",
+    "memory",
+    "string",
+    "unordered_map",
+    "utility"
+  ],
+  "third_party/aki/src/task_runner/task_runner.cpp": [
+    "memory",
+    "string",
+    "unordered_map",
+    "utility"
+  ],
+  "third_party/aki/src/value/array_buffer.cpp": [
+    "utility",
+    "vector"
+  ],
+  "third_party/aki/src/napi/napi_init.cpp": [
+    "string",
+    "utility",
+    "vector"
+  ],
+  "third_party/aki/src/overloader/napi/napi_overloader.cpp": [
+    "vector"
+  ],
+  "third_party/aki/src/value/napi/napi_value_base.cpp": [
+    "limits",
+    "string"
+  ]
+}

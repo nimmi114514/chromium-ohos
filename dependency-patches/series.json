@@ -1,0 +1,135 @@
+[
+  {
+    "path": "v8",
+    "revision": "84875bfdee7eadf022f3b8866f74643308f24b94",
+    "patch": "v8-ohos-metagen.patch",
+    "files": [
+      "BUILD.gn",
+      "tools/metagen/compile_flags.py",
+      "tools/metagen/test/compile_flags_test.py"
+    ],
+    "sha256": "078978302698fb5b4aeae48c0b3b5dfbf5bda058b28617f460e1bb418cb9d5b4",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/dawn",
+    "revision": "48bfcb1d70378119bfa6bff34ea5b2eb0c3ea217",
+    "patch": "dawn-ohos.patch",
+    "files": [
+      "scripts/dawn_features.gni",
+      "src/dawn/common/BUILD.gn",
+      "src/dawn/native/BUILD.gn",
+      "src/dawn/native/vulkan/BackendVk.cpp"
+    ],
+    "sha256": "ea1a34033a8ffa7e3827379e5b5234eb4e070681858cbd5c2489f25f69694c4d",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/swiftshader",
+    "revision": "cddb5c91b23ff70a1f607ea31610aa0d7f4b5ad5",
+    "patch": "swiftshader-ohos.patch",
+    "files": [
+      "src/Reactor/BUILD.gn",
+      "src/Reactor/reactor.gni",
+      "src/System/BUILD.gn",
+      "third_party/llvm-10.0/BUILD.gn",
+      "third_party/marl/src/thread.cpp"
+    ],
+    "sha256": "7901fadfc80fffb766f04cdd8cef08e9e8acf4ad10b3625b78ca551a9105432a",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/webrtc",
+    "revision": "ac1a2f1d3e91e7e03b1e2fa695be8be6cd681d6e",
+    "patch": "webrtc-ohos.patch",
+    "files": [
+      "BUILD.gn",
+      "modules/desktop_capture/BUILD.gn",
+      "rtc_base/platform_thread_types.cc",
+      "webrtc.gni",
+      "modules/desktop_capture/ohos/native_desktop_capturer.cc",
+      "modules/desktop_capture/ohos/native_desktop_capturer.h"
+    ],
+    "sha256": "3ef6716551b9ff758116c7783dc06eca852191f4763222f34c066ea81575498d",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/skia",
+    "revision": "637dce57fdbc0d856cc0d75c32cb7e472ae1eeb4",
+    "patch": "skia-ohos-fonts.patch",
+    "files": [
+      "include/ports/SkFontMgr_ohos.h",
+      "src/ports/SkFontMgr_ohos.cpp"
+    ],
+    "sha256": "e8b77982b540e6473b0ce192f8b89d3371b01258091bffac795f7f1901132090",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/angle",
+    "revision": "acc2f85e7a6a381b6ae222fb393f401b6cb2baea",
+    "patch": "angle-ohos-egl.patch",
+    "files": [
+      "BUILD.gn",
+      "gni/angle.gni",
+      "src/common/platform.h",
+      "src/libANGLE/Display.cpp",
+      "src/libANGLE/renderer/driver_utils.cpp",
+      "src/libANGLE/renderer/gl/BUILD.gn",
+      "src/libANGLE/renderer/gl/egl/DisplayEGL.cpp",
+      "src/libANGLE/renderer/gl/gl_backend.gni",
+      "src/libGLESv2.gni"
+    ],
+    "sha256": "1e88a8ca48bcb0e1c946ea611e2489228d9f3524e70c627a8d16772ff9fc6323",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/ffmpeg",
+    "revision": "42a2a7a2b2ceb0b1554af1e99a8cdaae189404bb",
+    "patch": "ffmpeg-ohos-config.patch",
+    "files": [
+      "chromium/config/Chrome/ohos/arm64/config.h",
+      "chromium/config/Chrome/ohos/arm64/config_components.h",
+      "chromium/config/Chrome/ohos/arm64/libavcodec/bsf_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavcodec/codec_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavcodec/parser_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavformat/demuxer_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavformat/muxer_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavformat/protocol_list.c",
+      "chromium/config/Chrome/ohos/arm64/libavutil/avconfig.h",
+      "chromium/config/Chrome/ohos/arm64/libavutil/ffversion.h",
+      "chromium/config/Chromium/ohos/arm64/config.h",
+      "chromium/config/Chromium/ohos/arm64/config_components.h",
+      "chromium/config/Chromium/ohos/arm64/libavcodec/bsf_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavcodec/codec_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavcodec/parser_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavformat/demuxer_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavformat/muxer_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavformat/protocol_list.c",
+      "chromium/config/Chromium/ohos/arm64/libavutil/avconfig.h",
+      "chromium/config/Chromium/ohos/arm64/libavutil/ffversion.h"
+    ],
+    "sha256": "05fa3faaf4c880c7b3c91c9b6ec41dbf7ff89b5f44699cf7e30cecc1eb63784b",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/vulkan-loader/src",
+    "revision": "44b599a5c5fd3c29d86f1d05ffe9e72c65e5b743",
+    "patch": "vulkan-loader-ohos.patch",
+    "files": [
+      "BUILD.gn"
+    ],
+    "sha256": "e9b5813bfa651b5f89db1f1c70cfeaae3620b993f9fd931ad16510782272cf8e",
+    "replay_matches_worktree": true
+  },
+  {
+    "path": "third_party/pdfium",
+    "revision": "81e633c5a42c71a2ce3cef0fd18804076ddf7961",
+    "patch": "pdfium-ohos-fonts.patch",
+    "files": [
+      "core/fxge/BUILD.gn",
+      "core/fxge/linux/fx_linux_impl.cpp"
+    ],
+    "sha256": "e6587c6279d574f0151aa99d07813961857c71c2a79820d3e75a02a79df82050",
+    "replay_matches_worktree": true
+  }
+]

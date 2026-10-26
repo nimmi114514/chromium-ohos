@@ -1,0 +1,8 @@
+{
+  "url": "https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+/latest",
+  "archive_sha256": "c5bfa52f56babd1f5cfeb1d8b763c2b005fb3c3e55af2ed4a0098f29ae94f58f",
+  "files": [
+    "gn",
+    ".cipdpkg/manifest.json"
+  ]
+}

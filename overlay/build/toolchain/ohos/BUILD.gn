@@ -1,0 +1,22 @@
+import("//build/config/ohos/config.gni")
+import("//build/toolchain/gcc_toolchain.gni")
+
+# Chromium's current gcc_toolchain template also defines its Rust and host
+# proc-macro tools. Do not copy the older template from Chromium 132.
+gcc_toolchain("ohos_clang_arm64") {
+  toolchain_args = {
+    current_os = "ohos"
+    current_cpu = "arm64"
+    is_clang = true
+    use_lld = true
+  }
+
+  _bin = rebase_path("$ohos_clang_root/bin", root_build_dir)
+  cc = "$_bin/clang"
+  cxx = "$_bin/clang++"
+  ar = "$_bin/llvm-ar"
+  ld = cxx
+  nm = "$_bin/llvm-nm"
+  readelf = "$_bin/llvm-readobj"
+  loadable_module_extension = ".so"
+}

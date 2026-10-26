@@ -1,0 +1,122 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 6714556..cc28a35 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -751,7 +751,7 @@ angle_static_library("angle_gpu_info_util") {
+     libs += [ "dxgi.lib" ]
+   }
+ 
+-  if (is_linux || is_chromeos) {
++  if (is_linux || is_chromeos || is_ohos) {
+     sources += libangle_gpu_info_util_linux_sources
+ 
+     if (angle_use_x11 && angle_has_build) {
+diff --git a/gni/angle.gni b/gni/angle.gni
+index a63962d..63ea972 100644
+--- a/gni/angle.gni
++++ b/gni/angle.gni
+@@ -245,7 +245,7 @@ declare_args() {
+ 
+   # Disable null backend to save space for official build.
+   angle_enable_null = !is_official_build
+-  angle_enable_gl_desktop_backend = !is_android && !is_ios
++  angle_enable_gl_desktop_backend = !is_android && !is_ios && !is_ohos
+ 
+   angle_enable_metal = is_apple
+ 
+diff --git a/src/common/platform.h b/src/common/platform.h
+index cae59a1..a40d597 100644
+--- a/src/common/platform.h
++++ b/src/common/platform.h
+@@ -9,6 +9,11 @@
+ #ifndef COMMON_PLATFORM_H_
+ #define COMMON_PLATFORM_H_
+ 
++// OHOS shares Linux kernel/POSIX helpers, with its own native EGL loader.
++#if defined(__OHOS__) || defined(OSOHOS)
++#    define ANGLE_PLATFORM_OHOS 1
++#endif
++
+ #if defined(_WIN32)
+ #    define ANGLE_PLATFORM_WINDOWS 1
+ #elif defined(__Fuchsia__)
+diff --git a/src/libANGLE/Display.cpp b/src/libANGLE/Display.cpp
+index 64071b7..4edeb8e 100644
+--- a/src/libANGLE/Display.cpp
++++ b/src/libANGLE/Display.cpp
+@@ -674,6 +674,8 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
+ #if defined(ANGLE_ENABLE_OPENGL)
+ #    if defined(ANGLE_PLATFORM_WINDOWS)
+             impl = new rx::DisplayWGL(state);
++#    elif defined(ANGLE_PLATFORM_OHOS)
++            impl = new rx::DisplayEGL(state);
+ #    elif defined(ANGLE_PLATFORM_LINUX)
+ #        if defined(ANGLE_USE_GBM) || defined(ANGLE_USE_WAYLAND)
+             if (platformType == 0)
+diff --git a/src/libANGLE/renderer/driver_utils.cpp b/src/libANGLE/renderer/driver_utils.cpp
+index e676a41..e1dc281 100644
+--- a/src/libANGLE/renderer/driver_utils.cpp
++++ b/src/libANGLE/renderer/driver_utils.cpp
+@@ -395,7 +395,7 @@ OSVersion GetLinuxOSVersion()
+ 
+ bool IsXWayland()
+ {
+-#if defined(ANGLE_PLATFORM_LINUX)
++#if defined(ANGLE_PLATFORM_LINUX) && !defined(ANGLE_PLATFORM_OHOS)
+     // Detects the Wayland session rather than the connection, so callers must be
+     // on an X11 code path for this to mean XWayland. Cached: the session type is
+     // fixed for the life of the process.
+diff --git a/src/libANGLE/renderer/gl/BUILD.gn b/src/libANGLE/renderer/gl/BUILD.gn
+index 6be9490..b2869f8 100644
+--- a/src/libANGLE/renderer/gl/BUILD.gn
++++ b/src/libANGLE/renderer/gl/BUILD.gn
+@@ -61,7 +61,7 @@ angle_source_set("angle_gl_backend") {
+       "Xext",
+     ]
+   }
+-  if (is_android || is_linux || is_chromeos) {
++  if (is_android || is_linux || is_chromeos || is_ohos) {
+     deps += [ "$angle_root/src/common/linux:angle_dma_buf" ]
+   }
+   if (is_apple) {
+diff --git a/src/libANGLE/renderer/gl/egl/DisplayEGL.cpp b/src/libANGLE/renderer/gl/egl/DisplayEGL.cpp
+index 4c82395..2ffcca3 100644
+--- a/src/libANGLE/renderer/gl/egl/DisplayEGL.cpp
++++ b/src/libANGLE/renderer/gl/egl/DisplayEGL.cpp
+@@ -110,7 +110,9 @@ EGLSyncImpl *ThreadSafeDisplayEGL::createSync()
+ 
+ const char *DisplayEGL::getEGLPath() const
+ {
+-#if defined(ANGLE_PLATFORM_ANDROID)
++#if defined(ANGLE_PLATFORM_OHOS)
++    return "libEGL.so";
++#elif defined(ANGLE_PLATFORM_ANDROID)
+ #    if defined(__LP64__)
+     return "/system/lib64/libEGL.so";
+ #    else
+diff --git a/src/libANGLE/renderer/gl/gl_backend.gni b/src/libANGLE/renderer/gl/gl_backend.gni
+index 1d89bf7..09a4644 100644
+--- a/src/libANGLE/renderer/gl/gl_backend.gni
++++ b/src/libANGLE/renderer/gl/gl_backend.gni
+@@ -118,7 +118,7 @@ if (angle_use_x11) {
+   ]
+ }
+ 
+-if (is_android || is_linux || is_chromeos) {
++if (is_android || is_linux || is_chromeos || is_ohos) {
+   gl_backend_sources += [
+     "egl/ContextEGL.cpp",
+     "egl/ContextEGL.h",
+diff --git a/src/libGLESv2.gni b/src/libGLESv2.gni
+index 6c099b4..99e18d0 100644
+--- a/src/libGLESv2.gni
++++ b/src/libGLESv2.gni
+@@ -126,7 +126,7 @@ if (is_android && angle_enable_unwind_backtrace_support) {
+   libangle_common_sources += [ "src/common/backtrace_utils_noop.cpp" ]
+ }
+ 
+-if (is_linux || is_chromeos || is_android || is_fuchsia) {
++if (is_linux || is_chromeos || is_android || is_fuchsia || is_ohos) {
+   libangle_common_sources += [
+     "src/common/system_utils_linux.cpp",
+     "src/common/system_utils_posix.cpp",

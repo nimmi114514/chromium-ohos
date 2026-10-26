@@ -1,0 +1,118 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WebGPU verification</title>
+<style>body{font:18px sans-serif;background:#20242a;color:#fff}canvas{width:640px;height:360px;max-width:90vw}pre{white-space:pre-wrap}</style>
+<canvas id="gpu" width="256" height="256"></canvas><pre id="status">WebGPU verification</pre>
+<script>
+window.webgpuReport={done:false,passed:false,steps:[],uncapturedErrors:[],deviceLosses:[]};
+const report=window.webgpuReport;
+function check(value,message){if(!value)throw Error(message);}
+async function step(name,run){const start=performance.now();const result={name,passed:false};report.steps.push(result);try{Object.assign(result,await run());result.passed=true;}catch(e){result.error=String(e);report.error??=String(e);if(name==='adapter')throw e;}finally{result.durationMs=performance.now()-start;document.querySelector('#status').textContent=JSON.stringify(report,null,2);}}
+function track(device){device.addEventListener('uncapturederror',e=>report.uncapturedErrors.push(e.error.message));device.lost.then(x=>{if(x.reason!=='destroyed')report.deviceLosses.push({reason:x.reason,message:x.message});});return device;}
+async function mappedBytes(buffer){await buffer.mapAsync(GPUMapMode.READ);const data=new Uint8Array(buffer.getMappedRange()).slice();buffer.unmap();return data;}
+function samplePixel(bytes,width,x,y,bgra=false){const o=(y*width+x)*4;return bgra?[bytes[o+2],bytes[o+1],bytes[o],bytes[o+3]]:Array.from(bytes.slice(o,o+4));}
+function near(pixel,expected,tolerance=3){return pixel.every((x,i)=>Math.abs(x-expected[i])<=tolerance);}
+const computeCode=`@group(0) @binding(0) var<storage,read> input:array<u32>;
+@group(0) @binding(1) var<storage,read_write> output:array<u32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){if(id.x<arrayLength(&input)){output[id.x]=input[id.x]*input[id.x]+3u;}}`;
+const renderCode=`@vertex fn vs(@builtin(vertex_index) i:u32)->@builtin(position) vec4<f32>{let p=array<vec2<f32>,3>(vec2(-.8,-.8),vec2(.8,-.8),vec2(0.,.8));return vec4(p[i],0.,1.);}
+@fragment fn fs()->@location(0) vec4<f32>{return vec4(1.,0.,0.,1.);}`;
+window.runWebGPUVerification=async()=>{
+ let adapter,device,context;
+ try{
+  await step('adapter',async()=>{
+   check(isSecureContext,'A secure context is required');check(!!navigator.gpu,'navigator.gpu missing');
+   adapter=await navigator.gpu.requestAdapter();check(adapter,'No default adapter');
+   const info=adapter.info;
+   report.adapter={vendor:info.vendor,architecture:info.architecture,device:info.device,description:info.description,isFallbackAdapter:info.isFallbackAdapter??adapter.isFallbackAdapter};
+   report.features=[...adapter.features];report.limits={maxTextureDimension2D:adapter.limits.maxTextureDimension2D,maxStorageBufferBindingSize:adapter.limits.maxStorageBufferBindingSize,maxComputeInvocationsPerWorkgroup:adapter.limits.maxComputeInvocationsPerWorkgroup};
+   check(report.adapter.isFallbackAdapter===false,'Hardware adapter was not confirmed');
+   device=track(await adapter.requestDevice());return report.adapter;
+  });
+  await step('compute-and-readback',async()=>{
+   const input=Uint32Array.from({length:1024},(_,i)=>i%251),size=input.byteLength;
+   const source=device.createBuffer({size,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+   const dest=device.createBuffer({size,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
+   const read=device.createBuffer({size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+   device.queue.writeBuffer(source,0,input);
+   const pipeline=await device.createComputePipelineAsync({layout:'auto',compute:{module:device.createShaderModule({code:computeCode}),entryPoint:'main'}});
+   const group=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:source}},{binding:1,resource:{buffer:dest}}]});
+   const encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(16);pass.end();encoder.copyBufferToBuffer(dest,0,read,0,size);device.queue.submit([encoder.finish()]);
+   const bytes=await mappedBytes(read),actual=new Uint32Array(bytes.buffer);check(actual.every((x,i)=>x===input[i]*input[i]+3),'Compute output mismatch');source.destroy();dest.destroy();read.destroy();return {values:actual.length,checksum:actual.reduce((a,b)=>a+b,0)};
+  });
+  const canvas=document.querySelector('#gpu'),format=new URLSearchParams(location.search).get('format')||navigator.gpu.getPreferredCanvasFormat();
+  context=canvas.getContext('webgpu');check(context,'WebGPU canvas missing');
+  const module=device.createShaderModule({code:renderCode});
+  const pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
+  context.configure({device,format,usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC,alphaMode:'opaque'});
+  function draw(copyTarget){const texture=context.getCurrentTexture(),encoder=device.createCommandEncoder(),pass=encoder.beginRenderPass({colorAttachments:[{view:texture.createView(),clearValue:{r:0,g:.25,b:.5,a:1},loadOp:'clear',storeOp:'store'}]});pass.setPipeline(pipeline);pass.draw(3);pass.end();if(copyTarget)encoder.copyTextureToBuffer({texture},{buffer:copyTarget,bytesPerRow:canvas.width*4},[canvas.width,canvas.height]);device.queue.submit([encoder.finish()]);}
+  await step('render-and-texture-readback',async()=>{
+   const read=device.createBuffer({size:canvas.width*canvas.height*4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});draw(read);const bytes=await mappedBytes(read);read.destroy();
+   const center=samplePixel(bytes,canvas.width,128,128,format.startsWith('bgra')),corner=samplePixel(bytes,canvas.width,4,4,format.startsWith('bgra'));
+   check(near(center,[255,0,0,255]),'Rendered center mismatch: '+center);check(near(corner,[0,64,128,255]),'Rendered corner mismatch: '+corner);return {format,center,corner};
+  });
+  await step('canvas2d-interop',async()=>{
+   // Read in the same task as drawing. Waiting for a queue promise or rAF may
+   // present/expire the current canvas texture before drawImage reads it.
+   draw();
+   const target=document.createElement('canvas');target.width=canvas.width;target.height=canvas.height;const ctx=target.getContext('2d');ctx.drawImage(canvas,0,0);const bytes=ctx.getImageData(0,0,target.width,target.height).data;
+   const center=samplePixel(bytes,target.width,128,128),corner=samplePixel(bytes,target.width,4,4);check(near(center,[255,0,0,255]),'Canvas interop center mismatch: '+center);check(near(corner,[0,64,128,255]),'Canvas interop corner mismatch: '+corner);return {center,corner,sameDrawingTask:true};
+  });
+  await step('premultiplied-alpha-interop',async()=>{
+   const input=document.createElement('canvas');input.width=16;input.height=16;const gpu=input.getContext('webgpu');gpu.configure({device,format,alphaMode:'premultiplied'});
+   const encoder=device.createCommandEncoder(),pass=encoder.beginRenderPass({colorAttachments:[{view:gpu.getCurrentTexture().createView(),clearValue:{r:.5,g:0,b:0,a:.5},loadOp:'clear',storeOp:'store'}]});pass.end();device.queue.submit([encoder.finish()]);await device.queue.onSubmittedWorkDone();
+   const output=document.createElement('canvas');output.width=16;output.height=16;const ctx=output.getContext('2d');ctx.drawImage(input,0,0);const pixel=Array.from(ctx.getImageData(8,8,1,1).data);gpu.unconfigure();check(near(pixel,[255,0,0,128]),'Premultiplied alpha mismatch: '+pixel);return {pixel};
+  });
+  await step('external-image-upload',async()=>{
+   const input=document.createElement('canvas');input.width=64;input.height=64;const ctx=input.getContext('2d');ctx.fillStyle='rgb(17,101,203)';ctx.fillRect(0,0,64,64);
+   const texture=device.createTexture({size:[64,64],format:'rgba8unorm',usage:GPUTextureUsage.COPY_DST|GPUTextureUsage.COPY_SRC|GPUTextureUsage.RENDER_ATTACHMENT});device.queue.copyExternalImageToTexture({source:input},{texture},[64,64]);
+   const read=device.createBuffer({size:64*64*4,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});const encoder=device.createCommandEncoder();encoder.copyTextureToBuffer({texture},{buffer:read,bytesPerRow:256},[64,64]);device.queue.submit([encoder.finish()]);const bytes=await mappedBytes(read);const pixel=samplePixel(bytes,64,32,32);read.destroy();texture.destroy();check(near(pixel,[17,101,203,255]),'External image upload mismatch: '+pixel);return {pixel};
+  });
+  await step('array-texture-copy',async()=>{
+   const texture=device.createTexture({size:[16,16,3],format:'rgba8unorm',usage:GPUTextureUsage.COPY_DST|GPUTextureUsage.COPY_SRC|GPUTextureUsage.TEXTURE_BINDING});
+   const input=new Uint8Array(16*16*4*3);for(let layer=0;layer<3;layer++)for(let i=0;i<16*16;i++)input.set([40+50*layer,10+20*layer,220-30*layer,255],(layer*256+i)*4);
+   device.queue.writeTexture({texture},input,{bytesPerRow:64,rowsPerImage:16},[16,16,3]);
+   const read=device.createBuffer({size:256*16*3,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});const encoder=device.createCommandEncoder();encoder.copyTextureToBuffer({texture},{buffer:read,bytesPerRow:256,rowsPerImage:16},[16,16,3]);device.queue.submit([encoder.finish()]);const bytes=await mappedBytes(read),pixels=[];
+   for(let layer=0;layer<3;layer++){const pixel=Array.from(bytes.slice(layer*4096+8*256+8*4,layer*4096+8*256+8*4+4));check(near(pixel,[40+50*layer,10+20*layer,220-30*layer,255],0),'Array layer copy mismatch: '+layer+' '+pixel);pixels.push(pixel);}read.destroy();texture.destroy();return {pixels};
+  });
+  await step('hardware-video-external-texture',async()=>{
+   const video=document.createElement('video');video.muted=true;video.loop=true;video.src='/video.mp4';document.body.append(video);video.style.display='none';
+   try{
+    await Promise.race([video.play(),new Promise((_,j)=>setTimeout(()=>j(Error('Video play timeout')),8000))]);
+    await Promise.race([new Promise(r=>video.requestVideoFrameCallback(r)),new Promise((_,j)=>setTimeout(()=>j(Error('Video frame timeout')),8000))]);video.pause();
+    const reference=document.createElement('canvas');reference.width=64;reference.height=64;const ctx=reference.getContext('2d');ctx.drawImage(video,0,0,64,64);const expected=ctx.getImageData(0,0,64,64).data;
+    const shader=device.createShaderModule({code:`struct V{@builtin(position) pos:vec4<f32>,@location(0) uv:vec2<f32>};
+@vertex fn vs(@builtin(vertex_index) i:u32)->V{let p=array<vec2<f32>,3>(vec2(-1.,-1.),vec2(3.,-1.),vec2(-1.,3.));var v:V;v.pos=vec4(p[i],0.,1.);v.uv=vec2((p[i].x+1.)*.5,1.-(p[i].y+1.)*.5);return v;}
+@group(0) @binding(0) var image:texture_external;@group(0) @binding(1) var smp:sampler;
+@fragment fn fs(v:V)->@location(0) vec4<f32>{return textureSampleBaseClampToEdge(image,smp,v.uv);}`});
+    const p=await device.createRenderPipelineAsync({layout:'auto',vertex:{module:shader,entryPoint:'vs'},fragment:{module:shader,entryPoint:'fs',targets:[{format:'rgba8unorm'}]}});
+    const output=device.createTexture({size:[64,64],format:'rgba8unorm',usage:GPUTextureUsage.RENDER_ATTACHMENT|GPUTextureUsage.COPY_SRC});
+    const group=device.createBindGroup({layout:p.getBindGroupLayout(0),entries:[{binding:0,resource:device.importExternalTexture({source:video})},{binding:1,resource:device.createSampler({magFilter:'linear',minFilter:'linear'})}]});
+    const read=device.createBuffer({size:16384,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ}),e=device.createCommandEncoder(),pass=e.beginRenderPass({colorAttachments:[{view:output.createView(),loadOp:'clear',storeOp:'store'}]});pass.setPipeline(p);pass.setBindGroup(0,group);pass.draw(3);pass.end();e.copyTextureToBuffer({texture:output},{buffer:read,bytesPerRow:256},[64,64]);device.queue.submit([e.finish()]);const actual=await mappedBytes(read);let maxError=0;const samples=[];
+    for(let x=4;x<64;x+=8){const a=samplePixel(actual,64,x,32),b=samplePixel(expected,64,x,32);maxError=Math.max(maxError,...a.map((v,i)=>Math.abs(v-b[i])));samples.push({actual:a,expected:b});}read.destroy();output.destroy();check(maxError<=8,'Video import color mismatch: '+maxError);return {width:video.videoWidth,height:video.videoHeight,maxColorError:maxError,samples};
+   }finally{video.pause();video.removeAttribute('src');video.load();video.remove();}
+  });
+  await step('validation-errors',async()=>{
+   device.pushErrorScope('validation');const invalid=device.createBuffer({size:4,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.UNIFORM});const error=await device.popErrorScope();invalid.destroy();check(error instanceof GPUValidationError,'Invalid usage did not return GPUValidationError');
+   let rejected=false;try{const limitAdapter=await navigator.gpu.requestAdapter();check(limitAdapter,'No adapter for limits validation');await limitAdapter.requestDevice({requiredLimits:{maxBindGroups:1048576}});}catch(e){rejected=true;}check(rejected,'Unsupported limits accepted');return {invalidUsageRejected:true,unsupportedLimitsRejected:true};
+  });
+  await step('device-lifecycle',async()=>{
+   for(let i=0;i<4;i++){const nextAdapter=await navigator.gpu.requestAdapter();check(nextAdapter,'No adapter during device lifecycle');const other=track(await nextAdapter.requestDevice());const b=other.createBuffer({size:4096,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});other.queue.writeBuffer(b,0,new Uint32Array(1024));await other.queue.onSubmittedWorkDone();b.destroy();other.destroy();}return {devicesCreatedAndDestroyed:4};
+  });
+  await step('worker-device',async()=>{
+   const blob=new Blob([`onmessage=async()=>{try{const a=await navigator.gpu.requestAdapter();if(!a)throw Error('No worker adapter');const d=await a.requestDevice();const b=d.createBuffer({size:16,usage:GPUBufferUsage.COPY_SRC,mappedAtCreation:true});new Uint32Array(b.getMappedRange()).set([7,11,13,17]);b.unmap();const r=d.createBuffer({size:16,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST});const e=d.createCommandEncoder();e.copyBufferToBuffer(b,0,r,0,16);d.queue.submit([e.finish()]);await r.mapAsync(GPUMapMode.READ);const values=Array.from(new Uint32Array(r.getMappedRange()));r.unmap();b.destroy();r.destroy();d.destroy();postMessage({passed:values.join(',')==='7,11,13,17',values});}catch(e){postMessage({passed:false,error:String(e)});}};`],{type:'text/javascript'});
+   const url=URL.createObjectURL(blob),worker=new Worker(url);
+   try{const result=await Promise.race([new Promise((r,j)=>{worker.onmessage=e=>r(e.data);worker.onerror=e=>j(Error(e.message));worker.postMessage({});}),new Promise((_,j)=>setTimeout(()=>j(Error('Worker timeout')),15000))]);check(result.passed,JSON.stringify(result));return result;}finally{worker.terminate();URL.revokeObjectURL(url);}
+  });
+  for(const [width,height] of [[1280,720],[1920,1080]])await step('presentation-'+width+'x'+height,async()=>{
+   canvas.width=width;canvas.height=height;const intervals=[];let previous;
+   const frames=(async()=>{for(let i=0;i<120;i++){const time=await new Promise(requestAnimationFrame);if(previous!==undefined)intervals.push(time-previous);previous=time;draw();}await device.queue.onSubmittedWorkDone();})();
+   await Promise.race([frames,new Promise((_,j)=>setTimeout(()=>j(Error('Presentation timeout; visibility='+document.visibilityState)),20000))]);
+   const sorted=[...intervals].sort((a,b)=>a-b),elapsed=intervals.reduce((a,b)=>a+b,0);return {frames:120,visibility:document.visibilityState,fps:1000*intervals.length/elapsed,p95FrameMs:sorted[Math.floor(sorted.length*.95)]};
+  });
+  check(!report.uncapturedErrors.length,'Uncaptured WebGPU errors');check(!report.deviceLosses.length,'Unexpected device loss');report.passed=report.steps.every(x=>x.passed);
+ }catch(e){report.error=String(e);}
+ finally{report.done=true;document.querySelector('#status').textContent=JSON.stringify(report,null,2);window.finishWebGPUVerification=()=>{context?.unconfigure();device?.destroy();};}
+ return report;
+};
+</script>

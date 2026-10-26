@@ -1,0 +1,69 @@
+--- a/web_engine/src/main/ets/utils/CmdArgsHelper.ets
++++ b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+@@ -31,6 +31,7 @@
+ import { NativeContext } from "../interface/CommonInterface";
+ import JsBindingUtils from "./JsBindingUtils";
+ import { ContextType } from "../common/Constants";
++import fs from '@ohos.file.fs';
+ 
+ const TAG = 'CmdArgsHelper';
+ const SDK_VERSION_19 = 19;
+@@ -53,15 +54,13 @@
+   private static readonly DEFAULT_ARGS: string[] = [
+     "chrome",
+     "--use-gl=egl",
+-    `--enable-features=UseOzonePlatform,OverrideAPIKey:api_key/${GOOGLE_API_KEY}`,
++    "--enable-features=UseOzonePlatform",
+     "--ozone-platform=ohos",
+     "--enable-logging",
+     "--no-zygote",
+     "--disable-gpu-watchdog",
+     "--ohos-refresh-rate=144",
+     `--user-agent=${DESKTOP_USER_AGENT}`,
+-    `--oauth2-client-id=${GOOGLE_OAUTH_CLIENT_ID}`,
+-    `--oauth2-client-secret=${GOOGLE_OAUTH_CLIENT_SECRET}`,
+   ];
+   private static readonly BLOCKED_ARGS_NAME: Set<string> = new Set([
+     'ozone-platform',
+@@ -77,6 +76,30 @@
+     return JsBindingUtils.getNativeContext(ContextType.kMainProcess);
+   }
+ 
++  private static prepareGoogleConfig(): string | null {
++    // The Chromium 132 Gaia configuration reader supplies default credentials
++    // to every client. The OAuth command-line switches configure CLIENT_MAIN
++    // alone, while HasOAuthClientConfigured also checks the remoting clients.
++    const path = getContext().filesDir + '/chromium-google-services.json';
++    const apiKeys: Record<string, string> = {
++      'GOOGLE_API_KEY': GOOGLE_API_KEY,
++      'GOOGLE_DEFAULT_CLIENT_ID': GOOGLE_OAUTH_CLIENT_ID,
++      'GOOGLE_DEFAULT_CLIENT_SECRET': GOOGLE_OAUTH_CLIENT_SECRET,
++    };
++    try {
++      const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
++      try {
++        fs.writeSync(file.fd, JSON.stringify({ api_keys: apiKeys }));
++      } finally {
++        fs.closeSync(file);
++      }
++      return path;
++    } catch (err) {
++      LogUtil.error(TAG, 'Unable to prepare Google service configuration');
++      return null;
++    }
++  }
++
+   public static buildArgs(startUri: string, userInputArgs?: string[], appId?: string): string[] {
+     // 添加默认参数
+     // Copy the defaults so each window gets an independent argument list.
+@@ -99,6 +122,10 @@
+ 
+     let resDir = '--bundle-installation-dir=' + getContext().resourceDir;
+     vec_args.push(resDir);
++    const googleConfig = CmdArgsHelper.prepareGoogleConfig();
++    if (googleConfig) {
++      vec_args.push('--gaia-config=' + googleConfig);
++    }
+     vec_args.push(startUri);
+     if (appId !== undefined) {
+       vec_args.push(appId);

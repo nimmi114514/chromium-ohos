@@ -1,0 +1,5 @@
+# Shared by ozone.gni and the external platform registry, whose imports have
+# separate scopes in GN.
+declare_args() {
+  ozone_platform_ohos = is_ohos
+}

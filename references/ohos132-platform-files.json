@@ -1,0 +1,1806 @@
+{
+  "revision": "82ada8a584407ef3ea38c3527876ffa442900e57",
+  "purpose": "Inventory only; not migrated to M158",
+  "files": [
+    {
+      "path": "build/config/ohos/BUILD.gn",
+      "blob": "96a269130652e342910fe0c3da3cb5c8f80c1079",
+      "mode": "100644"
+    },
+    {
+      "path": "build/config/ohos/abi.gni",
+      "blob": "83f3eb79297b29eed990a2b7a21376feea509c81",
+      "mode": "100644"
+    },
+    {
+      "path": "build/config/ohos/config.gni",
+      "blob": "dad64e26f7275b7699dd408f1511e5e325ac99fc",
+      "mode": "100644"
+    },
+    {
+      "path": "build/toolchain/ohos/BUILD.gn",
+      "blob": "298723afc4f8c081ee0796f25bd0524040ce953a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/BUILD.gn",
+      "blob": "45af38eedb1543bed941a1e77febee2b2ec7af4c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/accessibility/BUILD.gn",
+      "blob": "832b2a62c0bf7fb8d7fa1448bd7ac097ea597eab",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/accessibility/accessibility_adapter.cc",
+      "blob": "17fd37a3b6890e8ac553616139292a47c44d38af",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/accessibility/accessibility_adapter.h",
+      "blob": "a0c6c9ed4ee3e4b21829673491c04b975efca030",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/accessibility/accessibility_delegate_ohos_registry.cc",
+      "blob": "dfbe28e44d60a5bb2096c79b5f51e5a15521b125",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/accessibility/accessibility_delegate_ohos_registry.h",
+      "blob": "79d9c6e083b2fe1ae52d4a3745916b3a7a65ea50",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/aki_hook.gni",
+      "blob": "9d18be1c9e170ee57063328deaca16116850e5c7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/aki_hook/BUILD.gn",
+      "blob": "f38e69da246972ed77911285c3437bc98f9897e1",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/aki_hook/aki_hook.cc",
+      "blob": "86b64b1f3d3a50955c482ad33ab5b754d971d460",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/aki_hook/aki_hook.h",
+      "blob": "722c4acecd1e3f39fbfb4ff90d086ee7e95a379c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/battery/BUILD.gn",
+      "blob": "05f69e6e578e3e94f8fcf10cc6586e4921d3d838",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/battery/battery_adapter.cc",
+      "blob": "f1115616d4c7742cf68660f9de5496074691ec8d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/battery/battery_adapter.h",
+      "blob": "2b2b9f5e3b45981c8b0818e6f92fdc4ecc1fdb29",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/BUILD.gn",
+      "blob": "d9c736c5e8bbcbe5903ac4c8766afb8a70a169fc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_adapter.cc",
+      "blob": "8afc78b6147302f7306f627eff65b3a7cf2e6dbb",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_adapter.h",
+      "blob": "8e68bf49d15cbb8ec11f46e85aa39ffc4459bd89",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_ble_attribute_adapter.cc",
+      "blob": "f9c08455e881964e367c8256e696f37220114129",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_ble_attribute_adapter.h",
+      "blob": "033e7c049ba5260f276e06b772fd5ebd1dba67d5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_low_energy_adapter.cc",
+      "blob": "f46fe26010cb1341477b287a9473e1a8c676de06",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/bluetooth/bluetooth_low_energy_adapter.h",
+      "blob": "65f9fe687ef4f242fdfb716716c66df77f3a653c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/browser/BUILD.gn",
+      "blob": "dba8ae7dd1c3e653ea5cba6ccb9319d1f5fb1293",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/browser/browser_adapter.cc",
+      "blob": "c28ba9e47c31d12d4ae38ad586498ed259cd291d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/browser/browser_adapter.h",
+      "blob": "2022dc8bff9e1b6a2cac8271a5764c5b8ab58dcc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/browser/browser_init.cc",
+      "blob": "1a9a1ad4c6b831a0bbfe86e7da378b5fb1f58a27",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/browser/browser_init.h",
+      "blob": "0bd96a0033bc6d14a51108b794389c9500a1587b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cert_manager/BUILD.gn",
+      "blob": "1cc1a2cacc0fc8386515a6cd5012a937af0dac64",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cert_manager/cert_manager_adapter.cc",
+      "blob": "a296db077d83c7eb03845ad235dc427e58b5f26c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cert_manager/cert_manager_adapter.h",
+      "blob": "6ce31a899e9490b1b9c7ccdfad4f4f2367fe8271",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/callback_shared_wrapper.h",
+      "blob": "f2f8d951f866d17bbbff1c4da783b80c352699e5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/constants.h",
+      "blob": "5dbb75c2752d8ba1655fa5ca5a604061edbea900",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/logging.h",
+      "blob": "32c16271d1899cb0405499909d211330772bb129",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/native_api/oh_window.h",
+      "blob": "7780377b8eb82ac0d55166aa43ec7fe8008e52fd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/native_api/ui_input_event.h",
+      "blob": "9aba1607c2e903f9986730f8470c179d52f04740",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/shared_library.cc",
+      "blob": "eba3f697278e95e567f6df80c29fca2ec0a6193c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/shared_library.h",
+      "blob": "36938bc3b62613611c220187478b929c0ff79eca",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/trace.cc",
+      "blob": "fd17a21601249ad2d1e046ca462b2e62e34a6e14",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/trace.h",
+      "blob": "214a1774c5e26d00fef4a1b3cd1004906a8b3cfd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/common/util.h",
+      "blob": "9622b6a743aec6d076fde1316968041b24c2aa09",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context/BUILD.gn",
+      "blob": "0f9c418be01ccc050524ed6fcf09c3ba132f1e71",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context/context_adapter.cc",
+      "blob": "36f0c555e100ecb8cb83d8e9bd989d905134a787",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context/context_adapter.h",
+      "blob": "77a32bb4ef63dbabf3e67714825ffa100da0aa7f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context_path/BUILD.gn",
+      "blob": "d02329e462a0fab547c0a173710110f7026b8523",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context_path/context_path_adapter.cpp",
+      "blob": "c73e9af1bc1a0bcc7bf05f702a7f1830efdbf416",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/context_path/context_path_adapter.h",
+      "blob": "0729c0744d6dc66089ede1ad5a7ed3c37367f09f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cursor/BUILD.gn",
+      "blob": "82be9573c10a366d3271221de29d76beedfd7257",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cursor/cursor.cc",
+      "blob": "7e66abef173e4808e1e679e3e710239abe06ec89",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/cursor/cursor.h",
+      "blob": "1507f751e3c8b7e61891791aced402c671d7ea2f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/default_application/BUILD.gn",
+      "blob": "270f4494f8a618eeb2fb840b019a5c7e31e0ab6c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/default_application/default_application_adapter.cc",
+      "blob": "0aa8376de9cb5c385e6018531a578950658b549d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/default_application/default_application_adapter.h",
+      "blob": "5f94721346aab7cc5d6a0371c572dfabb7a6fc14",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/dev_config/BUILD.gn",
+      "blob": "2ce551032895566b03903ae1166c48490320ea70",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/dev_config/README.md",
+      "blob": "b143f4c73ba62078d72daf05721ace8fe4c82b6e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/dev_config/README_zh.md",
+      "blob": "9d8f9aab45dff9f4ec683f87174a71f702df9bd0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/dev_config/dev_config.cc",
+      "blob": "76be3007ad1ee3c7c903a0fcc8525bce887692a4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/dev_config/dev_config.h",
+      "blob": "516e1fabea516e8f58616b35456317dd1de24388",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device/BUILD.gn",
+      "blob": "c1af02aa730ba3e09f27c5476ae3fcb89a17118b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device/device_adapter.cc",
+      "blob": "7e44d29959e2fc12f7c80d270651273717e4e21e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device/device_adapter.h",
+      "blob": "348c13d3f85f4a337ac8dd2d0cd99281b7e5ddab",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_info/BUILD.gn",
+      "blob": "7ca283bf20e64ff009cca9c82292aaea9766e85c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_info/device_info.cc",
+      "blob": "94288690ae603c25266291e86a3808e7a3375857",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_info/device_info.h",
+      "blob": "4f6f716218f2ecf7bde5453e9d03ebc4c8198b26",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_user_auth/BUILD.gn",
+      "blob": "c463eb3cdc47432294f167fcf7dbcc7230d20055",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_user_auth/device_user_auth.cc",
+      "blob": "bce43661a9b8e058254163e19fd381c9ed3d4e2b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/device_user_auth/device_user_auth.h",
+      "blob": "7286c6d104082faa5598cc5c355f1eb599e0dde2",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/BUILD.gn",
+      "blob": "4e43557a31144230c7280f3becdb0f09fdcbbfe5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/drag_drop_common.h",
+      "blob": "13a5d1ba0a12706912337804bd06cb5d1af9567d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/drag_drop_ohos_adapter.cc",
+      "blob": "3e7b8c89e13e3c752b285094f24a19c5a09fbbd5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/drag_drop_ohos_adapter.h",
+      "blob": "1f418cbe27648188ac6fe67c71754a71eb1fa091",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/node_handle_drag_drop_ohos_adapter.cc",
+      "blob": "8c9e90deab081f957e33b76606da478c1d8c96c6",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/drag_drop/node_handle_drag_drop_ohos_adapter.h",
+      "blob": "bff472934ca6e0ce61fc5c2692537dd00a14baf4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/export.h",
+      "blob": "452a28a9b5b97bab37493872231d3f9fc05c8d84",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/external_protocol/BUILD.gn",
+      "blob": "6501c51b24a681750edfbf57e263364fecca5756",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/external_protocol/external_protocol_adapter.cc",
+      "blob": "a9ff97a9f841aaf97d32d10ceacf1679c1505cdc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/external_protocol/external_protocol_adapter.h",
+      "blob": "0f05f121521bb182b79497fa461a476181d3891c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_manager/BUILD.gn",
+      "blob": "c26bd9fd1bb64254b1dd013f760dbd7cb3f74224",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_manager/file_manager_adapter.cc",
+      "blob": "7039e65ceb959c8a5337f6c240abcf2d5761ffd9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_manager/file_manager_adapter.h",
+      "blob": "244a0b52c7931c08f59174ebce94f97cd42ff419",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_picker/BUILD.gn",
+      "blob": "c8b375b1d6d511205fb66af1bc361c62e3d829cd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_picker/file_select_picker.cc",
+      "blob": "dea97aa63cc4d00483e4135a7cbce0a94921ff9a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/file_picker/file_select_picker.h",
+      "blob": "f25561e4ee566b6cf026d5fe9fa1b2d040d2f105",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/font/BUILD.gn",
+      "blob": "87d1a9843d3d603c7766ef2833eef03c343043c4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/font/font_adapter.cc",
+      "blob": "f6dcd13ea40705c2edec7b7738da267d10a32bdc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/font/font_adapter.h",
+      "blob": "fcac71680706afe0284353107ed2304cd664dea4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/BUILD.gn",
+      "blob": "9db3c223278600e4727285eaa59a8218bd7dc22d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/location_adapter.h",
+      "blob": "f27fd0c1889dd219f7d044ca0cbe0c3999016000",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/location_info.cc",
+      "blob": "946c8741edac7622061b17fd4ca4463250c76392",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/location_info.h",
+      "blob": "281f0faec07b82cb5a2a16245ffb5dd2a89dd39c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/location_proxy_adapter_impl.cpp",
+      "blob": "b73bb14f90165266e6b4a17b323569f907834aa0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/geolocation/location_proxy_adapter_impl.h",
+      "blob": "c6158c1fd621746fdacae82c96a9b27ad0f2181d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ime_adapter/BUILD.gn",
+      "blob": "aa41a8e8042212c53f42628c95880c68c6f99ac9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ime_adapter/input_method_ohos_adapter.cc",
+      "blob": "2f4ee5d06b42efd915948fe6be6e58feaafbc3eb",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ime_adapter/input_method_ohos_adapter.h",
+      "blob": "09f8f9790ba3ffc6da2c6a7cdc66313e500735e3",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ime_adapter/native_apis.h",
+      "blob": "25baaa92ac70aca05b3bf14242f6c1f0244e27cf",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/BUILD.gn",
+      "blob": "cdf57ba5373bf8260109dec0991262319fd5ce67",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/app_lifecycle.cc",
+      "blob": "f7fe15029576553a1fdae5e33e1bcdb22816ed1f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/app_lifecycle.h",
+      "blob": "27d2be1541da61b27d7b0c8171e5c7a3162b5853",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/lifecycle_init.cc",
+      "blob": "c50943507904344d215bc07a4646dfcd871ad416",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/lifecycle_init.h",
+      "blob": "fd226ca6610d212c3e83ef29b2028f557da8d71f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/page_lifecycle.cc",
+      "blob": "d95d37a6ed9f309792b6b821d779fe1d24021ae0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/life_cycle/page_lifecycle.h",
+      "blob": "421971fb4cd583b26b87141625a1acc3645912b4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/media_manager/BUILD.gn",
+      "blob": "5d8f0d5b5912830e4925e8f3d98654c39873f636",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/media_manager/media_adapter.cc",
+      "blob": "811ccac39cafa69b47fdb1b059e7754e99dabec8",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/media_manager/media_adapter.h",
+      "blob": "cf0de65eacf383e5a29f865361a6c69b618d6a96",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/media_manager/media_init.cc",
+      "blob": "d803a1bcf238240916c86c5f32d95eac7edffc48",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/media_manager/media_init.h",
+      "blob": "7622df5b06b1fd5e76600efeeb4032f7c51b7c0a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/mime_type/BUILD.gn",
+      "blob": "6d8433ef8c199c42929d219011ef1b326d6ec9ac",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/mime_type/mime_type_adapter.cc",
+      "blob": "b9cb96ec78b2891b3864e493365c5c3629d6d2c4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/mime_type/mime_type_adapter.h",
+      "blob": "f8ad7e557f5e8c9a11b1b8f2aa0a06901e68302b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/BUILD.gn",
+      "blob": "2d22bd03e796fe1121c1897ac613a9171bf4b645",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/app_spawn_communication.cc",
+      "blob": "1b30f88f18f8ca6a33ef94642f305d9385df95ff",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/app_spawn_communication.h",
+      "blob": "e4c0fddf720dd7778c20ecfad02fd33c45a5404a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/child_process_manager.cc",
+      "blob": "60a7e0c00a96b99c7d49ad3691256da6a8f12852",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/child_process_manager.h",
+      "blob": "7fdd30ef6cce9e89bd841e6d36a9854f2aa2102f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/BUILD.gn",
+      "blob": "228e11c74e3c1694b952786180cad223ea3d2280",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line.cc",
+      "blob": "6fa31e7fc654c7e431546a6bbc574a9c296e2435",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line.h",
+      "blob": "72c9706d4bfee6ae41c669f2dd32c4f34809dac9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line_helper.cc",
+      "blob": "e8f8c91f3770cd0f6816bd47b346f15f287df206",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line_helper.h",
+      "blob": "105e1f63deed4c79fc94609ecdd36a583bf3aaa7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line_switches.cc",
+      "blob": "cb96dbbd4ed523531b4d75f05a3bed7f9bdf7a86",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line_switches.h",
+      "blob": "f4e5b0969c10d66a4a47c118c5ec731887e8b301",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/command_line/command_line_unittests.cc",
+      "blob": "d66b137670927d7de2dd2481c67b3faa812e7041",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/BUILD.gn",
+      "blob": "64aeef147c22df95805be462612a8f297a350056",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_common.h",
+      "blob": "96a7d0cfb25ecfcc6b91bb00cc604db29ccdb33e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_proxy.cc",
+      "blob": "8a1c007ca9a7639ca6d861c3893a4032367fd32c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_proxy.h",
+      "blob": "2eb02a3f59c1f9f9d93449b888adcfedf89a3244",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_proxy_unittests.cc",
+      "blob": "cbfed98cc1cffb1b0f4b61be3f93b07a3f1cc655",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_stub.cc",
+      "blob": "2c4739060d9b3c3bc7894e08b12215a6d4311ebd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_stub.h",
+      "blob": "2cca6467950acdc9f78662e15a0cca33b62bebfe",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_ipc_stub_unittests.cc",
+      "blob": "ea42de3968b2783d998618bdeda93eb1ea969a58",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process.cc",
+      "blob": "caa8796563c954bee3359c088cd3dfa849e90a1a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process.h",
+      "blob": "0e028277f69011c5d91c51d3f16814bdf4a02922",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_host.cc",
+      "blob": "deb2128daa3b2cd14046fc58fc7e6aa5ad78474a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_host.h",
+      "blob": "dbff48b63308c6ddffb159fb79642494b20b03c7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_host_unittests.cc",
+      "blob": "d3a3e723b77ef332785233126b5d7e8791447e1d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_test_utils.cc",
+      "blob": "936f21645374029475ba00306d2d0bbe8114eb2a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_test_utils.h",
+      "blob": "690892731c81f369041a73bfbd096a56db1f0849",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_native_process_unittests.cc",
+      "blob": "6329c94202b175fa513242397e670a0c5bba1363",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/gpu_process_main.cc",
+      "blob": "8e023c505a5ede2c0048a33a2444e6f00bf8ceca",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_ipc_proxy.cc",
+      "blob": "f9a0970c81d1f3a6a2557b2c8cf39ca565487a65",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_ipc_proxy.h",
+      "blob": "d85a57b9113b0a8a364a0f299750613db8e200ea",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_ipc_stub.cc",
+      "blob": "3f415591970ddc43f239fb401483ec61a38a7248",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_ipc_stub.h",
+      "blob": "c05aad1c2cda10171f3325322fadcf753c09522e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_window_parcel.cc",
+      "blob": "1ec12ccdc1d7a880f1610beead3c604a85781f6c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_window_parcel.h",
+      "blob": "b6c757ad0a6db04aff6b23ffefc7e290c7a56d7d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/gpu/native_window_parcel_unittests.cc",
+      "blob": "9831aeca98555dcde0e19091b1d4c9d22a914baa",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/multiprocess.gni",
+      "blob": "983f8054641e0a93769a490e26ba6c3ac73e6dca",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/BUILD.gn",
+      "blob": "47e692f8ff7781c88a77ffdb658da88897fc1d59",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_args_wrapper.cc",
+      "blob": "fbe6fe3702bbba6c7c9fb66dc924e06525fcf2fd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_args_wrapper.h",
+      "blob": "8c550d4a791fef72da608ebc52beac0e0d0627e5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_configs_wrapper.cc",
+      "blob": "8f3d6eb5db09a04b27570e9e981e092309c0fddb",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_configs_wrapper.h",
+      "blob": "8a5a92faeb47cfcf5d7ed927ce389e05760155c4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_library.cc",
+      "blob": "11cfe254c827c11274be7b507c0737014012dfa6",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_library.h",
+      "blob": "0596dbb615b6ca73d9956136b44c590290a451f0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_main.cc",
+      "blob": "60b732ee9e90e9d59c8cf5c1934b46a63fbba64d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_main.h",
+      "blob": "25a2634cc5d34231a8d72f89eadf8c4a5b90277d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_monitor.cc",
+      "blob": "52183e6d769a645a5219f26fba632541bca9ca67",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/native_child_process/native_child_process_monitor.h",
+      "blob": "8e9d9d4baf5706c87328b6670c6fcf6562fe3526",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/scoped_socket.cc",
+      "blob": "0aae3fce371b1940a50ae35c4abbbd2acff24a85",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/scoped_socket.h",
+      "blob": "2428f8b80656fad4c9e1a246898f2418bc9dbfb9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/unix_domain_socket_helper.cc",
+      "blob": "6bcf6963417d3e22f8702cfacf60135180df77f4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/multiprocess/unix_domain_socket_helper.h",
+      "blob": "89dc1d6c13351a907665b6e41ad1554aeb1c3535",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_initializer.cc",
+      "blob": "64e19d6855b0595463c6b42d48b479daab47d6ce",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_initializer.h",
+      "blob": "6be54f342b0a20cc28afc3d937c84bd8b4b30413",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_messaging/BUILD.gn",
+      "blob": "900d6b0d34c82dd3ad4e01bb2c4be6c3eecf3507",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_messaging/native_messaging_adapter.cc",
+      "blob": "9968e1d58ddb5b4e85cd7791f0cba3d8d0004c47",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_messaging/native_messaging_adapter.h",
+      "blob": "49e83129c5cc0f5fd99af5a58248376ed9083e47",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_theme/BUILD.gn",
+      "blob": "ba4e4fe821cd315c591a2bb357f68f0d8e49b463",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_theme/native_theme_adapter.cc",
+      "blob": "47dc690cacbaa46751ee4378406efddde4e78742",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/native_theme/native_theme_adapter.h",
+      "blob": "a2cd90a6ddb0ca6f5173e8f0f45b78e4c9c34936",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/net/BUILD.gn",
+      "blob": "f598afd0453742d435f907c22108b9c6c409b0e0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/net/connection_adapter.cc",
+      "blob": "84f510c077e5ee890c0bbd6251d4ffa6757d4dc8",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/net/connection_adapter.h",
+      "blob": "e3bffdfede03bf291966f1f6a8708970a6282306",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/net/system_settings_adapter.cc",
+      "blob": "aa2ac0450296e3f129c5677089b1472ff4b866d5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/net/system_settings_adapter.h",
+      "blob": "7d4cf21042fb9a77d56a21557aee1289552783f7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/node_handle/BUILD.gn",
+      "blob": "5194f7c77f3625319681363da54947563fd6a612",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/node_handle/node_handle_impl.cc",
+      "blob": "db77fcc7d39f5ec8e9e7466f6526c4a64abcbd4a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/node_handle/node_handle_impl.h",
+      "blob": "5e12985aea60ca6740fcabdca29a20e335a10793",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/notification/BUILD.gn",
+      "blob": "59c3368da1831f5b392a4a80b81017bfc953287a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/notification/notification_adapter.cc",
+      "blob": "34af3c5890021123e07b15e1255541dee910c37f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/notification/notification_adapter.h",
+      "blob": "79f86ba5742db6136ee0132cbb38fabbf560b768",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ocr/BUILD.gn",
+      "blob": "27f414b0fa4a9463ff841ca1f4206399e5780116",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ocr/ocr_adapter.cc",
+      "blob": "fcb833eb999c791830d78ad22d8656d7066d45a7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ocr/ocr_adapter.h",
+      "blob": "b0ae4f27b2ae8285ef64e4cd86aff157d5c612e4",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ohos_i18n/BUILD.gn",
+      "blob": "ccd88e3cf0c83dfe606e866dc6e8aaa3f9415e9c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ohos_i18n/ohos_i18n.cc",
+      "blob": "7fb14f754b5f215a3d7ded5549ce0183e0384dd5",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/ohos_i18n/ohos_i18n.h",
+      "blob": "db2f952b5afce99280abd667928890af08204a79",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/permission_manager/BUILD.gn",
+      "blob": "cad6dc9e42d64423749242a6be171e9a80f9f9ab",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/permission_manager/permission_manager_adapter.cc",
+      "blob": "db698ca26e00afbb4c7d7c6d39747a9a8b554604",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/permission_manager/permission_manager_adapter.h",
+      "blob": "155dbcda9d8b5e889a6829817a06cc8fd0cde936",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/policy/BUILD.gn",
+      "blob": "2ccf0a76ff1c997d96218e1201423a6b6efb3819",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/policy/browser_policy_adapter.cc",
+      "blob": "3b64354f150aa815b775e7f019c2965b403646f2",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/policy/browser_policy_adapter.h",
+      "blob": "7b1c326662573873564db101fce4bc9d4d0e2aff",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/power_monitor/BUILD.gn",
+      "blob": "0232cb9a30c2e133bdba84d3a89a372d797eda5a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/power_monitor/power_monitor.cc",
+      "blob": "ee6ea73f7a4609cf8c606951eb155e70a7bd79bb",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/power_monitor/power_monitor.h",
+      "blob": "5583babfe5b0ff01a90faf7e81f00aeb2776bc9e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/print/BUILD.gn",
+      "blob": "ad5f0757b083e6d1908688b8c5fd937c716bf3d6",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/print/ohos_print_adapter.cc",
+      "blob": "51a43ed6bfc7ec63361409da10fcaad57c0d6b86",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/print/ohos_print_adapter.h",
+      "blob": "d1c675653526ca8d1f7b0a7177e3ddfc98f77b60",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/BUILD.gn",
+      "blob": "eec7c1147f7dc3e31215d64ede5c90c0c630bcfd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/background_manager_api_wrapper.cc",
+      "blob": "3ffb94a3a1ad860c0e96769302bd3dbc1c267827",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/background_manager_api_wrapper.h",
+      "blob": "2217448aa40e0754817eb6a3777bcb21bf23f6c9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/res_api_wrapper.cc",
+      "blob": "ef745b5e2323a18fbe85c566286f2bf32bcf0a8d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/res_api_wrapper.h",
+      "blob": "5f024194cc6bb84849cedb151c172c4137fcc781",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/throttle_manager.cc",
+      "blob": "d12ad62bc3879950903be33998a1a2a121c9cbf3",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/manager/throttle_manager.h",
+      "blob": "da4aa49793412e4ae782e8b4ccfd201aece47bf1",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/res_sched.cc",
+      "blob": "b8479fc56bb814c121bdbe8788b181f4b12ba734",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/res_sched/res_sched.h",
+      "blob": "169d9a87e3695a1885adbfd781ffe87389f2b109",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/runninglock/BUILD.gn",
+      "blob": "a7f401272f9e3bdfad400b5929f71806b487bdab",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/runninglock/runninglock_adapter.cc",
+      "blob": "47557bdbcf5cdddf1c1ee54c9251eb73a8232b62",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/runninglock/runninglock_adapter.h",
+      "blob": "ca52eac0fe0ce24c59f523f4b3786c896feb7f56",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen/BUILD.gn",
+      "blob": "27fc8c1fd89014fc7fb07dbef549a88e8907729e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen/screen_adapter.cc",
+      "blob": "5cb3b7660a3f9fb606b81cd1d5ebf5b1df5eee41",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen/screen_adapter.h",
+      "blob": "c816ad67de4ea43622c26905415ffe76b9ed4d42",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen_capture/BUILD.gn",
+      "blob": "6c71823bf4604c08b5553cd5a2443db83ecdb606",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen_capture/screen_capture_adapter.cc",
+      "blob": "e895d312781bfcec47db65fac1997ab6e72ecd11",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screen_capture/screen_capture_adapter.h",
+      "blob": "d4fcf60e6dfe71a2bc3a63978254b236ed8a5ead",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screenlock_monitor/BUILD.gn",
+      "blob": "dafe09627b14622fa147b13bca898200c5255539",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screenlock_monitor/screenlock_monitor_adapter.cc",
+      "blob": "53343970b28a0de0ae9c54242dad9ea69fd6ed29",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/screenlock_monitor/screenlock_monitor_adapter.h",
+      "blob": "d10f73428f58e886fd3fa749efed299411c2aa86",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/shape_detection/BUILD.gn",
+      "blob": "05feacf2ae0a99c9d8b2d3872e76b4fe26839464",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/shape_detection/shape_detection_adapter.cc",
+      "blob": "3818aca32a8d856ad1db2866b8bbcbf46b9880f6",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/shape_detection/shape_detection_adapter.h",
+      "blob": "8cba904da3eb77e349e0f4ed107b59b3970d7d7c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/speech/BUILD.gn",
+      "blob": "6d638e0940513db8ca1efbc55836e8453d641350",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/speech/text_to_speech_adapter.cc",
+      "blob": "8dc626e8017b94311bf5b07dd7c7654dfdb01b79",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/speech/text_to_speech_adapter.h",
+      "blob": "c41697b5037e45399dcad2e78871bc70b2713ac0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/task_runner/BUILD.gn",
+      "blob": "38bde091c2d28fad8b7436b7fde0c4eeb9726eef",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/task_runner/main_thread_task_runner.cc",
+      "blob": "f6fb44bfc17f27ca2c5612dcf9f21bdcd6528b2d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/task_runner/main_thread_task_runner.h",
+      "blob": "9c8507e67f2d939a57e499783fd4cf11f80c09dd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/BUILD.gn",
+      "blob": "5b610d602e531cf31e504138e68afdf1a3cd94bc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_app_window_adapter.cc",
+      "blob": "170bce7e2241b6a6574c359be842c6ae0c6d7a08",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_app_window_adapter.h",
+      "blob": "805328f6f1a3cf97c8a58d1df8f5cadc5a3a2386",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_browser_adapter.cc",
+      "blob": "304c070c3566813a3bafa13f5c13a04f75f39964",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_browser_adapter.h",
+      "blob": "0232f2e820722cd34b4672fc2e8bd7df17d08cd8",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_cursor_adapter.cc",
+      "blob": "922813315f05daf52dbf47bd326a7e39d54bb691",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_cursor_adapter.h",
+      "blob": "6102b27cd364fba0f3fdb5ed162340677d2f3239",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_device_info.cc",
+      "blob": "3510e1d1967210308a02d1d92195fd53e5c4f665",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_device_info.h",
+      "blob": "7f4ed205ea7f9f11ffcc2355fc1a4076967afe03",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_input_method_ohos_adapter.cc",
+      "blob": "ebf8b007b4595a286418340ec321c2f6580d45a6",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_input_method_ohos_adapter.h",
+      "blob": "a85638da47debfd725f4eb790354f29deecfa79a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/mock_utils.h",
+      "blob": "d089864553dfcbc667336fe68b9b423913c2a445",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/test/run_all_unittests.cc",
+      "blob": "84e7ffba800a63cde854559382930a23f692e919",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/BUILD.gn",
+      "blob": "835180d2ef0e90d3de9e46d4c167f77e67c4b97d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/README",
+      "blob": "6809890121332b444acc3a289c7d67b273847000",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/common_event/common_event_wrapper.cc",
+      "blob": "1c6c0eb42b3d712c2d9bac8ef2fd587331dcc318",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/common_event/common_event_wrapper.h",
+      "blob": "6ceaeede323ba26cb37d783d00bdb90a65075bb1",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/tracing_adapter.cc",
+      "blob": "421cf4c067b2d34705255b35f1e967fbaed03f77",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/tracing/tracing_adapter.h",
+      "blob": "6d8840b8ff0012fb24ccc4c1a06c40b4192b3b01",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_app/BUILD.gn",
+      "blob": "ab019529bf15dcc66f74c939955fe4d56107b9f2",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_app/web_app_adapter.cc",
+      "blob": "a4e10d2200f1b8d1a04977c09cd084e16719f82d",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_app/web_app_adapter.h",
+      "blob": "ba952cb1df3f8c892132ada2850e4072b3b387d9",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/BUILD.gn",
+      "blob": "b950929cc8a865da0d6221f2a70d9861328b22d8",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/chrome/chrome_loader.cc",
+      "blob": "b8c1bbd41147ef22172772af596ab22d2b057a4f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/chrome/chrome_loader.h",
+      "blob": "b6cd9281fafd9a56e982b66f9c01e402ad9fcbac",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/permission_constants.h",
+      "blob": "5339074214755bd31eed8f90d96e8296576ffed0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/shell/content_shell_loader.cc",
+      "blob": "c402f2f4cd056b2c7e47b591e8b21fa832dd2461",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/shell/content_shell_loader.h",
+      "blob": "15eea06c22ac48a77cdbe96f4518077f6072db1a",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_entry.cc",
+      "blob": "9a6ae11ed41da49de9fc9c485031b764346b8781",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_entry.h",
+      "blob": "cb61c3f84a66d84821a7fe176f1f30a307eb5a95",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_entry_init.cc",
+      "blob": "b7a5051693a0bd1967bb453c1935c6dec502f572",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_entry_init.h",
+      "blob": "ab18edb973eab70720a35f7109f8d6269c029e67",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_loader.cc",
+      "blob": "d394e0de684ff8b0a7b0eca1a21ed3fe048e430b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_loader.h",
+      "blob": "09b75d1faacd8c01862c9414d026c6b1bcbe4425",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/web_entry/web_loader_factory.cc",
+      "blob": "aaf4beda84bde31fcb2cb58b84ec558b0ff3590f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/BUILD.gn",
+      "blob": "67a6b73e4beaa40d5297fdd29adb28b64db1439b",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/app_window_adapter.cc",
+      "blob": "36c71d806742dccbdfca5db1cec7b3b3a4b955f8",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/app_window_adapter.h",
+      "blob": "bf90a77859a80a46b911e551ff92bf65ca793a43",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/pip_window_adapter.cc",
+      "blob": "14eceed67eb1f54e295f82cc9da91b4994c7cf38",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/pip_window_adapter.h",
+      "blob": "8befa61d814266c1070212718c733d2be828e9ed",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/sub_window_adapter.cc",
+      "blob": "543663dda1bae6f3af43446cbdac48a95a45a304",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/sub_window_adapter.h",
+      "blob": "9a71f7f6a83f40db8e4221d54dfe3e85b660ef5e",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/system_floating_window_adapter.cc",
+      "blob": "b6cf42dc9563967ab3eb20df7eebf4fd8d55b813",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/system_floating_window_adapter.h",
+      "blob": "354500932f8758cfdaa18691ba3dac1fb9fcfbed",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/window_common.cc",
+      "blob": "d91ea8b2d8f3f1dfdc7d2da74ed7cc381486d5c2",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/window/window_common.h",
+      "blob": "7f3c6af6eb6751bf03542974fa41d99f9ead4619",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/BUILD.gn",
+      "blob": "5be2bedf213df071c8e2e1cb230888af3cba6666",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/adapter/window_adapter.cc",
+      "blob": "2bda25e610f7830223230056479ea3b22d8f61cc",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/adapter/window_adapter.h",
+      "blob": "1375cbb32670461e78e36dd8d98b8624696e51e3",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/gesture_event_common.h",
+      "blob": "2d49e416e18a51f2acde6ca2729520cd528d9781",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/gesture_event_receiver.cc",
+      "blob": "f70a852b2ef41367bd187be0b289d3da853396e7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/input_event_common.h",
+      "blob": "22f6d52eb959b11d94be3a4a83b7c560191f84df",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/node_handle_gesture_event_common.h",
+      "blob": "6f47eec5bda4fa4e7b92f9acc8abacf5e359ee82",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/node_handle_input_event_common.h",
+      "blob": "274a3b6197125733eae4afd37a38f60839e96f45",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/window_event_common.cc",
+      "blob": "eab7fbc36501a6e993df50a69489f89f19261626",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/window_event_common.h",
+      "blob": "31fdca1b1c3546635e96cc3e9f28b1d43372927f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/window_event_filter_adapter.cc",
+      "blob": "7f320433bc12e5fad0d5a0516a8c610d4844386c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/window_event_filter_adapter.h",
+      "blob": "8f13c0f22ed7ce57e8ebc1a5d58dc3433d804662",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/event/window_event_receiver.cc",
+      "blob": "d2be8edb74be4088734a33af3d64fc8acfa050fd",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/node_handle_util.cc",
+      "blob": "79f6ef8bcc4e38d104d4e5cb28ac01d18fe9b9e2",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/node_handle_util.h",
+      "blob": "2f097074ebde4488bdde539e8fe49edbf391eb70",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/renderer/node_handle_xcomponent_impl.cc",
+      "blob": "deab9d773c4b830060bdd9d98304562d3f6a772f",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/renderer/node_handle_xcomponent_impl.h",
+      "blob": "323001a08c8b30b76dd6c02764611504488aaa97",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/renderer/xcomponent_base.h",
+      "blob": "7daf8504a21d1886c44089d8b757630f0b86a398",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/renderer/xcomponent_impl.cc",
+      "blob": "7cb6b5771f21277f49520fac89cb357f0bf2b9c7",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/renderer/xcomponent_impl.h",
+      "blob": "3de2c2e188bd326e3335413a1b236f4f575061c0",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/xcomponent_delegate.h",
+      "blob": "cfbf88cb53001641d7abb88a618258bddd997532",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/xcomponent_manager.cc",
+      "blob": "a219731c42259dbea22d6a5938d8c272f50d027c",
+      "mode": "100644"
+    },
+    {
+      "path": "ohos/adapter/xcomponent/xcomponent_manager.h",
+      "blob": "98f7868880476a0380eb9e7b312a874ba93da431",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/BUILD.gn",
+      "blob": "6b5c62fe47a3abd96335b525e63ac3065145802a",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/DEPS",
+      "blob": "41cd997bd46a46103e51d137380d8104d11b4eee",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/client_native_pixmap_factory_ohos.cc",
+      "blob": "c8457971f945a800e8b29b05d7895f555780b0bd",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/client_native_pixmap_factory_ohos.h",
+      "blob": "9bc7e26c6788afef099a4c593c6ea22b6a7f089f",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/common/ohos_util.cc",
+      "blob": "241c18be0250a7d122115de728b7acfc55c7b6bf",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/common/ohos_util.h",
+      "blob": "ead6c67e81b2406e21408bf8abf380b022bb76f7",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.cc",
+      "blob": "5a08ff75ac2963ed6561fc63601d8f538d98f319",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.h",
+      "blob": "7a18818e52cf7b4a162fbf99e6633fcf944af7de",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_drag_manager.cc",
+      "blob": "110d32f51cdfa815dfa36c41e40fb0a3870f8ed9",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_drag_manager.h",
+      "blob": "d0e79abfb37429e3bdcd5e5813aa0f76641b5849",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_move_loop_delegate.h",
+      "blob": "49fa5eef8fe6a9a1104b4b929e38492831422698",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc",
+      "blob": "719c2f880824d245d5084034be3071073f03b225",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h",
+      "blob": "a89902773845683fd11891e2d6caecc927b87bcf",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc",
+      "blob": "49b66ca8319b477c34a65fa39e452688ba2096c3",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h",
+      "blob": "7694cec128a569f3cd030670ad3ca8cf1870cb6e",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/gl_surface_egl_ohos.cc",
+      "blob": "0e61ed070deb85d2767a0aeccbfff27745cb4191",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/gl_surface_egl_ohos.h",
+      "blob": "1b6d313d5f0310ca60cf0ac44051f69f34de5a5b",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/gl_surface_egl_readback_ohos.cc",
+      "blob": "a7fb576be5061064898fb69f9ee94a905ecc2b2a",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/gl_surface_egl_readback_ohos.h",
+      "blob": "18237361958bd16aa07af555c899e280aab7e668",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/ohos_surface_factory.cc",
+      "blob": "9871724ccb096ceafd93b2ac89bb636ffd5a2172",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/gpu/ohos_surface_factory.h",
+      "blob": "58306c2041e5327b90f52dc268fabd46702b4422",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_canvas_surface.cc",
+      "blob": "1e55e59b707b505ab09beec4ec887e0da72914d9",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_canvas_surface.h",
+      "blob": "38fbb7ec6c27fdf7f4e25df4116822b171be22cb",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_cursor_utils.cc",
+      "blob": "1c54e163e84cf87388dd2fc9a73cee7362121039",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_cursor_utils.h",
+      "blob": "2d492bfbc0a816207465682642407b8e2e2441c8",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_filter.cc",
+      "blob": "e6c065bfb6ce5db23bd7243d39c76a92abd7993d",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_filter.h",
+      "blob": "2f9f4b8f09b6072db264864dc69da81bcbb074c3",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source.cc",
+      "blob": "5461c159b83a1a23325e218e32941cf4de1b3ee8",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source.h",
+      "blob": "118b7dd3732ee9200019db17dbf78a533c60d954",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source_base.cc",
+      "blob": "046e9824819466a442e36ae2bbcc76bda8f78a7e",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source_base.h",
+      "blob": "f2683ae0d12905bad79b600aecbb93013c4a36a3",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc",
+      "blob": "7e69ef423c7da76a06d9b1e59a8d8ef94bef2458",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_event_source_node_handle.h",
+      "blob": "25a65ccabf0ba232b364ed42805991d67109db30",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_fake_window.cc",
+      "blob": "e8ba13a6c780ae807237ffc1cbfaca59e26a3bb0",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_fake_window.h",
+      "blob": "1d590798ac1cfa1ba70885932ce2085370150dae",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_pip_window.cc",
+      "blob": "a40069393bd4f14dc67acfa3728deb724c973db6",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_pip_window.h",
+      "blob": "fc8c47ece78f08145d795fc25903dcfb0aec7cc4",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_pip_window_manager.cc",
+      "blob": "ffe661477821118bb1af8683adf9ffb692829adf",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_pip_window_manager.h",
+      "blob": "eced6a9d3b34386d4cdb99249075a9ae15c72e3e",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_popup.cc",
+      "blob": "fef0e1a3d43ae4b9645e3f60ec1c72887485006a",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_popup.h",
+      "blob": "e778b73565e21a205e70b7c6470624a4ecf55798",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_screen.cc",
+      "blob": "9a55a593f822b67364f2a12b4e588911d6bcb028",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_screen.h",
+      "blob": "452bc792ee9d013369d0aee3d28ab1f1b60baad3",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_toplevel_pad_window.cc",
+      "blob": "faea2666fcb03dc9ce2dbba5ffd0f750b7f3ab8c",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_toplevel_pad_window.h",
+      "blob": "796bad4760a7f74fb8196bacfc953ae3a267bf3b",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_toplevel_window.cc",
+      "blob": "b0fa53a9ee1d2b8386306400ffbffd50f6013427",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_toplevel_window.h",
+      "blob": "30e683f410acc89d8ceae3f441f191b3bf95a32c",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window.cc",
+      "blob": "a0e1dc7b06d2cf1050d27fb2f1a0949213f61f54",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window.h",
+      "blob": "7b951ccda25cdb32229b6ccef8a07ce31a01db4e",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_factory.cc",
+      "blob": "7e43b476b554bb7065648f9da05372c434f1ada0",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_manager.cc",
+      "blob": "f6c094014d2c246ba2ee9966c80f86cd47104cbb",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_manager.h",
+      "blob": "3001cc8947df0c5f12d1e222c948e04361061eab",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_observer.cc",
+      "blob": "ffee2cbe76c9b3b66ccaa98c327e988565ee2f03",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_observer.h",
+      "blob": "8562ff794a55ac8064a7423b956ab49220fdd88c",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/host/ohos_window_unittests.cc",
+      "blob": "f2915c7056833e067ee3b9b5e1b3de343caa0bec",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/ozone_platform_ohos.cc",
+      "blob": "7cc36c52218c54649c1aa0789e8fdfc7a92413ea",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/ozone_platform_ohos.h",
+      "blob": "835dbabf76088564fb46dc0b4096598755f966ce",
+      "mode": "100755"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/test/ohos_ozone_ui_controls_test_helper.cc",
+      "blob": "3db25ed4a0847893878b6a60626e5860567bdc78",
+      "mode": "100644"
+    },
+    {
+      "path": "ui/ozone/platform/ohos/test/ohos_ozone_ui_controls_test_helper.h",
+      "blob": "516f02af8fdbe035e95fd46f25f3af0a85cf4777",
+      "mode": "100644"
+    }
+  ]
+}

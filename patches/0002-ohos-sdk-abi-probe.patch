@@ -1,0 +1,137 @@
+diff --git a/ohos/bringup/.gn b/ohos/bringup/.gn
+new file mode 100644
+index 0000000000..5a11d4bd5e
+--- /dev/null
++++ b/ohos/bringup/.gn
+@@ -0,0 +1,4 @@
++# Standalone SDK/ABI probe. This deliberately does not load Chromium's browser
++# graph or its DEPS. Passing it verifies the platform configuration, not Chrome.
++buildconfig = "//ohos/bringup/BUILDCONFIG.gn"
++root = "//ohos/bringup"
+diff --git a/ohos/bringup/BUILD.gn b/ohos/bringup/BUILD.gn
+new file mode 100644
+index 0000000000..c89045ad48
+--- /dev/null
++++ b/ohos/bringup/BUILD.gn
+@@ -0,0 +1,43 @@
++import("//build/config/ohos/config.gni")
++
++toolchain("clang_arm64") {
++  _bin = rebase_path("$ohos_clang_root/bin", root_build_dir)
++
++  tool("cc") {
++    command = "\"$_bin/clang\" -MMD -MF {{output}}.d {{defines}} {{include_dirs}} {{cflags}} {{cflags_c}} -c {{source}} -o {{output}}"
++    depfile = "{{output}}.d"
++    depsformat = "gcc"
++    outputs =
++        [ "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.o" ]
++    description = "OHOS CC {{source}}"
++  }
++
++  tool("solink") {
++    command = "\"$_bin/clang\" -shared {{ldflags}} -Wl,-soname,{{target_output_name}}{{output_extension}} -o {{output}} {{inputs}} {{solibs}} {{libs}}"
++    outputs = [ "{{root_out_dir}}/{{target_output_name}}{{output_extension}}" ]
++    default_output_extension = ".so"
++    output_prefix = "lib"
++    link_output = outputs[0]
++    depend_output = outputs[0]
++    description = "OHOS SOLINK {{output}}"
++  }
++
++  tool("stamp") {
++    command = "touch {{output}}"
++  }
++}
++
++shared_library("sdk_probe") {
++  sources = [ "sdk_probe.c" ]
++  include_dirs = [ "//" ]
++  cflags = [ "-fPIC" ]
++  libs = [
++    "dl",
++    "native_window",
++    "pthread",
++  ]
++}
++
++group("all") {
++  deps = [ ":sdk_probe" ]
++}
+diff --git a/ohos/bringup/BUILDCONFIG.gn b/ohos/bringup/BUILDCONFIG.gn
+new file mode 100644
+index 0000000000..2c20a913be
+--- /dev/null
++++ b/ohos/bringup/BUILDCONFIG.gn
+@@ -0,0 +1,21 @@
++if (target_os == "") {
++  target_os = "ohos"
++}
++if (target_cpu == "") {
++  target_cpu = "arm64"
++}
++if (current_os == "") {
++  current_os = target_os
++}
++if (current_cpu == "") {
++  current_cpu = target_cpu
++}
++assert(target_os == "ohos" && target_cpu == "arm64")
++set_default_toolchain("//ohos/bringup:clang_arm64")
++
++set_defaults("shared_library") {
++  configs = [
++    "//build/config/ohos:compiler",
++    "//build/config/ohos:runtime_library",
++  ]
++}
+diff --git a/ohos/bringup/sdk_probe.c b/ohos/bringup/sdk_probe.c
+new file mode 100644
+index 0000000000..0e321c0875
+--- /dev/null
++++ b/ohos/bringup/sdk_probe.c
+@@ -0,0 +1,45 @@
++// Compile and link an OHOS ELF shared object before attempting the browser.
++#include "build/build_config.h"
++
++#include <dlfcn.h>
++#include <native_window/external_window.h>
++#include <pthread.h>
++#include <stdint.h>
++#include <unistd.h>
++
++#if !defined(__OHOS__)
++#error "The compiler must target OHOS, not an ordinary Linux or Android ABI."
++#endif
++#if !defined(__aarch64__)
++#error "The initial port requires the AArch64 ABI."
++#endif
++
++_Static_assert(BUILDFLAG(IS_OHOS), "Chromium must recognize the OHOS platform");
++_Static_assert(BUILDFLAG(IS_POSIX), "OHOS must retain the POSIX platform family");
++_Static_assert(!BUILDFLAG(IS_LINUX), "OHOS must not select desktop Linux APIs");
++_Static_assert(!BUILDFLAG(IS_ANDROID), "OHOS must not select Android APIs");
++
++__attribute__((visibility("default"))) int32_t ohos_probe_surface_id(
++    OHNativeWindow* window, uint64_t* surface_id) {
++  return OH_NativeWindow_GetSurfaceId(window, surface_id);
++}
++
++__attribute__((visibility("default"))) long ohos_probe_page_size(void) {
++  return sysconf(_SC_PAGESIZE);
++}
++
++__attribute__((visibility("default"))) int ohos_probe_pthread(void) {
++  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
++  int result = pthread_mutex_lock(&mutex);
++  if (result == 0)
++    result = pthread_mutex_unlock(&mutex);
++  pthread_mutex_destroy(&mutex);
++  return result;
++}
++
++__attribute__((visibility("default"))) int ohos_probe_loader(void) {
++  void* handle = dlopen("libc.so", RTLD_NOW | RTLD_LOCAL);
++  if (handle == 0)
++    return -1;
++  return dlclose(handle);
++}

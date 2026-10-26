@@ -1,0 +1,13 @@
+diff --git a/web_engine/src/main/ets/utils/CmdArgsHelper.ets b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+index 876a679..ed8854f 100644
+--- a/web_engine/src/main/ets/utils/CmdArgsHelper.ets
++++ b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
+@@ -42,7 +42,7 @@ const GOOGLE_API_KEY = 'AIzaSyBHDrl33hwRp4rMQY0ziRbj8K9LPA6vUCY';
+ const GOOGLE_OAUTH_CLIENT_ID = '77185425430.apps.googleusercontent.com';
+ const GOOGLE_OAUTH_CLIENT_SECRET = 'OTJgUOQcT7lO7GsGZq2G4IlT';
+ const DESKTOP_USER_AGENT =
+-  'Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36';
++  'Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36';
+ 
+ export interface ParsedArg {
+   name: string;

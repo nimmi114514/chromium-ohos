@@ -1,0 +1,16 @@
+{
+  "productionMethodExecuted": true,
+  "windowApiSimulated": true,
+  "deviceScreenshotVerified": false,
+  "passed": true,
+  "cases": [
+    "enable",
+    "shared-window-owner-release",
+    "last-owner-release",
+    "duplicate-release",
+    "independent-windows",
+    "owner-window-move",
+    "release-after-widget-destruction",
+    "unknown-widget"
+  ]
+}

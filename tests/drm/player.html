@@ -1,0 +1,107 @@
+<!doctype html><meta charset="utf-8"><title>WisePlay playback verification</title>
+<style>body{background:#222;color:white;font:18px sans-serif}video{width:80vw;max-height:75vh;pointer-events:none}pre{white-space:pre-wrap}</style>
+<video id="video" muted></video><pre id="status">WisePlay playback verification</pre>
+<script>
+window.drmReport={done:false,passed:false,steps:[],messages:[],keyStatuses:[]};
+const report=drmReport;
+const timeout=(promise,label,ms=15000)=>Promise.race([promise,new Promise((_,j)=>setTimeout(()=>j(Error(label+' timeout')),ms))]);
+async function step(name,run){const entry={name,passed:false};report.steps.push(entry);try{Object.assign(entry,await run());entry.passed=true;}catch(e){entry.error=String(e);throw e;}finally{document.querySelector('#status').textContent=JSON.stringify(report,null,2);}}
+window.runDrmVerification=async()=>{
+ const video=document.querySelector('#video');let keys,session,mediaSource;
+ const noLicense=new URLSearchParams(location.search).has('no-license');
+ let waitingForKey=0;video.addEventListener('waitingforkey',()=>waitingForKey++);
+ report.observations=[];
+ const observationTimer=setInterval(()=>report.observations.push({time:video.currentTime,paused:video.paused,seeking:video.seeking,visibility:document.visibilityState,readyState:video.readyState}),1000);
+ try{
+  const source=await(await fetch('/source.json')).json();
+  await step('access-and-create-media-keys',async()=>{
+   const access=await timeout(navigator.requestMediaKeySystemAccess('com.wiseplay.drm',[{initDataTypes:['cenc'],videoCapabilities:[{contentType:'video/mp4; codecs="avc1.64001f"'}],...(location.search.includes('audio')?{audioCapabilities:[{contentType:'audio/mp4; codecs="mp4a.40.2"'}]}:{}),sessionTypes:['temporary'],persistentState:'optional',distinctiveIdentifier:'optional'}]),'EME access');
+   report.configuration=access.getConfiguration();keys=await timeout(access.createMediaKeys(),'createMediaKeys');await video.setMediaKeys(keys);return {keySystem:access.keySystem};
+  });
+  let licenseDoneResolve,licenseDoneReject;const licenseDone=new Promise((r,j)=>{licenseDoneResolve=r;licenseDoneReject=j;});licenseDone.catch(()=>{});
+  await step('generate-license-request',async()=>{
+   session=keys.createSession('temporary');
+   session.addEventListener('keystatuseschange',()=>{report.keyStatuses=Array.from(session.keyStatuses.values());});
+   session.addEventListener('message',async e=>{
+    const event={type:e.messageType,requestBytes:e.message.byteLength};report.messages.push(event);
+    if(noLicense){event.licenseRequestIntentionallyNotSent=true;return;}
+    try{const response=await fetch('/license',{method:'POST',headers:{'Content-Type':'application/json'},body:e.message});event.httpStatus=response.status;const bytes=await response.arrayBuffer();event.responseBytes=bytes.byteLength;if(!response.ok)throw Error('Public sample license HTTP '+response.status);await session.update(bytes);event.updated=true;licenseDoneResolve();}catch(e){event.error=String(e);licenseDoneReject(e);}
+   });
+   let pssh=source.initDataBase64;
+   if(!pssh){
+    const xml=new DOMParser().parseFromString(await(await fetch('/sample.mpd')).text(),'application/xml');
+    pssh=Array.from(xml.getElementsByTagNameNS('urn:mpeg:dash:schema:mpd:2011','ContentProtection')).find(x=>x.getAttribute('schemeIdUri')==='urn:uuid:3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c').getElementsByTagNameNS('urn:mpeg:cenc:2013','pssh')[0].textContent.trim();
+   }
+   await timeout(session.generateRequest('cenc',Uint8Array.from(atob(pssh),x=>x.charCodeAt(0))),'generateRequest');return {sessionCreated:true};
+  });
+  if(!noLicense)await step('license-update',async()=>{await timeout(licenseDone,'license update',40000);return {keyStatuses:report.keyStatuses};});
+  if(new URLSearchParams(location.search).has('license-only')){
+   report.scope='Official sample license acquisition only; no playback tested';
+   report.passed=true;return report;
+  }
+  await step('append-encrypted-media',async()=>{
+   mediaSource=new MediaSource();video.src=URL.createObjectURL(mediaSource);await timeout(new Promise(r=>mediaSource.addEventListener('sourceopen',r,{once:true})),'sourceopen');
+   // Declare both tracks before appending an initialization segment; adding
+   // a new track after HAVE_METADATA is prohibited by MediaSource.
+   const tracks=source.tracks.filter(track=>(track.name!=='audio'||location.search.includes('audio'))&&(track.name!=='video'||!location.search.includes('audio-only')));
+   const buffers=tracks.map(track=>mediaSource.addSourceBuffer(track.name==='video'?'video/mp4; codecs="avc1.64001f"':'audio/mp4; codecs="mp4a.40.2"'));
+   for(const [index,track] of tracks.entries()){
+    const buffer=buffers[index];
+    for(const file of [track.init,...track.segments.map(x=>x.file)]){const bytes=await(await fetch('/media/'+file)).arrayBuffer();await timeout(new Promise((r,j)=>{buffer.addEventListener('updateend',r,{once:true});buffer.addEventListener('error',()=>j(Error('SourceBuffer error')),{once:true});buffer.appendBuffer(bytes);}),file);}
+   }
+   mediaSource.endOfStream();return {encrypted:true,tracks:tracks.length};
+  });
+  if(noLicense){
+   await step('encrypted-media-waits-for-key',async()=>{
+    // The public sample has clear lead: video segment 0 is 10s, audio 0 is
+    // 6.016s. Later fragments contain senc entries. Wait past that lead.
+    const play=video.play();play.catch(()=>{});
+    await timeout(new Promise((resolve,reject)=>{const poll=setInterval(()=>{if(video.error){clearInterval(poll);reject(Error(video.error.message));}else if(waitingForKey){clearInterval(poll);resolve();}},100);setTimeout(()=>clearInterval(poll),25000);}),'waiting for encrypted fragment',25000);
+    await new Promise(r=>setTimeout(r,2500));const before={time:video.currentTime,frames:video.getVideoPlaybackQuality().totalVideoFrames};await new Promise(r=>setTimeout(r,2000));
+    const firstEncryptedTimestamp=location.search.includes('audio')?6.016:10;
+    const state={waitingForKey,time:video.currentTime,frames:video.getVideoPlaybackQuality().totalVideoFrames,readyState:video.readyState,error:video.error?.code||0,clearLeadSeconds:firstEncryptedTimestamp,stalledTimeDelta:video.currentTime-before.time,stalledFrameDelta:video.getVideoPlaybackQuality().totalVideoFrames-before.frames};
+    if(!state.waitingForKey||state.error||state.time>firstEncryptedTimestamp+0.5||state.stalledTimeDelta>0.1||state.stalledFrameDelta)throw Error(JSON.stringify(state));
+    return state;
+   });
+   if(new URLSearchParams(location.search).has('exercise-wait')){
+    await step('missing-key-survives-delayed-license',async()=>{
+     const before=video.currentTime,eventsBefore=waitingForKey;
+     await new Promise(r=>setTimeout(r,12000));
+     let rejected=false;
+     try{await timeout(session.update(new Uint8Array([0,1,2,3])),'invalid license');}catch{rejected=true;}
+     await new Promise(r=>setTimeout(r,1000));
+     const state={heldSeconds:13,time:video.currentTime,stalledTimeDelta:video.currentTime-before,invalidLicenseRejected:rejected,waitingEvents:waitingForKey-eventsBefore,error:video.error?.code||0,ended:video.ended};
+     if(state.stalledTimeDelta>0.1||!rejected||state.error||state.ended)throw Error(JSON.stringify(state));
+     return state;
+    });
+    await step('seek-clear-lead-and-wait-again',async()=>{
+     const previousEvents=waitingForKey;
+     video.currentTime=1;video.play().catch(()=>{});
+     let resumed=false;
+     await timeout(new Promise((resolve,reject)=>{
+      const poll=setInterval(()=>{
+       if(video.error){clearInterval(poll);reject(Error(video.error.message));return;}
+       if(!video.seeking&&video.currentTime>1.5)resumed=true;
+       if(resumed&&waitingForKey>previousEvents){clearInterval(poll);resolve();}
+      },100);setTimeout(()=>clearInterval(poll),20000);
+     }),'repeat key wait after seek',20000);
+     await new Promise(r=>setTimeout(r,1500));const before=video.currentTime;
+     await new Promise(r=>setTimeout(r,1500));
+     const state={resumedClearLead:resumed,waitingEvents:waitingForKey-previousEvents,time:video.currentTime,stalledTimeDelta:video.currentTime-before,error:video.error?.code||0};
+     if(!resumed||!state.waitingEvents||state.stalledTimeDelta>0.1||state.error)throw Error(JSON.stringify(state));
+     return state;
+    });
+   }
+  }else{
+  await step('playback',async()=>{
+   await timeout(video.play(),'play');await new Promise(r=>setTimeout(r,8000));const q=video.getVideoPlaybackQuality();const state={time:video.currentTime,frames:q.totalVideoFrames,dropped:q.droppedVideoFrames,width:video.videoWidth,height:video.videoHeight,paused:video.paused,visibility:document.visibilityState,error:video.error?.code||0};if(state.time<4||state.frames<60||state.error)throw Error(JSON.stringify(state));return state;
+  });
+  await step('seek-and-resume',async()=>{const ready=new Promise(r=>video.addEventListener('seeked',r,{once:true}));video.currentTime=3;await timeout(ready,'seek');await video.play();await new Promise(r=>setTimeout(r,3000));if(video.error||video.currentTime<4)throw Error('Playback did not resume');return {time:video.currentTime,frames:video.getVideoPlaybackQuality().totalVideoFrames};});
+  }
+  report.scope=noLicense?'Encrypted media must wait for a key; actual decryption/playback not tested':'License acquisition and protected playback';
+  report.passed=true;
+ }catch(e){report.error=String(e);report.mediaState={time:video.currentTime,readyState:video.readyState,networkState:video.networkState,error:video.error?{code:video.error.code,message:video.error.message}:null};}
+ finally{clearInterval(observationTimer);video.pause();video.removeAttribute('src');video.load();if(session)try{await timeout(session.close(),'session close',3000);report.sessionClosed=true;}catch(e){report.closeError=String(e);report.passed=false;}try{await timeout(video.setMediaKeys(null),'detach media keys',3000);report.keysDetached=true;}catch(e){report.detachError=String(e);report.passed=false;}report.done=true;document.querySelector('#status').textContent=JSON.stringify(report,null,2);}
+ return report;
+};
+</script>

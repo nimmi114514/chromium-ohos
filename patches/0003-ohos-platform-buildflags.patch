@@ -1,0 +1,43 @@
+diff --git a/build/build_config.h b/build/build_config.h
+index 0e3bcb4558..6bdea64426 100644
+--- a/build/build_config.h
++++ b/build/build_config.h
+@@ -17,7 +17,7 @@
+ //  Operating System:
+ //    IS_AIX / IS_ANDROID / IS_ASMJS / IS_CHROMEOS / IS_FREEBSD / IS_FUCHSIA /
+ //    IS_IOS / IS_IOS_MACCATALYST / IS_IOS_TVOS / IS_LINUX / IS_MAC /
+-//    IS_NETBSD / IS_OPENBSD / IS_QNX / IS_SOLARIS / IS_WATCHOS / IS_WIN
++//    IS_NETBSD / IS_OHOS / IS_OPENBSD / IS_QNX / IS_SOLARIS / IS_WATCHOS / IS_WIN
+ //  Operating System family:
+ //    IS_APPLE: IOS or MAC or IOS_MACCATALYST or IOS_TVOS or WATCHOS
+ //    IS_BSD: FREEBSD or NETBSD or OPENBSD
+@@ -88,6 +88,10 @@
+ #else
+ #define OS_MAC 1
+ #endif  // defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
++#elif defined(__OHOS__) || defined(OSOHOS)
++// OHOS uses the Linux kernel with musl and its own application/system APIs.
++// Keep it distinct from the desktop Linux and Android ports.
++#define OS_OHOS 1
+ #elif defined(__linux__)
+ #if !defined(OS_CHROMEOS)
+ // Do not define OS_LINUX on Chrome OS build.
+@@ -142,11 +146,17 @@
+     defined(OS_FREEBSD) || defined(OS_IOS) || defined(OS_LINUX) ||   \
+     defined(OS_CHROMEOS) || defined(OS_MAC) || defined(OS_NETBSD) || \
+     defined(OS_OPENBSD) || defined(OS_QNX) || defined(OS_SOLARIS) || \
+-    defined(OS_ZOS)
++    defined(OS_ZOS) || defined(OS_OHOS)
+ #define OS_POSIX 1
+ #endif
+ 
+ // OS build flags
++#if defined(OS_OHOS)
++#define BUILDFLAG_INTERNAL_IS_OHOS() (1)
++#else
++#define BUILDFLAG_INTERNAL_IS_OHOS() (0)
++#endif
++
+ #if defined(OS_AIX)
+ #define BUILDFLAG_INTERNAL_IS_AIX() (1)
+ #else

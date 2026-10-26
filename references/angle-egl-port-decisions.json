@@ -1,0 +1,12 @@
+{
+  "upstream_revision": "acc2f85e7a6a381b6ae222fb393f401b6cb2baea",
+  "donor_revision": "f728779ec2a302779acad74748ba07877c534b03",
+  "decisions": [
+    "Keep current Google DEPS ANGLE sources and current EGL backend API",
+    "Compile POSIX/Linux-kernel helpers, DMA-buf utilities and native EGL backend on OHOS",
+    "Use OHOS native libEGL.so rather than desktop libEGL.so.1",
+    "Select native DisplayEGL for OHOS GLES, with desktop OpenGL backend disabled",
+    "OHOS remains a distinct Chromium GN platform; ANGLE retains shared Linux-kernel classification and adds ANGLE_PLATFORM_OHOS for native loader selection"
+  ],
+  "device_validation": "Not performed"
+}

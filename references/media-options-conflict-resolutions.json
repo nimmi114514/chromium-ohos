@@ -1,0 +1,10 @@
+{
+  "media/media_options.gni": [
+    "Keep current DRM storage comment and add OHOS",
+    "Keep current HEVC condition without removed Lacros flag",
+    "Use native OHOS audio instead of ALSA/PulseAudio",
+    "Keep current PulseAudio block; parent excludes OHOS",
+    "Keep current Cast services and add OHOS native media service configuration",
+    "OHOS media-router arg declared once in OHOS config"
+  ]
+}

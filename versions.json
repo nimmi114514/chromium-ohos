@@ -1,0 +1,46 @@
+{
+  "chromium": {
+    "version": "158.0.8116.0",
+    "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
+    "url": "https://chromium.googlesource.com/chromium/src.git",
+    "mirror": "https://github.com/chromium/chromium.git"
+  },
+  "depot_tools": {
+    "url": "https://chromium.googlesource.com/chromium/tools/depot_tools.git",
+    "revision": "9cb87e7cca51147a3b8f39033e561736f8460652"
+  },
+  "ohos_reference": {
+    "branch": "pc_chromium_132",
+    "src_revision": "82ada8a584407ef3ea38c3527876ffa442900e57",
+    "chrome_revision": "1100a64e7fe77c09f96573abc7e7b136e3f6390d",
+    "third_party_revision": "daf8407f91b7f9a3fc793fe6c104323d962e6e99",
+    "third_party_url": "https://gitcode.com/openharmony-tpc/chromium_third_party.git",
+    "skia_revision": "773a2324f276f8f10af744eacfacf9ad2a50b8f6",
+    "angle_revision": "f728779ec2a302779acad74748ba07877c534b03",
+    "webrtc_revision": "cc369a9a0dcc5b9c7fbf4fb911cebd754cf94f6d",
+    "webrtc_url": "https://gitcode.com/openharmony-tpc/chromium_third_party_webrtc.git",
+    "v8_revision": "42921632b6720160fde1717bfdc458bf8162c701",
+    "v8_url": "https://github.com/OpenHarmony-TPC/chromium_v8.git"
+  },
+  "sdk_reference": {
+    "name": "ohos-sdk-linux-6.0.2.130.tar.gz",
+    "size": 1173403021,
+    "sha256": "e09b5dd11578b833791eef73fe4a8af9da115b618484100a475f028225a5c53d",
+    "url": "https://media.githubusercontent.com/media/OpenHarmony-TPC/chromium_src/82ada8a584407ef3ea38c3527876ffa442900e57/ohos_sdk/ohos-sdk-linux-6.0.2.130.tar.gz"
+  },
+  "chromium_toolchain": {
+    "clang_package": "llvmorg-24-init-14453-ge063be79-1",
+    "rust_revision": "8a9dd7abdf013ec10cfeaaa3685feba18ef1c90c",
+    "rust_sub_revision": 1
+  },
+  "active_sdk": {
+    "api_version": 26,
+    "platform_version": "26.0.0",
+    "version": "26.0.0.105",
+    "release_type": "Release",
+    "source": "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default",
+    "devEcoStudioVersion": "26.0.0.851",
+    "native_mirror": "/home/wton5889/chromium-workspaces/158.0.8116.0/sdk-api26",
+    "resource_overlay": "toolchain-resources/clang24-ohos-api26"
+  }
+}

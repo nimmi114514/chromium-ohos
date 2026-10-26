@@ -1,0 +1,56 @@
+diff --git a/scripts/prepare_chromium_runtime.sh b/scripts/prepare_chromium_runtime.sh
+index e4a7a33..b519f43 100755
+--- a/scripts/prepare_chromium_runtime.sh
++++ b/scripts/prepare_chromium_runtime.sh
+@@ -9,7 +9,8 @@ if [[ -d "${CHROMIUM_ROOT}/src" ]]; then
+ else
+   CHROMIUM_SRC="${CHROMIUM_ROOT}"
+ fi
+-OUT_DIR="${CHROMIUM_SRC}/out/musl_64"
++# A second argument allows newer ports to use their own GN output directory.
++OUT_DIR="${2:-${CHROMIUM_SRC}/out/musl_64}"
+ SDK_LIB_DIR="${CHROMIUM_SRC}/ohos_sdk/openharmony/native/llvm/lib/aarch64-linux-ohos"
+ LIB_DIR="${HAP_DIR}/chromium/libs/arm64-v8a"
+ RESOURCE_DIR="${HAP_DIR}/web_engine/src/main/resources/resfile"
+@@ -17,7 +18,6 @@ RESOURCE_DIR="${HAP_DIR}/web_engine/src/main/resources/resfile"
+ required_files=(
+   "${OUT_DIR}/libadapter.so"
+   "${OUT_DIR}/libchrome_main_web.so"
+-  "${SDK_LIB_DIR}/libc++_shared.so"
+   "${OUT_DIR}/resources.pak"
+   "${OUT_DIR}/chrome_100_percent.pak"
+   "${OUT_DIR}/chrome_200_percent.pak"
+@@ -35,10 +35,32 @@ for path in "${required_files[@]}"; do
+   fi
+ done
+ 
++# Chromium can link its pinned libc++ statically. Only package the SDK's
++# shared runtime when the built native libraries actually depend on it.
++RUNTIME_READELF="${CHROMIUM_SRC}/third_party/llvm-build/Release+Asserts/bin/llvm-readelf"
++if [[ ! -x "${RUNTIME_READELF}" ]]; then
++  RUNTIME_READELF="$(command -v readelf)"
++fi
++NEEDS_SHARED_LIBCXX=false
++for library in "${OUT_DIR}/libadapter.so" "${OUT_DIR}/libchrome_main_web.so"; do
++  dynamic_section="$("${RUNTIME_READELF}" -d "${library}")"
++  if [[ "${dynamic_section}" == *"[libc++_shared.so]"* ]]; then
++    NEEDS_SHARED_LIBCXX=true
++  fi
++done
++if ${NEEDS_SHARED_LIBCXX} && [[ ! -f "${SDK_LIB_DIR}/libc++_shared.so" ]]; then
++  echo "Missing required C++ shared runtime: ${SDK_LIB_DIR}/libc++_shared.so" >&2
++  exit 1
++fi
++
+ mkdir -p "${LIB_DIR}" "${RESOURCE_DIR}"
+ cp "${OUT_DIR}/libadapter.so" "${LIB_DIR}/"
+ cp "${OUT_DIR}/libchrome_main_web.so" "${LIB_DIR}/"
+-cp "${SDK_LIB_DIR}/libc++_shared.so" "${LIB_DIR}/"
++if ${NEEDS_SHARED_LIBCXX}; then
++  cp "${SDK_LIB_DIR}/libc++_shared.so" "${LIB_DIR}/"
++else
++  rm -f "${LIB_DIR}/libc++_shared.so"
++fi
+ cp "${OUT_DIR}/resources.pak" "${RESOURCE_DIR}/"
+ cp "${OUT_DIR}/chrome_100_percent.pak" "${RESOURCE_DIR}/"
+ cp "${OUT_DIR}/chrome_200_percent.pak" "${RESOURCE_DIR}/"

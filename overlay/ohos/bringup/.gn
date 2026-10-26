@@ -1,0 +1,4 @@
+# Standalone SDK/ABI probe. This deliberately does not load Chromium's browser
+# graph or its DEPS. Passing it verifies the platform configuration, not Chrome.
+buildconfig = "//ohos/bringup/BUILDCONFIG.gn"
+root = "//ohos/bringup"

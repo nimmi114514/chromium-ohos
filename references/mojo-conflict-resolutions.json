@@ -1,0 +1,6 @@
+{
+  "mojo/core/broker_host.cc": "Keep current M158 broker response protocol, use one ashmem descriptor on OHOS",
+  "mojo/core/broker_posix.cc": "Validate exactly one descriptor on OHOS before rebuilding a writable region; retain current GUID and message-size checks",
+  "mojo/public/cpp/system/platform_handle.cc": "Use OHOS scoped descriptor ownership with existing single-handle validation",
+  "mojo/core/platform_handle_utils.cc": "Do not restore removed M132 extraction helpers; current ipcz_driver/shared_buffer.cc carries the OHOS shared-buffer support"
+}

@@ -1,0 +1,2030 @@
+diff --git a/buildtools/third_party/libc++/__config_site b/buildtools/third_party/libc++/__config_site
+index a9ab1614b6..33a6ed12c3 100644
+--- a/buildtools/third_party/libc++/__config_site
++++ b/buildtools/third_party/libc++/__config_site
+@@ -26,7 +26,7 @@
+ #define _LIBCPP_HAS_MONOTONIC_CLOCK 1
+ #define _LIBCPP_HAS_TERMINAL 1
+ 
+-#ifdef ANDROID_HOST_MUSL
++#if defined(ANDROID_HOST_MUSL) || defined(__OHOS__)
+ #define _LIBCPP_HAS_MUSL_LIBC 1
+ #else
+ #define _LIBCPP_HAS_MUSL_LIBC 0
+diff --git a/third_party/blink/common/BUILD.gn b/third_party/blink/common/BUILD.gn
+index cea2f37dd0..9c075589ee 100644
+--- a/third_party/blink/common/BUILD.gn
++++ b/third_party/blink/common/BUILD.gn
+@@ -335,7 +335,7 @@ source_set("common") {
+     deps += [ "//media" ]
+   }
+ 
+-  if (is_android) {
++  if (is_android || is_ohos) {
+     sources += [
+       "font_unique_name_lookup/font_table_matcher.cc",
+       "font_unique_name_lookup/font_table_persistence.cc",
+diff --git a/third_party/blink/public/common/BUILD.gn b/third_party/blink/public/common/BUILD.gn
+index cada4d794b..fc8b784f0c 100644
+--- a/third_party/blink/public/common/BUILD.gn
++++ b/third_party/blink/public/common/BUILD.gn
+@@ -369,7 +369,7 @@ source_set("headers") {
+     public_deps += [ "//media/mojo/mojom" ]
+   }
+ 
+-  if (is_android) {
++  if (is_android || is_ohos) {
+     sources += [
+       "font_unique_name_lookup/font_table_matcher.h",
+       "font_unique_name_lookup/font_table_persistence.h",
+@@ -383,7 +383,7 @@ source_set("headers") {
+   }
+ }
+ 
+-if (is_android || is_win) {
++if (is_android || is_win || is_ohos) {
+   proto_library("font_unique_name_table_proto") {
+     sources = [ "font_unique_name_lookup/font_unique_name_table.proto" ]
+   }
+diff --git a/third_party/blink/renderer/core/execution_context/navigator_base.cc b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+index 83f427c5ec..7cd6946f04 100644
+--- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
++++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+@@ -27,7 +27,8 @@ namespace blink {
+ 
+ namespace {
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++    BUILDFLAG(IS_OHOS)
+ constexpr char kLinuxX86_64[] = "Linux x86_64";
+ #endif
+ 
+@@ -49,6 +50,8 @@ String GetReducedNavigatorPlatform() {
+   return "";
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+   return kLinuxX86_64;
++#elif BUILDFLAG(IS_OHOS)
++  return kLinuxX86_64;
+ #elif BUILDFLAG(IS_IOS)
+   return "iPhone";
+ #else
+diff --git a/third_party/blink/renderer/core/inspector/main_thread_debugger.cc b/third_party/blink/renderer/core/inspector/main_thread_debugger.cc
+index 7b0b561c8f..508dd9a1a9 100644
+--- a/third_party/blink/renderer/core/inspector/main_thread_debugger.cc
++++ b/third_party/blink/renderer/core/inspector/main_thread_debugger.cc
+@@ -116,8 +116,23 @@ void MainThreadDebugger::SetClientMessageLoop(
+ 
+ void MainThreadDebugger::DidClearContextsForFrame(LocalFrame* frame) {
+   DCHECK(IsMainThread());
++#if BUILDFLAG(IS_OHOS)
++  if (frame->LocalFrameRoot() != frame) {
++    return;
++  }
++  // SVG image frames can be torn down during allocation-time sweeping. There
++  // is no context group to reset unless one was registered earlier; creating
++  // an identifier here can allocate and reenter the weak map through another
++  // SVG finalizer while its two indexes are being updated.
++  const int context_group_id =
++      WeakIdentifierMap<LocalFrame>::ExistingIdentifier(frame);
++  if (context_group_id) {
++    GetV8Inspector()->resetContextGroup(context_group_id);
++  }
++#else
+   if (frame->LocalFrameRoot() == frame)
+     GetV8Inspector()->resetContextGroup(ContextGroupId(frame));
++#endif
+ }
+ 
+ void MainThreadDebugger::ContextCreated(ScriptState* script_state,
+diff --git a/third_party/blink/renderer/core/inspector/main_thread_debugger_test.cc b/third_party/blink/renderer/core/inspector/main_thread_debugger_test.cc
+index ef7f6241bb..06e4d65ae0 100644
+--- a/third_party/blink/renderer/core/inspector/main_thread_debugger_test.cc
++++ b/third_party/blink/renderer/core/inspector/main_thread_debugger_test.cc
+@@ -6,8 +6,10 @@
+ 
+ #include <memory>
+ 
++#include "build/build_config.h"
+ #include "testing/gtest/include/gtest/gtest.h"
+ #include "third_party/blink/renderer/core/dom/document.h"
++#include "third_party/blink/renderer/core/dom/weak_identifier_map.h"
+ #include "third_party/blink/renderer/core/execution_context/agent.h"
+ #include "third_party/blink/renderer/core/frame/local_frame.h"
+ #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+@@ -39,6 +41,31 @@ TEST_F(MainThreadDebuggerTest, HitBreakPointDuringLifecycle) {
+   EXPECT_FALSE(document.Lifecycle().LifecyclePostponed());
+ }
+ 
++#if BUILDFLAG(IS_OHOS)
++TEST_F(MainThreadDebuggerTest, ClearingUnregisteredFrameDoesNotCreateGroup) {
++  auto* debugger =
++      MainThreadDebugger::Instance(GetDocument().GetAgent().isolate());
++  WeakIdentifierMap<LocalFrame>::NotifyObjectDestroyed(&GetFrame());
++  ASSERT_EQ(0, WeakIdentifierMap<LocalFrame>::ExistingIdentifier(&GetFrame()));
++
++  debugger->DidClearContextsForFrame(&GetFrame());
++
++  EXPECT_EQ(0, WeakIdentifierMap<LocalFrame>::ExistingIdentifier(&GetFrame()));
++}
++
++TEST_F(MainThreadDebuggerTest, ClearingRegisteredFramePreservesGroupIdentifier) {
++  auto* debugger =
++      MainThreadDebugger::Instance(GetDocument().GetAgent().isolate());
++  const int group = debugger->ContextGroupId(&GetFrame());
++  ASSERT_NE(0, group);
++
++  debugger->DidClearContextsForFrame(&GetFrame());
++
++  EXPECT_EQ(group,
++            WeakIdentifierMap<LocalFrame>::ExistingIdentifier(&GetFrame()));
++}
++#endif
++
+ class MainThreadDebuggerMultipleMainFramesTest : public MainThreadDebuggerTest {
+  public:
+   void SetUp() override {
+diff --git a/third_party/blink/renderer/core/layout/build.gni b/third_party/blink/renderer/core/layout/build.gni
+index 674a5e013a..a284e099ab 100644
+--- a/third_party/blink/renderer/core/layout/build.gni
++++ b/third_party/blink/renderer/core/layout/build.gni
+@@ -861,3 +861,10 @@ blink_core_tests_layout = [
+   "table/table_layout_utils_test.cc",
+   "visual_rect_mapping_test.cc",
+ ]
++
++if (is_ohos) {
++  blink_core_sources_layout += [
++    "layout_theme_ohos.cc",
++    "layout_theme_ohos.h",
++  ]
++}
+diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
+index da36201679..4d1c3a05b9 100644
+--- a/third_party/blink/renderer/platform/BUILD.gn
++++ b/third_party/blink/renderer/platform/BUILD.gn
+@@ -332,7 +332,7 @@ group("blink_platform_public_deps") {
+   ]
+   public_configs = [ "//third_party/blink/renderer:features" ]
+ 
+-  if (is_android || is_win) {
++  if (is_android || is_win || is_ohos) {
+     public_deps +=
+         [ "//third_party/blink/public/common:font_unique_name_table_proto" ]
+   }
+@@ -2055,6 +2055,14 @@ component("platform") {
+ 
+   configs -= [ "//build/config/compiler:default_symbols" ]
+   configs += blink_symbols_config
++
++  if (is_ohos) {
++    sources += [
++      "fonts/ohos/font_cache_ohos.cc",
++      "fonts/ohos/font_unique_name_lookup_ohos.cc",
++      "fonts/ohos/font_unique_name_lookup_ohos.h",
++    ]
++  }
+ }
+ 
+ static_library("test_support") {
+diff --git a/third_party/blink/renderer/platform/fonts/font_platform_data.cc b/third_party/blink/renderer/platform/fonts/font_platform_data.cc
+index a1db0415e0..7eacfa37fd 100644
+--- a/third_party/blink/renderer/platform/fonts/font_platform_data.cc
++++ b/third_party/blink/renderer/platform/fonts/font_platform_data.cc
+@@ -226,7 +226,7 @@ WebFontRenderStyle FontPlatformData::QuerySystemRenderStyle(
+     TextRenderingMode text_rendering) {
+   WebFontRenderStyle result;
+ 
+-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_IOS)
++#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_OHOS)
+   // If the font name is missing (i.e. probably a web font) or the sandbox is
+   // disabled, use the system defaults.
+   if (family.length() && Platform::Current()->GetSandboxSupport()) {
+diff --git a/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.cc b/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.cc
+index 5ecf2a32a2..e1918ed0ab 100644
+--- a/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.cc
++++ b/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.cc
+@@ -11,6 +11,8 @@
+ #include "third_party/blink/renderer/platform/fonts/android/font_unique_name_lookup_android.h"
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+ #include "third_party/blink/renderer/platform/fonts/linux/font_unique_name_lookup_linux.h"
++#elif BUILDFLAG(IS_OHOS)
++#include "third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h"
+ #elif BUILDFLAG(IS_WIN)
+ #include "third_party/blink/renderer/platform/fonts/win/font_unique_name_lookup_win.h"
+ #endif
+@@ -28,6 +30,8 @@ FontUniqueNameLookup::GetPlatformUniqueNameLookup() {
+   return std::make_unique<FontUniqueNameLookupAndroid>();
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+   return std::make_unique<FontUniqueNameLookupLinux>();
++#elif BUILDFLAG(IS_OHOS)
++  return std::make_unique<FontUniqueNameLookupOhos>();
+ #elif BUILDFLAG(IS_WIN)
+   return std::make_unique<FontUniqueNameLookupWin>();
+ #else
+diff --git a/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h b/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h
+index 4a2c5d5f45..32cebcd016 100644
+--- a/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h
++++ b/third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h
+@@ -14,7 +14,7 @@
+ #include "third_party/skia/include/core/SkRefCnt.h"
+ #include "third_party/skia/include/core/SkTypeface.h"
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_OHOS)
+ #include "third_party/blink/public/common/font_unique_name_lookup/font_table_matcher.h"
+ #endif
+ 
+@@ -85,7 +85,7 @@ class PLATFORM_EXPORT FontUniqueNameLookup {
+ 
+   // Windows and Android share the concept of connecting to a Mojo service for
+   // retrieving a ReadOnlySharedMemoryRegion with the lookup table in it.
+-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   std::unique_ptr<FontTableMatcher> font_table_matcher_;
+ #endif
+ };
+diff --git a/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc b/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc
+index 1d9e9a46ee..2dbc34be84 100644
+--- a/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc
++++ b/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc
+@@ -21,7 +21,7 @@ sk_sp<SkTypeface> CreateSkTypefaceFromFontConfigInterfaceIdAndTtcIndex(
+     int config_id,
+     int ttc_index) {
+ #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_WIN) && \
+-    !BUILDFLAG(IS_FUCHSIA)
++    !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_OHOS)
+   sk_sp<SkFontConfigInterface> fci(SkFontConfigInterface::RefGlobal());
+   SkFontConfigInterface::FontIdentity font_identity;
+   font_identity.fID = config_id;
+diff --git a/third_party/blink/renderer/platform/wtf/stack_util.cc b/third_party/blink/renderer/platform/wtf/stack_util.cc
+index 1d298b09c5..4e969b18f3 100644
+--- a/third_party/blink/renderer/platform/wtf/stack_util.cc
++++ b/third_party/blink/renderer/platform/wtf/stack_util.cc
+@@ -34,7 +34,7 @@ size_t GetUnderestimatedStackSize() {
+ // correctly for the main thread.
+ 
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+-    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FREEBSD) || BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FREEBSD) || (BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS))
+   // pthread_getattr_np() can fail if the thread is not invoked by
+   // pthread_create() (e.g., the main thread of blink_unittests).
+   // If so, a conservative size estimate is returned.
+@@ -107,7 +107,7 @@ thread_local void* thread_stack_start = nullptr;
+ 
+ void* GetStackStartImpl() {
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+-    BUILDFLAG(IS_FREEBSD) || BUILDFLAG(IS_FUCHSIA)
++    BUILDFLAG(IS_FREEBSD) || (BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_OHOS))
+   pthread_attr_t attr;
+   int error;
+ #if BUILDFLAG(IS_FREEBSD)
+diff --git a/third_party/cpuinfo/BUILD.gn b/third_party/cpuinfo/BUILD.gn
+index 1fd7f0fa7b..fba5baa50f 100644
+--- a/third_party/cpuinfo/BUILD.gn
++++ b/third_party/cpuinfo/BUILD.gn
+@@ -87,7 +87,7 @@ target(_cpuinfo_target_type, "cpuinfo") {
+ }
+ 
+ source_set("os_specific") {
+-  if (is_chromeos || is_linux || is_android) {
++  if (is_chromeos || is_linux || is_android || is_ohos) {
+     sources = [
+       "src/src/linux/cpulist.c",
+       "src/src/linux/multiline.c",
+@@ -190,7 +190,7 @@ source_set("cpu_and_os_specific") {
+     ]
+   }
+ 
+-  if ((is_linux || is_chromeos) && current_cpu == "arm64") {
++  if ((is_linux || is_chromeos || is_ohos) && current_cpu == "arm64") {
+     sources = [
+       "src/src/arm/linux/aarch64-isa.c",
+       "src/src/arm/linux/api.h",
+diff --git a/third_party/crashpad/crashpad/build/crashpad_buildconfig.gni b/third_party/crashpad/crashpad/build/crashpad_buildconfig.gni
+index 80992a1b99..5c834459c5 100644
+--- a/third_party/crashpad/crashpad/build/crashpad_buildconfig.gni
++++ b/third_party/crashpad/crashpad/build/crashpad_buildconfig.gni
+@@ -67,7 +67,8 @@ if (crashpad_is_in_chromium) {
+   crashpad_is_tvos = is_ios && target_platform == "tvos"
+   crashpad_is_apple = is_apple
+   crashpad_is_win = is_win
+-  crashpad_is_linux = is_linux || is_chromeos
++  crashpad_is_linux = is_linux || is_chromeos || is_ohos
++  crashpad_is_ohos = is_ohos
+   crashpad_is_android = is_android
+   crashpad_is_fuchsia = is_fuchsia
+ 
+@@ -89,6 +90,7 @@ if (crashpad_is_in_chromium) {
+   crashpad_is_apple = mini_chromium_is_apple
+   crashpad_is_win = mini_chromium_is_win
+   crashpad_is_linux = mini_chromium_is_linux
++  crashpad_is_ohos = false
+   crashpad_is_android = mini_chromium_is_android
+   crashpad_is_fuchsia = mini_chromium_is_fuchsia
+ 
+diff --git a/third_party/crashpad/crashpad/client/crashpad_client.h b/third_party/crashpad/crashpad/client/crashpad_client.h
+index 0fc660687d..402a6c6221 100644
+--- a/third_party/crashpad/crashpad/client/crashpad_client.h
++++ b/third_party/crashpad/crashpad/client/crashpad_client.h
+@@ -36,7 +36,7 @@
+ #elif BUILDFLAG(IS_WIN)
+ #include <windows.h>
+ #include "util/win/scoped_handle.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include <signal.h>
+ #include <ucontext.h>
+ #endif
+@@ -152,7 +152,7 @@ class CrashpadClient {
+ #endif
+   );
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || \
+     DOXYGEN
+   //! \brief Retrieve the socket and process ID for the handler.
+   //!
+@@ -198,7 +198,7 @@ class CrashpadClient {
+   //!
+   //! \return `true` on success. Otherwise `false` with a message logged.
+   static bool InitializeSignalStackForThread();
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS) || DOXYGEN
+ 
+ #if BUILDFLAG(IS_ANDROID) || DOXYGEN
+@@ -380,7 +380,7 @@ class CrashpadClient {
+       const std::set<int>& preserve_fds = {});
+ #endif  // BUILDFLAG(IS_ANDROID) || DOXYGEN
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+     DOXYGEN
+   //! \brief Installs a signal handler to launch a handler process in reponse to
+   //!     a crash.
+@@ -515,7 +515,7 @@ class CrashpadClient {
+   //!
+   //! \param[in] unhandled_signals The set of unhandled signals
+   void SetUnhandledSignals(const std::set<int>& unhandled_signals);
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_ANDROID) ||
+         // BUILDFLAG(IS_CHROMEOS) || DOXYGEN
+ 
+ #if BUILDFLAG(IS_IOS) || DOXYGEN
+@@ -856,7 +856,7 @@ class CrashpadClient {
+   std::wstring ipc_pipe_;
+   ScopedKernelHANDLE handler_start_thread_;
+   ScopedVectoredExceptionRegistration vectored_handler_;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   std::set<int> unhandled_signals_;
+ #endif  // BUILDFLAG(IS_APPLE)
+ };
+diff --git a/third_party/crashpad/crashpad/client/crashpad_client_linux.cc b/third_party/crashpad/crashpad/client/crashpad_client_linux.cc
+index 32138082de..473c635d21 100644
+--- a/third_party/crashpad/crashpad/client/crashpad_client_linux.cc
++++ b/third_party/crashpad/crashpad/client/crashpad_client_linux.cc
+@@ -502,7 +502,7 @@ bool CrashpadClient::StartHandler(
+       std::move(client_sock), handler_pid, &unhandled_signals_);
+ }
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ // static
+ bool CrashpadClient::GetHandlerSocket(int* sock, pid_t* pid) {
+   auto signal_handler = RequestCrashDumpHandler::Get();
+@@ -606,7 +606,7 @@ bool CrashpadClient::InitializeSignalStackForThread() {
+   }
+   return true;
+ }
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS)
+ 
+ #if BUILDFLAG(IS_ANDROID)
+diff --git a/third_party/crashpad/crashpad/client/crashpad_info.cc b/third_party/crashpad/crashpad/client/crashpad_info.cc
+index 78a40d8957..0dafe1ca5c 100644
+--- a/third_party/crashpad/crashpad/client/crashpad_info.cc
++++ b/third_party/crashpad/crashpad/client/crashpad_info.cc
+@@ -111,7 +111,7 @@ extern "C" int* CRASHPAD_NOTE_REFERENCE;
+ 
+ // static
+ CrashpadInfo* CrashpadInfo::GetCrashpadInfo() {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+     BUILDFLAG(IS_FUCHSIA)
+   // This otherwise-unused reference is used so that any module that
+   // references GetCrashpadInfo() will also include the note in the
+diff --git a/third_party/crashpad/crashpad/client/simulate_crash.h b/third_party/crashpad/crashpad/client/simulate_crash.h
+index 36477914fd..074420b747 100644
+--- a/third_party/crashpad/crashpad/client/simulate_crash.h
++++ b/third_party/crashpad/crashpad/client/simulate_crash.h
+@@ -24,7 +24,7 @@
+ #include "client/simulate_crash_ios.h"
+ #elif BUILDFLAG(IS_WIN)
+ #include "client/simulate_crash_win.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "client/simulate_crash_linux.h"
+ #endif
+ // IWYU pragma: end_exports
+diff --git a/third_party/crashpad/crashpad/handler/handler_main.cc b/third_party/crashpad/crashpad/handler/handler_main.cc
+index 09f676a4fe..0e2be8eec0 100644
+--- a/third_party/crashpad/crashpad/handler/handler_main.cc
++++ b/third_party/crashpad/crashpad/handler/handler_main.cc
+@@ -61,7 +61,7 @@
+ #include "handler/linux/cros_crash_report_exception_handler.h"
+ #endif
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include <unistd.h>
+ 
+ #include "handler/linux/crash_report_exception_handler.h"
+@@ -93,10 +93,10 @@ namespace crashpad {
+ 
+ namespace {
+ 
+-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++#if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || \
+     BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+ #define ATTACHMENTS_SUPPORTED 1
+-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+ 
+ void Usage(const base::FilePath& me) {
+@@ -134,11 +134,11 @@ void Usage(const base::FilePath& me) {
+ "                              use precreated data to register initial client\n"
+   // clang-format on
+ #endif  // BUILDFLAG(IS_WIN)
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+       // clang-format off
+ "      --initial-client-fd=FD  a socket connected to a client.\n"
+   // clang-format on
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS)
+ #if BUILDFLAG(IS_APPLE)
+       // clang-format off
+@@ -176,7 +176,7 @@ void Usage(const base::FilePath& me) {
+ "                              reset the server's exception handler to default\n"
+   // clang-format on
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+       // clang-format off
+ "      --sanitization-information=SANITIZATION_INFORMATION_ADDRESS\n"
+ "                              the address of a SanitizationInformation struct.\n"
+@@ -186,7 +186,7 @@ void Usage(const base::FilePath& me) {
+ "      --trace-parent-with-exception=EXCEPTION_INFORMATION_ADDRESS\n"
+ "                              request a dump for the handler's parent process\n"
+   // clang-format on
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID)
+       // clang-format off
+ "      --url=URL               send crash reports to this Breakpad server URL,\n"
+@@ -230,7 +230,7 @@ struct Options {
+   std::string mach_service;
+   int handshake_fd;
+   bool reset_own_crash_exception_port_to_system_default;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   VMAddress exception_information_address;
+   VMAddress sanitization_information_address;
+   int initial_client_fd;
+@@ -319,7 +319,7 @@ class CallMetricsRecordNormalExit {
+   }
+ };
+ 
+-#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++#if BUILDFLAG(IS_APPLE) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || \
+     BUILDFLAG(IS_ANDROID)
+ 
+ void HandleCrashSignal(int sig, siginfo_t* siginfo, void* context) {
+@@ -596,9 +596,9 @@ int HandlerMain(int argc,
+ #if BUILDFLAG(IS_WIN)
+     kOptionInitialClientData,
+ #endif  // BUILDFLAG(IS_WIN)
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+     kOptionInitialClientFD,
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS)
+ #if BUILDFLAG(IS_APPLE)
+     kOptionMachService,
+@@ -620,7 +620,7 @@ int HandlerMain(int argc,
+ #if BUILDFLAG(IS_APPLE)
+     kOptionResetOwnCrashExceptionPortToSystemDefault,
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+     kOptionSanitizationInformation,
+     kOptionSharedClientConnection,
+     kOptionTraceParentWithException,
+@@ -655,9 +655,9 @@ int HandlerMain(int argc,
+      nullptr,
+      kOptionInitialClientData},
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+     {"initial-client-fd", required_argument, nullptr, kOptionInitialClientFD},
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS)
+ #if BUILDFLAG(IS_APPLE)
+     {"mach-service", required_argument, nullptr, kOptionMachService},
+@@ -694,7 +694,7 @@ int HandlerMain(int argc,
+      nullptr,
+      kOptionResetOwnCrashExceptionPortToSystemDefault},
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+     {"sanitization-information",
+      required_argument,
+      nullptr,
+@@ -707,7 +707,7 @@ int HandlerMain(int argc,
+      required_argument,
+      nullptr,
+      kOptionTraceParentWithException},
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID)
+     {"url", required_argument, nullptr, kOptionURL},
+ #if BUILDFLAG(IS_CHROMEOS)
+@@ -734,7 +734,7 @@ int HandlerMain(int argc,
+   options.handshake_fd = -1;
+ #endif
+   options.identify_client_via_url = true;
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   options.initial_client_fd = kInvalidFileHandle;
+ #endif
+   options.periodic_tasks = true;
+@@ -790,7 +790,7 @@ int HandlerMain(int argc,
+         break;
+       }
+ #endif  // BUILDFLAG(IS_WIN)
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+       case kOptionInitialClientFD: {
+         if (!base::StringToInt(optarg, &options.initial_client_fd)) {
+           ToolSupport::UsageHint(me, "failed to parse --initial-client-fd");
+@@ -798,7 +798,7 @@ int HandlerMain(int argc,
+         }
+         break;
+       }
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
++#endif  // BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) ||
+         // BUILDFLAG(IS_CHROMEOS)
+       case kOptionMetrics: {
+         options.metrics_dir = base::FilePath(
+@@ -855,7 +855,7 @@ int HandlerMain(int argc,
+         break;
+       }
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+       case kOptionSanitizationInformation: {
+         if (!StringToNumber(optarg,
+                             &options.sanitization_information_address)) {
+@@ -877,7 +877,7 @@ int HandlerMain(int argc,
+         }
+         break;
+       }
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID)
+       case kOptionURL: {
+         options.url = optarg;
+@@ -944,7 +944,7 @@ int HandlerMain(int argc,
+         me, "--initial-client-data and --pipe-name are incompatible");
+     return ExitFailure();
+   }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   if (!options.exception_information_address &&
+       options.initial_client_fd == kInvalidFileHandle) {
+     ToolSupport::UsageHint(
+@@ -1040,7 +1040,7 @@ int HandlerMain(int argc,
+     upload_thread.Get()->Start();
+   }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   std::unique_ptr<ExceptionHandlerServer::Delegate> exception_handler;
+ #else
+   std::unique_ptr<CrashReportExceptionHandler> exception_handler;
+@@ -1084,14 +1084,14 @@ int HandlerMain(int argc,
+       options.write_minidump_to_database,
+       options.write_minidump_to_log,
+ #endif  // BUILDFLAG(IS_ANDROID)
+-#if BUILDFLAG(IS_LINUX)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS))
+       true,
+       false,
+-#endif  // BUILDFLAG(IS_LINUX)
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS))
+       user_stream_sources);
+ #endif  // BUILDFLAG(IS_CHROMEOS)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   if (options.exception_information_address) {
+     ExceptionHandlerProtocol::ClientInformation info;
+     info.exception_information_address = options.exception_information_address;
+@@ -1101,7 +1101,7 @@ int HandlerMain(int argc,
+                ? EXIT_SUCCESS
+                : ExitFailure();
+   }
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID)
+ 
+   ScopedStoppable prune_thread;
+@@ -1171,7 +1171,7 @@ int HandlerMain(int argc,
+   if (!options.pipe_name.empty()) {
+     exception_handler_server.SetPipeName(base::UTF8ToWide(options.pipe_name));
+   }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   ExceptionHandlerServer exception_handler_server;
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+@@ -1193,7 +1193,7 @@ int HandlerMain(int argc,
+     exception_handler_server.InitializeWithInheritedDataForInitialClient(
+         options.initial_client_data, exception_handler.get());
+   }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   if (options.initial_client_fd == kInvalidFileHandle ||
+       !exception_handler_server.InitializeWithClient(
+           ScopedFileHandle(options.initial_client_fd),
+diff --git a/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc b/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
+index 1abb46c318..55f53a0ade 100644
+--- a/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
++++ b/third_party/crashpad/crashpad/minidump/minidump_misc_info_writer.cc
+@@ -153,7 +153,7 @@ std::string MinidumpMiscInfoDebugBuildString() {
+   static constexpr char kOS[] = "ios";
+ #elif BUILDFLAG(IS_ANDROID)
+   static constexpr char kOS[] = "android";
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+   static constexpr char kOS[] = "linux";
+ #elif BUILDFLAG(IS_WIN)
+   static constexpr char kOS[] = "win";
+diff --git a/third_party/crashpad/crashpad/snapshot/crashpad_types/crashpad_info_reader.cc b/third_party/crashpad/crashpad/snapshot/crashpad_types/crashpad_info_reader.cc
+index a775cf0019..b07ce64a21 100644
+--- a/third_party/crashpad/crashpad/snapshot/crashpad_types/crashpad_info_reader.cc
++++ b/third_party/crashpad/crashpad/snapshot/crashpad_types/crashpad_info_reader.cc
+@@ -23,7 +23,7 @@
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include "util/win/traits.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "util/linux/traits.h"
+ #elif BUILDFLAG(IS_FUCHSIA)
+ #include "util/fuchsia/traits.h"
+diff --git a/third_party/crashpad/crashpad/tools/generate_dump.cc b/third_party/crashpad/crashpad/tools/generate_dump.cc
+index 75e0e5351b..0986cc7d7f 100644
+--- a/third_party/crashpad/crashpad/tools/generate_dump.cc
++++ b/third_party/crashpad/crashpad/tools/generate_dump.cc
+@@ -47,7 +47,7 @@
+ #include "snapshot/win/process_snapshot_win.h"
+ #include "util/win/scoped_process_suspend.h"
+ #include "util/win/xp_compat.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "snapshot/linux/process_snapshot_linux.h"
+ #include "util/linux/direct_ptrace_connection.h"
+ #endif  // BUILDFLAG(IS_APPLE)
+@@ -199,7 +199,7 @@ int GenerateDumpMain(int argc, char* argv[]) {
+                                      0)) {
+       return EXIT_FAILURE;
+     }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+     // TODO(jperaza): https://crashpad.chromium.org/bug/30.
+     DirectPtraceConnection task;
+     if (!task.Initialize(options.pid)) {
+diff --git a/third_party/crashpad/crashpad/util/file/file_io.h b/third_party/crashpad/crashpad/util/file/file_io.h
+index c0dc9e16ef..97e8474e74 100644
+--- a/third_party/crashpad/crashpad/util/file/file_io.h
++++ b/third_party/crashpad/crashpad/util/file/file_io.h
+@@ -435,7 +435,7 @@ FileHandle LoggingOpenFileForWrite(const base::FilePath& path,
+                                    FileWriteMode mode,
+                                    FilePermissions permissions);
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ //! \brief Opens an in-memory file for input and output.
+ //!
+ //! This function first attempts to open the file with `memfd_create()`. If
+@@ -457,7 +457,7 @@ FileHandle LoggingOpenFileForWrite(const base::FilePath& path,
+ //! \sa LoggingOpenFileForWrite
+ //! \sa LoggingOpenFileForReadAndWrite
+ FileHandle LoggingOpenMemoryFileForReadAndWrite(const base::FilePath& name);
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ 
+ //! \brief Wraps OpenFileForReadAndWrite(), logging an error if the operation
+ //!     fails.
+diff --git a/third_party/crashpad/crashpad/util/file/file_io_posix.cc b/third_party/crashpad/crashpad/util/file/file_io_posix.cc
+index fe7ed06036..e4e3b17fb9 100644
+--- a/third_party/crashpad/crashpad/util/file/file_io_posix.cc
++++ b/third_party/crashpad/crashpad/util/file/file_io_posix.cc
+@@ -154,7 +154,7 @@ FileHandle LoggingOpenFileForWrite(const base::FilePath& path,
+   return fd;
+ }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ FileHandle LoggingOpenMemoryFileForReadAndWrite(const base::FilePath& name) {
+   DCHECK(name.value().find('/') == std::string::npos);
+ 
+diff --git a/third_party/crashpad/crashpad/util/file/file_writer.cc b/third_party/crashpad/crashpad/util/file/file_writer.cc
+index a5bfa0811f..aef9f3cd4a 100644
+--- a/third_party/crashpad/crashpad/util/file/file_writer.cc
++++ b/third_party/crashpad/crashpad/util/file/file_writer.cc
+@@ -172,7 +172,7 @@ bool FileWriter::Open(const base::FilePath& path,
+   return true;
+ }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ bool FileWriter::OpenMemfd(const base::FilePath& path) {
+   CHECK(!file_.is_valid());
+   file_.reset(LoggingOpenMemoryFileForReadAndWrite(path));
+diff --git a/third_party/crashpad/crashpad/util/file/file_writer.h b/third_party/crashpad/crashpad/util/file/file_writer.h
+index 6ff4b5c182..88823119e7 100644
+--- a/third_party/crashpad/crashpad/util/file/file_writer.h
++++ b/third_party/crashpad/crashpad/util/file/file_writer.h
+@@ -137,7 +137,7 @@ class FileWriter : public FileWriterInterface {
+             FileWriteMode write_mode,
+             FilePermissions permissions);
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+   //! \brief Wraps LoggingOpenMemoryFileForWrite().
+   //!
+   //! \return `true` if the operation succeeded, `false` if it failed, with an
+diff --git a/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.cc b/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.cc
+index 090a663418..045cb4f99a 100644
+--- a/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.cc
++++ b/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.cc
+@@ -21,10 +21,10 @@ namespace crashpad {
+ ExceptionHandlerProtocol::ClientInformation::ClientInformation()
+     : exception_information_address(0),
+       sanitization_information_address(0)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+       ,
+       crash_loop_before_time(0)
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ {
+ }
+ 
+diff --git a/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.h b/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.h
+index 14fd863314..6297263055 100644
+--- a/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.h
++++ b/third_party/crashpad/crashpad/util/linux/exception_handler_protocol.h
+@@ -51,7 +51,7 @@ class ExceptionHandlerProtocol {
+     //!     SanitizationInformation struct, or 0 if there is no such struct.
+     VMAddress sanitization_information_address;
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+     //! \brief Indicates that the client is likely in a crash loop if a crash
+     //!     occurs before this timestamp. This value is only used by ChromeOS's
+     //!     `/sbin/crash_reporter`.
+diff --git a/third_party/crashpad/crashpad/util/misc/address_types.h b/third_party/crashpad/crashpad/util/misc/address_types.h
+index c43d36cdf8..120591e87d 100644
+--- a/third_party/crashpad/crashpad/util/misc/address_types.h
++++ b/third_party/crashpad/crashpad/util/misc/address_types.h
+@@ -25,7 +25,7 @@
+ #include <mach/mach_types.h>
+ #elif BUILDFLAG(IS_WIN)
+ #include "util/win/address_types.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ #include "util/linux/address_types.h"
+ #elif BUILDFLAG(IS_FUCHSIA)
+ #include <zircon/types.h>
+@@ -55,7 +55,7 @@ using VMSize = mach_vm_size_t;
+ using VMAddress = WinVMAddress;
+ using VMSize = WinVMSize;
+ 
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ 
+ using VMAddress = LinuxVMAddress;
+ using VMSize = LinuxVMSize;
+diff --git a/third_party/crashpad/crashpad/util/misc/capture_context.h b/third_party/crashpad/crashpad/util/misc/capture_context.h
+index ac7707b48c..9f0f4f7964 100644
+--- a/third_party/crashpad/crashpad/util/misc/capture_context.h
++++ b/third_party/crashpad/crashpad/util/misc/capture_context.h
+@@ -21,7 +21,7 @@
+ #include <mach/mach.h>
+ #elif BUILDFLAG(IS_WIN)
+ #include <windows.h>
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include <ucontext.h>
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+@@ -35,7 +35,7 @@ using NativeCPUContext = arm_unified_thread_state;
+ #endif
+ #elif BUILDFLAG(IS_WIN)
+ using NativeCPUContext = CONTEXT;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ using NativeCPUContext = ucontext_t;
+ #endif  // BUILDFLAG(IS_APPLE)
+ 
+diff --git a/third_party/crashpad/crashpad/util/misc/metrics.cc b/third_party/crashpad/crashpad/util/misc/metrics.cc
+index 5f61fd9b38..df325f4ee4 100644
+--- a/third_party/crashpad/crashpad/util/misc/metrics.cc
++++ b/third_party/crashpad/crashpad/util/misc/metrics.cc
+@@ -25,7 +25,7 @@
+ #define METRICS_OS_NAME "Win"
+ #elif BUILDFLAG(IS_ANDROID)
+ #define METRICS_OS_NAME "Android"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ #define METRICS_OS_NAME "Linux"
+ #elif BUILDFLAG(IS_FUCHSIA)
+ #define METRICS_OS_NAME "Fuchsia"
+diff --git a/third_party/crashpad/crashpad/util/misc/time.h b/third_party/crashpad/crashpad/util/misc/time.h
+index 624faf1aaa..dbde36cf36 100644
+--- a/third_party/crashpad/crashpad/util/misc/time.h
++++ b/third_party/crashpad/crashpad/util/misc/time.h
+@@ -69,14 +69,14 @@ void GetTimeOfDay(timeval* tv);
+ 
+ #endif  // BUILDFLAG(IS_WIN)
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+     DOXYGEN
+ //! \brief Get the kernel boot time. Subsequent calls to this function may
+ //!     return different results due to the system clock being changed or
+ //!     imprecision in measuring the boot time.
+ //! \return `true` on success. Otherwise, `false` with a message logged.
+ bool GetBootTime(timespec* ts);
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID) || DOXYGEN
+ 
+ }  // namespace crashpad
+diff --git a/third_party/crashpad/crashpad/util/misc/uuid.cc b/third_party/crashpad/crashpad/util/misc/uuid.cc
+index 6b404fdf3c..3417449d1a 100644
+--- a/third_party/crashpad/crashpad/util/misc/uuid.cc
++++ b/third_party/crashpad/crashpad/util/misc/uuid.cc
+@@ -109,7 +109,7 @@ bool UUID::InitializeWithNew() {
+   uuid_generate(uuid);
+   InitializeFromBytes(uuid);
+   return true;
+-#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++#elif BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || \
+     BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA)
+   // Linux, Android, and Fuchsia do not provide a UUID generator in a
+   // widely-available system library. On Linux and Android, uuid_generate()
+diff --git a/third_party/crashpad/crashpad/util/net/http_transport_socket.cc b/third_party/crashpad/crashpad/util/net/http_transport_socket.cc
+index 0d7fc0d1d3..6f1d4b66e4 100644
+--- a/third_party/crashpad/crashpad/util/net/http_transport_socket.cc
++++ b/third_party/crashpad/crashpad/util/net/http_transport_socket.cc
+@@ -12,13 +12,16 @@
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
+ 
++#include <arpa/inet.h>
+ #include <fcntl.h>
+ #include <netdb.h>
+ #include <poll.h>
+ #include <string.h>
+ #include <sys/socket.h>
+ 
++#include <algorithm>
+ #include <iterator>
++#include <limits>
+ 
+ #include "base/check_op.h"
+ #include "base/logging.h"
+@@ -37,6 +40,7 @@
+ 
+ #if defined(CRASHPAD_USE_BORINGSSL)
+ #include <openssl/ssl.h>
++#include <openssl/x509.h>
+ #endif
+ 
+ namespace crashpad {
+@@ -129,7 +133,14 @@ class SSLStream : public Stream {
+         return false;
+       }
+     } else {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_OHOS)
++      // OHOS ships the system roots as a PEM bundle, not a hashed CA directory.
++      if (SSL_CTX_load_verify_locations(
++              ctx_.get(), "/etc/ssl/certs/cacert.pem", nullptr) <= 0) {
++        LOG(ERROR) << "SSL_CTX_load_verify_locations";
++        return false;
++      }
++#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+       if (SSL_CTX_load_verify_locations(
+               ctx_.get(), nullptr, "/etc/ssl/certs") <= 0) {
+         LOG(ERROR) << "SSL_CTX_load_verify_locations";
+@@ -166,6 +177,24 @@ class SSLStream : public Stream {
+       return false;
+     }
+ 
++#if BUILDFLAG(IS_OHOS)
++    // SNI alone does not verify that the certificate belongs to this server.
++    in_addr ipv4;
++    in6_addr ipv6;
++    if (inet_pton(AF_INET, hostname.c_str(), &ipv4) == 1 ||
++        inet_pton(AF_INET6, hostname.c_str(), &ipv6) == 1) {
++      if (X509_VERIFY_PARAM_set1_ip_asc(SSL_get0_param(ssl_.get()),
++                                      hostname.c_str()) != 1) {
++        return false;
++      }
++    } else {
++      SSL_set_hostflags(ssl_.get(), X509_CHECK_FLAG_NEVER_CHECK_SUBJECT);
++      if (SSL_set1_host(ssl_.get(), hostname.c_str()) != 1) {
++        return false;
++      }
++    }
++#endif
++
+     if (SSL_connect(ssl_.get()) <= 0) {
+       LOG(ERROR) << "SSL_connect";
+       return false;
+@@ -175,11 +204,35 @@ class SSLStream : public Stream {
+   }
+ 
+   bool LoggingWrite(const void* data, size_t size) override {
+-    return SSL_write(ssl_.get(), data, size) != 0;
++    const auto* bytes = static_cast<const char*>(data);
++    while (size > 0) {
++      const int chunk = static_cast<int>(
++          std::min(size, static_cast<size_t>(std::numeric_limits<int>::max())));
++      const int written = SSL_write(ssl_.get(), bytes, chunk);
++      if (written <= 0) {
++        LOG(ERROR) << "SSL_write";
++        return false;
++      }
++      bytes += written;
++      size -= written;
++    }
++    return true;
+   }
+ 
+   bool LoggingRead(void* data, size_t size) override {
+-    return SSL_read(ssl_.get(), data, size) != 0;
++    auto* bytes = static_cast<char*>(data);
++    while (size > 0) {
++      const int chunk = static_cast<int>(
++          std::min(size, static_cast<size_t>(std::numeric_limits<int>::max())));
++      const int read = SSL_read(ssl_.get(), bytes, chunk);
++      if (read <= 0) {
++        LOG(ERROR) << "SSL_read";
++        return false;
++      }
++      bytes += read;
++      size -= read;
++    }
++    return true;
+   }
+ 
+   bool LoggingReadToEOF(std::string* contents) override {
+diff --git a/third_party/crashpad/crashpad/util/net/tls.gni b/third_party/crashpad/crashpad/util/net/tls.gni
+index e0249a84c1..41cec797a4 100644
+--- a/third_party/crashpad/crashpad/util/net/tls.gni
++++ b/third_party/crashpad/crashpad/util/net/tls.gni
+@@ -15,7 +15,8 @@
+ import("../../build/crashpad_buildconfig.gni")
+ 
+ declare_args() {
+-  if (crashpad_is_fuchsia || crashpad_is_android) {
++  # OHOS applications cannot depend on a desktop libcurl installation.
++  if (crashpad_is_fuchsia || crashpad_is_android || crashpad_is_ohos) {
+     crashpad_http_transport_impl = "socket"
+   } else if (crashpad_is_linux) {
+     crashpad_http_transport_impl = "libcurl"
+diff --git a/third_party/crashpad/crashpad/util/numeric/checked_address_range.cc b/third_party/crashpad/crashpad/util/numeric/checked_address_range.cc
+index c27defb011..1cd3fb3fbc 100644
+--- a/third_party/crashpad/crashpad/util/numeric/checked_address_range.cc
++++ b/third_party/crashpad/crashpad/util/numeric/checked_address_range.cc
+@@ -23,7 +23,7 @@
+ #include <mach/mach.h>
+ #elif BUILDFLAG(IS_WIN)
+ #include "util/win/address_types.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "util/linux/address_types.h"
+ #elif BUILDFLAG(IS_FUCHSIA)
+ #include <zircon/types.h>
+@@ -131,7 +131,7 @@ std::string CheckedAddressRangeGeneric<ValueType, SizeType>::AsString() const {
+ template class CheckedAddressRangeGeneric<mach_vm_address_t, mach_vm_size_t>;
+ #elif BUILDFLAG(IS_WIN)
+ template class CheckedAddressRangeGeneric<WinVMAddress, WinVMSize>;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ template class CheckedAddressRangeGeneric<LinuxVMAddress, LinuxVMSize>;
+ #elif BUILDFLAG(IS_FUCHSIA)
+ template class CheckedAddressRangeGeneric<zx_vaddr_t, size_t>;
+diff --git a/third_party/crashpad/crashpad/util/posix/close_multiple.cc b/third_party/crashpad/crashpad/util/posix/close_multiple.cc
+index 726843ac30..46876e3cab 100644
+--- a/third_party/crashpad/crashpad/util/posix/close_multiple.cc
++++ b/third_party/crashpad/crashpad/util/posix/close_multiple.cc
+@@ -77,7 +77,7 @@ bool CloseMultipleNowOrOnExecUsingFDDir(int min_fd,
+                                         const std::set<int>& preserve_fds) {
+ #if BUILDFLAG(IS_APPLE)
+   static constexpr char kFDDir[] = "/dev/fd";
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   static constexpr char kFDDir[] = "/proc/self/fd";
+ #endif
+ 
+@@ -144,7 +144,7 @@ void CloseMultipleNowOrOnExec(int fd, const std::set<int>& preserve_fds) {
+   max_fd = std::max(max_fd, getdtablesize());
+ #endif
+ 
+-#if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
++#if !((BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || \
+       BUILDFLAG(IS_ANDROID)) ||                        \
+     defined(OPEN_MAX)
+   // Linux does not provide OPEN_MAX. See
+@@ -173,7 +173,7 @@ void CloseMultipleNowOrOnExec(int fd, const std::set<int>& preserve_fds) {
+   } else {
+     PLOG(WARNING) << "sysctl";
+   }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   // See linux-4.4.27/fs/file.c sysctl_nr_open, referenced by kernel/sys.c
+   // do_prlimit() and kernel/sysctl.c fs_table. Inability to open this file is
+   // not considered an error, because /proc may not be available or usable.
+diff --git a/third_party/crashpad/crashpad/util/posix/drop_privileges.cc b/third_party/crashpad/crashpad/util/posix/drop_privileges.cc
+index 1976c4fb7b..0c7eb2615e 100644
+--- a/third_party/crashpad/crashpad/util/posix/drop_privileges.cc
++++ b/third_party/crashpad/crashpad/util/posix/drop_privileges.cc
+@@ -73,7 +73,7 @@ void DropPrivileges() {
+       CHECK_EQ(setegid(egid), -1);
+     }
+   }
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   PCHECK(setresgid(gid, gid, gid) == 0) << "setresgid";
+   PCHECK(setresuid(uid, uid, uid) == 0) << "setresuid";
+ 
+diff --git a/third_party/crashpad/crashpad/util/posix/process_info.h b/third_party/crashpad/crashpad/util/posix/process_info.h
+index 4c2658043e..f3661a67da 100644
+--- a/third_party/crashpad/crashpad/util/posix/process_info.h
++++ b/third_party/crashpad/crashpad/util/posix/process_info.h
+@@ -32,7 +32,7 @@
+ #include <sys/sysctl.h>
+ #endif
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "util/linux/ptrace_connection.h"
+ #endif
+ 
+@@ -47,7 +47,7 @@ class ProcessInfo {
+ 
+   ~ProcessInfo();
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
+     DOXYGEN
+   //! \brief Initializes this object with information about the process whose ID
+   //!     is \a pid using a PtraceConnection \a connection.
+@@ -63,7 +63,7 @@ class ProcessInfo {
+   //!
+   //! \return `true` on success, `false` on failure with a message logged.
+   bool InitializeWithPtrace(PtraceConnection* connection);
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) ||
+         // BUILDFLAG(IS_ANDROID) || DOXYGEN
+ 
+ #if BUILDFLAG(IS_APPLE) || DOXYGEN
+@@ -173,7 +173,7 @@ class ProcessInfo {
+  private:
+ #if BUILDFLAG(IS_APPLE)
+   kinfo_proc kern_proc_info_;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+   // Some members are marked mutable so that they can be lazily initialized by
+   // const methods. These are always InitializationState-protected so that
+   // multiple successive calls will always produce the same return value and out
+diff --git a/third_party/crashpad/crashpad/util/posix/scoped_mmap.cc b/third_party/crashpad/crashpad/util/posix/scoped_mmap.cc
+index ee76c8569c..0bd9d4128b 100644
+--- a/third_party/crashpad/crashpad/util/posix/scoped_mmap.cc
++++ b/third_party/crashpad/crashpad/util/posix/scoped_mmap.cc
+@@ -25,13 +25,13 @@
+ #include "base/numerics/safe_math.h"
+ #include "build/build_config.h"
+ 
+-#if BUILDFLAG(IS_LINUX)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS))
+ #include "third_party/lss/lss.h"
+ #endif
+ 
+ namespace {
+ 
+-#if BUILDFLAG(IS_LINUX)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS))
+ void* CallMmap(void* addr,
+                size_t len,
+                int prot,
+diff --git a/third_party/crashpad/crashpad/util/posix/signals.cc b/third_party/crashpad/crashpad/util/posix/signals.cc
+index 58f957c40d..b68d6af8f5 100644
+--- a/third_party/crashpad/crashpad/util/posix/signals.cc
++++ b/third_party/crashpad/crashpad/util/posix/signals.cc
+@@ -23,7 +23,7 @@
+ #include "base/logging.h"
+ #include "build/build_config.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+ #include <sys/syscall.h>
+ #endif
+ 
+@@ -51,10 +51,10 @@ constexpr int kCrashSignals[] = {
+ #if defined(SIGEMT)
+     SIGEMT,
+ #endif  // defined(SIGEMT)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+     SIGXCPU,
+     SIGXFSZ,
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ };
+ 
+ // These are the non-core-generating but terminating signals.
+@@ -91,9 +91,9 @@ constexpr int kTerminateSignals[] = {
+     SIGXCPU,
+     SIGXFSZ,
+ #endif  // BUILDFLAG(IS_APPLE)
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+     SIGIO,
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS)
+ };
+ 
+ bool InstallHandlers(const std::vector<int>& signals,
+@@ -318,7 +318,7 @@ void Signals::RestoreHandlerAndReraiseSignalOnReturn(
+   // signals that do not re-raise autonomously), such as signals delivered via
+   // kill() and asynchronous hardware faults such as SEGV_MTEAERR, which would
+   // otherwise be lost when re-raising the signal via raise().
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
+   int retval = syscall(SYS_rt_tgsigqueueinfo,
+                        getpid(),
+                        syscall(SYS_gettid),
+@@ -336,7 +336,7 @@ void Signals::RestoreHandlerAndReraiseSignalOnReturn(
+   if (errno != EPERM) {
+     _exit(kFailureExitCode);
+   }
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) ||
++#endif  // (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_ANDROID) ||
+         // BUILDFLAG(IS_CHROMEOS)
+ 
+   // Explicitly re-raise the signal if it will not re-raise itself. Because
+diff --git a/third_party/crashpad/crashpad/util/posix/symbolic_constants_posix.cc b/third_party/crashpad/crashpad/util/posix/symbolic_constants_posix.cc
+index 58c9057fbd..e13a24df6b 100644
+--- a/third_party/crashpad/crashpad/util/posix/symbolic_constants_posix.cc
++++ b/third_party/crashpad/crashpad/util/posix/symbolic_constants_posix.cc
+@@ -68,7 +68,7 @@ constexpr const char* kSignalNames[] = {
+     "INFO",
+     "USR1",
+     "USR2",
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #if defined(ARCH_CPU_MIPS_FAMILY)
+     "HUP",
+     "INT",
+@@ -139,7 +139,7 @@ constexpr const char* kSignalNames[] = {
+ #endif  // defined(ARCH_CPU_MIPS_FAMILY)
+ #endif
+ };
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ // NSIG is 64 to account for real-time signals.
+ static_assert(std::size(kSignalNames) == 32, "kSignalNames length");
+ #else
+diff --git a/third_party/crashpad/crashpad/util/process/process_memory_native.h b/third_party/crashpad/crashpad/util/process/process_memory_native.h
+index 143a6c03e2..ca93fe7bd2 100644
+--- a/third_party/crashpad/crashpad/util/process/process_memory_native.h
++++ b/third_party/crashpad/crashpad/util/process/process_memory_native.h
+@@ -16,7 +16,7 @@
+ 
+ #if BUILDFLAG(IS_FUCHSIA)
+ #include "util/process/process_memory_fuchsia.h"
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ #include "util/process/process_memory_linux.h"
+ #elif BUILDFLAG(IS_WIN)
+ #include "util/process/process_memory_win.h"
+@@ -29,7 +29,7 @@ namespace crashpad {
+ #if BUILDFLAG(IS_FUCHSIA) || DOXYGEN
+ //! \brief Alias for platform-specific native implementation of ProcessMemory.
+ using ProcessMemoryNative = ProcessMemoryFuchsia;
+-#elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#elif (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ using ProcessMemoryNative = ProcessMemoryLinux;
+ #elif BUILDFLAG(IS_WIN)
+ using ProcessMemoryNative = ProcessMemoryWin;
+diff --git a/third_party/dav1d/BUILD.gn b/third_party/dav1d/BUILD.gn
+index d75d823713..3dd0e6a39a 100644
+--- a/third_party/dav1d/BUILD.gn
++++ b/third_party/dav1d/BUILD.gn
+@@ -60,7 +60,7 @@ config("public_dav1d_config") {
+     defines = [ "CONFIG_LOG=1" ]
+   }
+ 
+-  if (!is_android && !is_apple && !is_win) {
++  if (!is_android && !is_apple && !is_win && !is_ohos) {
+     defines += [
+       "HAVE_PTHREAD_GETAFFINITY_NP=1",
+       "HAVE_PTHREAD_SETAFFINITY_NP=1",
+diff --git a/third_party/libxml/BUILD.gn b/third_party/libxml/BUILD.gn
+index b435302bbf..9842061f0d 100644
+--- a/third_party/libxml/BUILD.gn
++++ b/third_party/libxml/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ # Define an "os_include" variable that points at the OS-specific generated
+ # headers.  These were generated by running the configure script offline.
+-if (is_linux || is_chromeos || is_android || is_fuchsia) {
++if (is_linux || is_chromeos || is_android || is_fuchsia || is_ohos) {
+   os_include = "linux"
+ } else if (is_apple) {
+   os_include = "mac"
+diff --git a/third_party/libxslt/BUILD.gn b/third_party/libxslt/BUILD.gn
+index 6460d87f59..69f7c40888 100644
+--- a/third_party/libxslt/BUILD.gn
++++ b/third_party/libxslt/BUILD.gn
+@@ -84,7 +84,7 @@ static_library("libxslt") {
+   ]
+   public_configs = [ ":libxslt_config" ]
+ 
+-  if (is_linux || is_chromeos) {
++  if (is_linux || is_chromeos || is_ohos) {
+     sources += [ "linux/config.h" ]
+   }
+   if (is_apple) {
+@@ -92,7 +92,7 @@ static_library("libxslt") {
+   }
+ 
+   cflags = []
+-  if (is_linux || is_chromeos || is_android || is_fuchsia) {
++  if (is_linux || is_chromeos || is_android || is_fuchsia || is_ohos) {
+     include_dirs = [ "linux" ]
+   } else if (is_win) {
+     include_dirs = [ "win32" ]
+diff --git a/third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl.cc b/third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl.cc
+index 8f951683e8..f802578f12 100644
+--- a/third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl.cc
++++ b/third_party/protobuf/src/google/protobuf/io/zero_copy_stream_impl.cc
+@@ -58,9 +58,11 @@ namespace {
+ // POSIX_CLOSE_RESTART needs to be provided (and the value defines the behavior
+ // of posix_close). We use it to decide if we can use posix_close.
+ int robust_close(int fd) {
+-#if defined(POSIX_CLOSE_RESTART)
++#if defined(POSIX_CLOSE_RESTART) && !defined(__OHOS__)
+   return posix_close(fd, 0);
+ #else
++  // OHOS musl defines POSIX_CLOSE_RESTART without declaring posix_close.
++  // Its close() uses the Linux behavior described above; do not retry EINTR.
+   return close(fd);
+ #endif
+ }
+diff --git a/third_party/zlib/BUILD.gn b/third_party/zlib/BUILD.gn
+index 29248e1da4..66fec20cb2 100644
+--- a/third_party/zlib/BUILD.gn
++++ b/third_party/zlib/BUILD.gn
+@@ -119,7 +119,7 @@ if (use_arm_neon_optimizations) {
+     defines = [ "CRC32_ARMV8_CRC32" ]
+     if (is_android) {
+       defines += [ "ARMV8_OS_ANDROID" ]
+-    } else if (is_linux || is_chromeos) {
++    } else if (is_linux || is_chromeos || is_ohos) {
+       defines += [ "ARMV8_OS_LINUX" ]
+     } else if (is_mac) {
+       defines += [ "ARMV8_OS_MACOS" ]
+diff --git a/tools/dump_process_memory/dump_process.cc b/tools/dump_process_memory/dump_process.cc
+index d90177da41..30cf4ada3d 100644
+--- a/tools/dump_process_memory/dump_process.cc
++++ b/tools/dump_process_memory/dump_process.cc
+@@ -23,6 +23,10 @@
+ #include "base/strings/string_util.h"
+ #include "base/strings/stringprintf.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/multiprocess/child_process_manager.h"
++#endif
++
+ namespace {
+ 
+ using base::debug::MappedMemoryRegion;
+@@ -59,7 +63,11 @@ class ScopedPtracer {
+     // ptrace(PTRACE_ATTACH) sends a SISTOP signal to the process, need to wait
+     // for it.
+     int status;
++#if BUILDFLAG(IS_OHOS)
++    pid_t ret = ohos::adapter::multiprocess::Waitpid(pid, &status, false);
++#else
+     pid_t ret = HANDLE_EINTR(waitpid(pid, &status, 0));
++#endif
+     if (ret != pid) {
+       PLOG(ERROR) << "Waiting for the process failed";
+       return;
+diff --git a/tools/grit/grit/node/base.py b/tools/grit/grit/node/base.py
+index 4eaac3f303..d651273899 100644
+--- a/tools/grit/grit/node/base.py
++++ b/tools/grit/grit/node/base.py
+@@ -512,6 +512,8 @@ class Node:
+ 
+       elif name == 'is_linux':
+         value = target_platform == 'linux'
++      elif name == 'is_ohos':
++        value = target_platform == 'ohos'
+       elif name == 'is_chromeos':
+         value = target_platform == 'chromeos'
+       elif name == 'is_macosx':
+@@ -529,7 +531,7 @@ class Node:
+       elif name == 'is_posix':
+         value = (
+           target_platform
+-          in ('linux', 'darwin', 'sunos5', 'android', 'ios', 'chromeos')
++          in ('linux', 'darwin', 'sunos5', 'android', 'ios', 'chromeos', 'ohos')
+           or 'bsd' in target_platform
+         )
+ 
+diff --git a/tools/grit/grit_args.gni b/tools/grit/grit_args.gni
+index cd2b6b9337..d16987ca80 100644
+--- a/tools/grit/grit_args.gni
++++ b/tools/grit/grit_args.gni
+@@ -14,7 +14,7 @@ devtools_grd_path_no_ext = get_path_info(devtools_grd_path, "dir") + "/" +
+ # Prefer using this (and excluding specific platforms) when a resource applies
+ # to (most) desktop platforms.
+ assert(toolkit_views ==
+-       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win))
++       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win || is_ohos))
+ 
+ # Variables that are passed to grit with the -D flag.
+ 
+@@ -86,6 +86,9 @@ if (is_fuchsia) {
+ if (is_ios) {
+   _target_platform = "ios"
+ }
++if (is_ohos) {
++  _target_platform = "ohos"
++}
+ if (is_linux) {
+   _target_platform = "linux"
+ }
+diff --git a/tools/json_schema_compiler/feature_compiler.py b/tools/json_schema_compiler/feature_compiler.py
+index 2d6f5529ab..caeae7f61d 100644
+--- a/tools/json_schema_compiler/feature_compiler.py
++++ b/tools/json_schema_compiler/feature_compiler.py
+@@ -249,6 +249,7 @@ FEATURE_GRAMMAR = {
+         'chromeos': 'Feature::CHROMEOS_PLATFORM',
+         'desktop_android': 'Feature::DESKTOP_ANDROID_PLATFORM',
+         'linux': 'Feature::LINUX_PLATFORM',
++        'ohos': 'Feature::OHOS_PLATFORM',
+         'mac': 'Feature::MACOSX_PLATFORM',
+         'win': 'Feature::WIN_PLATFORM',
+       }
+diff --git a/tools/metrics/histograms/metadata/password/histograms.xml b/tools/metrics/histograms/metadata/password/histograms.xml
+index cd8329138f..68c3e9aabd 100644
+--- a/tools/metrics/histograms/metadata/password/histograms.xml
++++ b/tools/metrics/histograms/metadata/password/histograms.xml
+@@ -1166,6 +1166,15 @@ chromium-metrics-reviews@google.com.
+   <summary>User actions performed on the Password Check settings view.</summary>
+ </histogram>
+ 
++<histogram name="PasswordManager.CanUseBiometricsOhos" enum="BooleanSuccess"
++    expires_after="2023-10-01">
++  <owner>mobile@huawei.com</owner>
++  <summary>
++    If user have enabled biometric authentication on their device. It is
++    recorded whenever DeviceAuthenticatorOhos::CanAuthenticate is called.
++  </summary>
++</histogram>
++
+ <histogram name="PasswordManager.CanUseBiometricsMac" enum="BooleanSuccess"
+     expires_after="2027-02-07">
+   <owner>vsemeniuk@google.com</owner>
+diff --git a/tools/perf/chrome_telemetry_build/BUILD.gn b/tools/perf/chrome_telemetry_build/BUILD.gn
+index d321f7a258..7e8132c017 100644
+--- a/tools/perf/chrome_telemetry_build/BUILD.gn
++++ b/tools/perf/chrome_telemetry_build/BUILD.gn
+@@ -192,7 +192,7 @@ group("telemetry_chrome_test_without_chrome") {
+   ]
+ 
+   # Cr-Fuchsia doesn't support breakpad.
+-  if (!is_win && !is_fuchsia) {
++  if (!is_win && !is_fuchsia && !is_ohos) {
+     data_deps += [
+       # This is defined for Windows, but is unused by Telemetry on
+       # Windows, and including it can have issues when cross-compiling
+diff --git a/tools/v8_context_snapshot/v8_context_snapshot.gni b/tools/v8_context_snapshot/v8_context_snapshot.gni
+index ebce96fb84..6ad172d477 100644
+--- a/tools/v8_context_snapshot/v8_context_snapshot.gni
++++ b/tools/v8_context_snapshot/v8_context_snapshot.gni
+@@ -33,12 +33,14 @@ declare_args() {
+   # TODO(crbug.com/40539769): Enable the feature on more environments.
+   # Disable in mac, win and linux cross builds from a different host OS since
+   # building Blink twice is slow (and the host toolchain targets the host OS).
++  # OHOS follows the same cross-OS policy and uses the standard V8 snapshot.
+   use_v8_context_snapshot =
+       include_both_v8_snapshots ||
+       (!is_chromeos && !is_android && !is_castos && !is_fuchsia &&
+        !(host_toolchain == default_toolchain && is_msan) &&
+        !(is_win && host_os != "win") && !(is_mac && host_os != "mac") &&
+-       !(is_linux && host_os != "linux"))
++       !(is_linux && host_os != "linux") &&
++       !(is_ohos && host_os != "ohos"))
+ }
+ 
+ # Apply the secondary abi overrides. Must occur outside of declare_args in
+diff --git a/tools/variations/fieldtrial_to_struct.py b/tools/variations/fieldtrial_to_struct.py
+index 4c1ecb080a..7e7ad4e850 100755
+--- a/tools/variations/fieldtrial_to_struct.py
++++ b/tools/variations/fieldtrial_to_struct.py
+@@ -30,6 +30,7 @@ _platforms = [
+   'ios',
+   'linux',
+   'mac',
++  'ohos',
+   'windows',
+ ]
+ 
+diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.cc b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
+new file mode 100644
+index 0000000000..5d2bf2cb9f
+--- /dev/null
++++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "third_party/blink/renderer/core/layout/layout_theme_ohos.h"
++#include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
++
++
++namespace blink {
++
++scoped_refptr<LayoutTheme> LayoutThemeOhos::Create() {
++  return base::AdoptRef(new LayoutThemeOhos());
++}
++
++LayoutTheme& LayoutTheme::NativeTheme() {
++  DEFINE_STATIC_REF(LayoutTheme, layout_theme, (LayoutThemeOhos::Create()));
++  return *layout_theme;
++}
++
++LayoutThemeOhos::~LayoutThemeOhos() {}
++
++Color LayoutThemeOhos::PlatformActiveSelectionBackgroundColor(
++    mojom::blink::ColorScheme color_scheme) const {
++  return color_scheme == mojom::blink::ColorScheme::kDark
++             ? Color::FromRGBA32(0xFF99C8FF)
++             : LayoutThemeOhos::kDefaultActiveSelectionBackgroundColor;
++}
++
++Color LayoutThemeOhos::PlatformActiveSelectionForegroundColor(
++    mojom::blink::ColorScheme color_scheme) const {
++  return color_scheme == mojom::blink::ColorScheme::kDark
++             ? Color::FromRGBA32(0xFF3B3B3B)
++             : LayoutThemeDefault::PlatformActiveSelectionForegroundColor(
++                   color_scheme);
++}
++
++void LayoutThemeOhos::AdjustInnerSpinButtonStyle(
++    ComputedStyleBuilder& builder) const {
++  LayoutThemeDefault::AdjustInnerSpinButtonStyle(builder);
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.h b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
+new file mode 100644
+index 0000000000..2af353b470
+--- /dev/null
++++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
++#define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
++
++#include "third_party/blink/renderer/core/layout/layout_theme_default.h"
++
++namespace blink {
++
++class LayoutThemeOhos final : public LayoutThemeDefault {
++ public:
++  static scoped_refptr<LayoutTheme> Create();
++
++  Color PlatformActiveSelectionBackgroundColor(
++      mojom::blink::ColorScheme color_scheme) const override;
++  Color PlatformActiveSelectionForegroundColor(
++      mojom::blink::ColorScheme color_scheme) const override;
++  void AdjustInnerSpinButtonStyle(ComputedStyleBuilder&) const override;
++
++ private:
++  ~LayoutThemeOhos() override;
++
++ private:
++  static constexpr Color kDefaultActiveSelectionBackgroundColor =
++      Color::FromRGBA32(0xFF1967D2);
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
+new file mode 100644
+index 0000000000..9f71802fe5
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
+@@ -0,0 +1,97 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++// Uses the OHOS Skia font manager, as in the original OHOS port.
++#include "third_party/blink/renderer/platform/fonts/font_cache.h"
++
++#include "skia/ext/font_utils.h"
++#include "third_party/blink/renderer/platform/fonts/font_platform_data.h"
++#include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
++#include "third_party/skia/include/core/SkString.h"
++#include "third_party/skia/include/core/SkTypeface.h"
++
++namespace blink {
++
++static AtomicString& MutableSystemFontFamily() {
++  DEFINE_THREAD_SAFE_STATIC_LOCAL(AtomicString, system_font_family, ([] {
++    SkString family;
++    if (auto typeface = skia::DefaultTypeface()) {
++      typeface->getFamilyName(&family);
++    }
++    return family.isEmpty() ? AtomicString("sans-serif")
++                            : AtomicString::FromUtf8(family.c_str());
++  }()));
++  return system_font_family;
++}
++
++// static
++const AtomicString& FontCache::SystemFontFamily() {
++  return MutableSystemFontFamily();
++}
++
++// static
++void FontCache::SetSystemFontFamily(const AtomicString& family_name) {
++  DCHECK(!family_name.empty());
++  MutableSystemFontFamily() = family_name;
++}
++
++const SimpleFontData* FontCache::PlatformFallbackFontForCharacter(
++    const FontDescription& font_description,
++    UChar32 character,
++    const SimpleFontData* font_data_to_substitute,
++    FontFallbackPriority fallback_priority) {
++  sk_sp<SkFontMgr> font_mgr(skia::DefaultFontMgr());
++  if (!font_mgr) {
++    return nullptr;
++  }
++  std::string family_name = font_description.Family().FamilyName().Utf8();
++  Bcp47Vector locales =
++      GetBcp47LocaleForRequest(font_description, fallback_priority);
++  sk_sp<SkTypeface> typeface(font_mgr->matchFamilyStyleCharacter(
++      family_name.c_str(), font_description.SkiaFontStyle(), locales.data(),
++      locales.size(), character));
++  if (!typeface)
++    return nullptr;
++
++  bool synthetic_bold = font_description.Weight() >= kBoldThreshold &&
++                        !typeface->isBold() &&
++                        font_description.SyntheticBoldAllowed();
++  bool synthetic_italic = font_description.Style() > kNormalSlopeValue &&
++                          !typeface->isItalic() &&
++                          font_description.SyntheticItalicAllowed();
++
++  const auto* font_data = MakeGarbageCollected<FontPlatformData>(
++      std::move(typeface), std::string(), font_description.EffectiveFontSize(),
++      synthetic_bold, synthetic_italic, font_description.TextRendering(),
++      ResolvedFontFeatures(), font_description.Orientation());
++
++  return FontDataFromFontPlatformData(font_data);
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
+new file mode 100644
+index 0000000000..9660f8dd5b
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
+@@ -0,0 +1,130 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h"
++
++#include "base/files/file.h"
++#include "base/logging.h"
++#include "base/metrics/histogram_macros.h"
++#include "base/timer/elapsed_timer.h"
++#include "third_party/blink/public/common/features.h"
++#include "third_party/blink/public/common/font_unique_name_lookup/icu_fold_case_util.h"
++#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
++#include "third_party/blink/public/platform/platform.h"
++#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
++#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
++#include "third_party/skia/include/core/SkData.h"
++#include "third_party/skia/include/core/SkRefCnt.h"
++#include "third_party/skia/include/core/SkTypeface.h"
++#include "skia/ext/font_utils.h"
++#include "third_party/skia/include/core/SkFontMgr.h"
++
++#include "base/logging.h"
++
++namespace blink {
++
++FontUniqueNameLookupOhos::~FontUniqueNameLookupOhos() = default;
++
++sk_sp<SkTypeface> FontUniqueNameLookupOhos::MatchUniqueName(
++    const String& font_unique_name) {
++  if (!IsFontUniqueNameLookupReadyForSyncLookup())
++    return nullptr;
++  std::optional<FontTableMatcher::MatchResult> match_result =
++      font_table_matcher_->MatchName(font_unique_name.Utf8().c_str());
++  if (!match_result)
++    return nullptr;
++  return skia::DefaultFontMgr()->makeFromFile(match_result->font_path.c_str(),
++                                              match_result->ttc_index);
++}
++
++void FontUniqueNameLookupOhos::Init() {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++
++  // 158 removed the prefetch feature gate. Keep the original OHOS service
++  // connection; table loading still follows the shared-memory lookup protocol.
++  EnsureServiceConnected();
++}
++
++bool FontUniqueNameLookupOhos::IsFontUniqueNameLookupReadyForSyncLookup() {
++  EnsureServiceConnected();
++
++  if (font_table_matcher_.get())
++    return true;
++
++  if (sync_available_.has_value())
++    return sync_available_.value();
++
++  bool sync_available_from_mojo = false;
++  base::ReadOnlySharedMemoryRegion shared_memory_region;
++  ohos_font_lookup_service_->GetUniqueNameLookupTableIfAvailable(
++      &sync_available_from_mojo, &shared_memory_region);
++  sync_available_ = sync_available_from_mojo;
++
++  if (*sync_available_) {
++    DCHECK_EQ(pending_callbacks_.size(), 0u);
++    ReceiveReadOnlySharedMemoryRegion(std::move(shared_memory_region));
++  }
++
++  return *sync_available_;
++}
++
++void FontUniqueNameLookupOhos::PrepareFontUniqueNameLookup(
++    NotifyFontUniqueNameLookupReady callback) {
++  DCHECK(!font_table_matcher_.get());
++
++  pending_callbacks_.push_back(std::move(callback));
++
++  if (pending_callbacks_.size() > 1)
++    return;
++
++  EnsureServiceConnected();
++
++  ohos_font_lookup_service_->GetUniqueNameLookupTable(base::BindOnce(
++      &FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion,
++      base::Unretained(this)));
++}
++
++void FontUniqueNameLookupOhos::EnsureServiceConnected() {
++  if (!ohos_font_lookup_service_) {
++    Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
++        ohos_font_lookup_service_.BindNewPipeAndPassReceiver());
++  }
++}
++
++void FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion(
++    base::ReadOnlySharedMemoryRegion shared_memory_region) {
++  font_table_matcher_ =
++      std::make_unique<FontTableMatcher>(shared_memory_region.Map());
++  while (!pending_callbacks_.empty()) {
++    NotifyFontUniqueNameLookupReady callback = pending_callbacks_.TakeFirst();
++    std::move(callback).Run();
++  }
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
+new file mode 100644
+index 0000000000..840b664e4e
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
++#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
++
++#include "base/sequence_checker.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "third_party/blink/public/common/font_unique_name_lookup/font_table_matcher.h"
++#include "third_party/blink/public/mojom/font_unique_name_lookup/font_unique_name_lookup.mojom-blink.h"
++#include "third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h"
++#include "third_party/blink/renderer/platform/wtf/deque.h"
++
++namespace blink {
++
++class FontUniqueNameLookupOhos : public FontUniqueNameLookup {
++ public:
++  FontUniqueNameLookupOhos() = default;
++  FontUniqueNameLookupOhos(const FontUniqueNameLookupOhos&) = delete;
++  FontUniqueNameLookupOhos& operator=(const FontUniqueNameLookupOhos&) = delete;
++  ~FontUniqueNameLookupOhos() override;
++
++  bool IsFontUniqueNameLookupReadyForSyncLookup() override;
++
++  void PrepareFontUniqueNameLookup(
++      NotifyFontUniqueNameLookupReady callback) override;
++
++  sk_sp<SkTypeface> MatchUniqueName(const String& font_unique_name) override;
++
++  void Init() override;
++
++ private:
++  void EnsureServiceConnected();
++
++  void ReceiveReadOnlySharedMemoryRegion(
++      base::ReadOnlySharedMemoryRegion shared_memory_region);
++
++  mojo::Remote<mojom::blink::FontUniqueNameLookup> ohos_font_lookup_service_;
++  Deque<NotifyFontUniqueNameLookupReady> pending_callbacks_;
++  std::optional<bool> sync_available_;
++
++  SEQUENCE_CHECKER(sequence_checker_);
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
+diff --git a/third_party/wiseplay/cdm/BUILD.gn b/third_party/wiseplay/cdm/BUILD.gn
+new file mode 100644
+index 0000000000..d04e6e1644
+--- /dev/null
++++ b/third_party/wiseplay/cdm/BUILD.gn
+@@ -0,0 +1,31 @@
++# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/buildflag_header.gni")
++import("//build/config/chrome_build.gni")
++import("//build/config/features.gni")
++import("//build/toolchain/toolchain.gni")
++import("//media/media_options.gni")
++import("//third_party/wiseplay/cdm/wiseplay.gni")
++
++buildflag_header("buildflags") {
++  header = "buildflags.h"
++
++  flags = [
++    "ENABLE_WISEPLAY=$enable_wiseplay",
++  ]
++}
++
++source_set("headers") {
++  public = [ "wiseplay_cdm_common.h" ]
++
++  public_deps = [
++    ":buildflags",
++    "//base",
++  ]
++}
++
++group("cdm") {
++    # NOP
++  }
+\ No newline at end of file
+diff --git a/third_party/wiseplay/cdm/wiseplay.gni b/third_party/wiseplay/cdm/wiseplay.gni
+new file mode 100644
+index 0000000000..55f0ef088a
+--- /dev/null
++++ b/third_party/wiseplay/cdm/wiseplay.gni
+@@ -0,0 +1,14 @@
++# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/config/chrome_build.gni")
++import("//media/media_options.gni")
++
++declare_args() {
++  # Enables wiseplay key system support. Disabled by default on OHOS
++  enable_wiseplay = is_ohos
++    # Relative root directory to //third_party/wiseplay/cdm for CDM files.
++    # Can be overridden if the CDM files are located in other places.
++    wiseplay_root = "."
++}
+\ No newline at end of file
+diff --git a/third_party/wiseplay/cdm/wiseplay_cdm_common.h b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
+new file mode 100644
+index 0000000000..60f710b639
+--- /dev/null
++++ b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
+@@ -0,0 +1,39 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
++#define WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
++#include "media/cdm/cdm_type.h"  // nogncheck
++
++// Default constants common to all WisePlay CDMs.
++
++inline constexpr char kWisePlayKeySystem[] = "com.wiseplay.drm";
++
++// WisePlay CDM files are in a directory with this name. This path is also
++// hardcoded in some build files and changing it requires changing the build
++// files as well.
++inline constexpr char kWisePlayCdmBaseDirectory[] = "WisePlayCdm";
++
++// Media Foundation WisePlay CDM files are in a directory with this name.
++inline constexpr char kMediaFoundationWisePlayCdmBaseDirection[] =
++    "MediaFoundationWisePlayCdm";
++
++// This name is used by UMA. Do not change it!
++inline constexpr char kWisePlayKeySystemNameForUMA[] = "WisePlay";
++
++// Name of the CDM library.
++inline constexpr char kWisePlayCdmLibraryName[] = "WisePlaycdm";
++
++inline constexpr char kWisePlayCdmDisplayName[] =
++    "WisePlay Content Decryption Module";
++
++// Identifier used for CDM process site isolation. // ZYX_TODO
++inline constexpr media::CdmType kWisePlayCdmType{0x05d908e5dcca9960ull,
++                                                 0xcd92d30eac98157aull};
++
++inline const uint8_t kWiseplayUuid[16] = {0x3D, 0x5E, 0x6D, 0x35, 0x9B, 0x9A,
++                                          0x41, 0xE8, 0xB8, 0x43, 0xDD, 0x3C,
++                                          0x6E, 0x72, 0xC4, 0x2C};
++
++#endif // WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
+\ No newline at end of file

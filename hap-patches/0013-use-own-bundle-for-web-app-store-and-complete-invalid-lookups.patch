@@ -1,0 +1,104 @@
+diff --git a/web_engine/src/main/ets/ability/WebAbility.ets b/web_engine/src/main/ets/ability/WebAbility.ets
+index 901953c..a858630 100644
+--- a/web_engine/src/main/ets/ability/WebAbility.ets
++++ b/web_engine/src/main/ets/ability/WebAbility.ets
+@@ -42,12 +42,20 @@ export class WebAbility extends WebBaseAbility {
+   private async getWebappInfo() : Promise<IWebAppInfo | undefined> {
+     const appIdPrefix = "--app-id=";
+     let key = this.appId.startsWith(appIdPrefix) ? this.appId.substring(appIdPrefix.length) : this.appId;
++    if (key.length === 0) {
++      return undefined;
++    }
+     const kvStore: KVStoreInterface | undefined = await kvManager.getKVStore('webapp');
+     const webappInfo: string | undefined = await kvStore?.getData(key);
+     if (!webappInfo) {
+       return Promise.resolve(undefined);
+     }
+-    return Promise.resolve(JSON.parse(webappInfo));
++    try {
++      return JSON.parse(webappInfo);
++    } catch (err) {
++      LogUtil.warn(TAG, 'Ignoring invalid saved web app metadata');
++      return undefined;
++    }
+   }
+  
+   private async updateWebAppIcon() {
+diff --git a/web_engine/src/main/ets/utils/KVStore.ets b/web_engine/src/main/ets/utils/KVStore.ets
+index e99e7b6..b7026d9 100644
+--- a/web_engine/src/main/ets/utils/KVStore.ets
++++ b/web_engine/src/main/ets/utils/KVStore.ets
+@@ -1,6 +1,6 @@
+ import { distributedKVStore } from '@kit.ArkData';
+ import { window } from '@kit.ArkUI';
+-import { UIAbility } from '@kit.AbilityKit';
++import { bundleManager } from '@kit.AbilityKit';
+ import { BusinessError } from '@kit.BasicServicesKit';
+ import common from '@ohos.app.ability.common';
+ import LogUtil from '../utils/LogUtil';
+@@ -64,6 +64,9 @@ class KVStore {
+   }
+ 
+   public async addData(key: string, value: string) : Promise<boolean> {
++    if (key.length === 0 || !this.kvStore) {
++      return false;
++    }
+     return new Promise((resolve, reject) => {
+       try {
+         this.kvStore?.put(key, value, (err) => {
+@@ -83,6 +86,9 @@ class KVStore {
+   }
+ 
+   public deleteData(key: string) {
++    if (key.length === 0 || !this.kvStore) {
++      return;
++    }
+     this.kvStore?.delete(key, (err) => {
+       if (err) {
+         LogUtil.error(KVStore.TAG, `Failed to delete data. Code:${err.code},message:${err.message} ${this.name} - ${key}`);
+@@ -93,16 +99,23 @@ class KVStore {
+   }
+ 
+   public async getData(key: string): Promise<string | undefined> {
++    if (key.length === 0 || !this.kvStore) {
++      return undefined;
++    }
+     return new Promise((resolve, reject) => {
+-      this.kvStore?.get(key, (err, data) => {
+-        if (err) {
+-          LogUtil.error(KVStore.TAG, `Failed to get data. Code:${err.code},message:${err.message} ${this.name} - ${key}`);
+-          resolve(undefined);
+-          return;
+-        }
+-        LogUtil.info(KVStore.TAG, `success get data. name: ${this.name} key:${key},date:${data as string}`);
+-        resolve(data as string);
+-      });
++      try {
++        this.kvStore!.get(key, (err, data) => {
++          if (err) {
++            LogUtil.error(KVStore.TAG, `Failed to get data. Code:${err.code},message:${err.message} ${this.name} - ${key}`);
++            resolve(undefined);
++            return;
++          }
++          LogUtil.info(KVStore.TAG, `success get data. name: ${this.name} key:${key},date:${data as string}`);
++          resolve(data as string);
++        });
++      } catch (err) {
++        resolve(undefined);
++      }
+     });
+   }
+ };
+@@ -122,9 +135,11 @@ class KVManager {
+       return;
+     }
+     try {
++      const bundleInfo = bundleManager.getBundleInfoForSelfSync(
++        bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+       const kvManagerConfig: distributedKVStore.KVManagerConfig = {
+         context: ctx,
+-        bundleName: "com.haitai.htrlbrowser"
++        bundleName: bundleInfo.name
+       };
+       this.kvManager = distributedKVStore.createKVManager(kvManagerConfig);
+       if (this.kvManager == undefined) {

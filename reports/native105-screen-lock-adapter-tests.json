@@ -1,0 +1,38 @@
+{
+  "scope": "Real ArkTS adapter with simulated OS; actual user verification not performed",
+  "passed": true,
+  "results": [
+    {
+      "name": "PIN available",
+      "passed": true
+    },
+    {
+      "name": "PIN not enrolled",
+      "passed": true
+    },
+    {
+      "name": "SUCCESS",
+      "passed": true
+    },
+    {
+      "name": "FAIL",
+      "passed": true
+    },
+    {
+      "name": "CANCELED",
+      "passed": true
+    },
+    {
+      "name": "TIMEOUT",
+      "passed": true
+    },
+    {
+      "name": "NOT_ENROLLED",
+      "passed": true
+    },
+    {
+      "name": "OS start exception",
+      "passed": true
+    }
+  ]
+}

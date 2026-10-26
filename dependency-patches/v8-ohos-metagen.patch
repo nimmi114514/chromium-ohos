@@ -1,0 +1,61 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 227fd46c..fcd10fdb 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -1227,7 +1227,7 @@ if (target_os == "android") {
+ } else if (target_os == "ios") {
+   enabled_external_v8_defines += [ "V8_HAVE_TARGET_OS" ]
+   enabled_external_v8_defines += [ "V8_TARGET_OS_IOS" ]
+-} else if (target_os == "linux") {
++} else if (target_os == "linux" || target_os == "ohos") {
+   enabled_external_v8_defines += [ "V8_HAVE_TARGET_OS" ]
+   enabled_external_v8_defines += [ "V8_TARGET_OS_LINUX" ]
+ } else if (target_os == "mac") {
+@@ -7208,7 +7208,8 @@ v8_cluster_source_set("v8_base_without_compiler") {
+     ]
+     if (v8_enable_webassembly) {
+       # Trap handling is enabled on arm64 and x64, on Linux, Mac and Windows.
+-      if ((current_cpu == "arm64" && (is_linux || is_chromeos || is_apple)) ||
++      if ((current_cpu == "arm64" &&
++           (is_linux || is_chromeos || is_apple || is_ohos)) ||
+           (current_cpu == "x64" && (is_linux || is_chromeos || is_mac))) {
+         sources += [
+           "src/trap-handler/handler-inside-posix.cc",
+@@ -7883,7 +7884,7 @@ v8_component("v8_libbase") {
+     }
+   }
+ 
+-  if (is_linux || is_chromeos) {
++  if (is_linux || is_chromeos || is_ohos) {
+     sources += [
+       "src/base/debug/stack_trace_posix.cc",
+       "src/base/platform/platform-linux.cc",
+diff --git a/tools/metagen/compile_flags.py b/tools/metagen/compile_flags.py
+index cc585f45..3f5b1d71 100644
+--- a/tools/metagen/compile_flags.py
++++ b/tools/metagen/compile_flags.py
+@@ -202,7 +202,10 @@ def get_compile_args_from_gn_desc(build_dir: str, target_label: str,
+       proc = subprocess.run(
+           [
+               gn, "desc", "-q", "--root=" + source_root, tmp_dir, target_label,
+-              "--format=json"
++              "--format=json",
++              # Query this target's directory without loading unrelated
++              # Chromium applications and platform-specific test suites.
++              "--root-target=" + target_label.split("(", 1)[0],
+           ],
+           cwd=source_root,
+           capture_output=True,
+diff --git a/tools/metagen/test/compile_flags_test.py b/tools/metagen/test/compile_flags_test.py
+index e68be065..90e457a8 100644
+--- a/tools/metagen/test/compile_flags_test.py
++++ b/tools/metagen/test/compile_flags_test.py
+@@ -74,7 +74,7 @@ class GnCompileFlagsTest(unittest.TestCase):
+       argv, kwargs = run.call_args
+       self.assertEqual(argv[0], [
+           'gn', 'desc', '-q', '--root=' + str(source_root),
+-          str(queried_dir), target, '--format=json'
++          str(queried_dir), target, '--format=json', '--root-target=//v8:probe'
+       ])
+       self.assertEqual(kwargs['cwd'], str(source_root))
+       self.assertTrue(kwargs['check'])
