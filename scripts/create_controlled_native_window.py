@@ -17,7 +17,7 @@ def nodes(n):
 def marked_root(tree):
  for n in nodes(tree):
   a=n.get('attributes',{})
-  if a.get('type')=='root' and a.get('bundleName')=='com.example.ohos.chromium':
+  if a.get('type')=='root' and a.get('bundleName')=='com.example.chromium':
    for child in nodes(n):
     b=child.get('attributes',{})
     if b.get('type','').lower()=='rootwebarea' and b.get('visible')!='false' and any('CHROMIUM_TEST_RENDER' in str(b.get(k,'')) for k in ['text','description','title']):return n
@@ -25,14 +25,14 @@ def marked_root(tree):
 with tempfile.TemporaryDirectory(dir=ROOT/'reports') as d:
  p=Path(d)/'layout.json';remote='/data/local/tmp/chromium158-native-create-window.json'
  def layout():
-  run('shell','uitest','dumpLayout','-b','com.example.ohos.chromium','-p',remote,'-m','false')
+  run('shell','uitest','dumpLayout','-b','com.example.chromium','-p',remote,'-m','false')
   win=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,win);return json.loads(p.read_text())
  try:
   marked_root(layout())
   run('shell','uitest','uiInput','keyEvent','2072','2030')
   time.sleep(1.5)
   uri=json.loads((ROOT/'reports/native073-release-render-window.json').read_text())['url']
-  run('shell','aa','start','-a','EntryAbility','-b','com.example.ohos.chromium','-U',uri)
+  run('shell','aa','start','-a','EntryAbility','-b','com.example.chromium','-U',uri)
   time.sleep(1.5)
   root=marked_root(layout());tabs=sum(n.get('attributes',{}).get('type','').lower()=='tab' for n in nodes(root));close_buttons=sum(n.get('attributes',{}).get('type','').lower()=='button' and n.get('attributes',{}).get('text')=='关闭' for n in nodes(root))
   report={'generatedWindowVisible':True,'windowBounds':root['attributes'].get('bounds'),'tabCount':tabs,'closeButtonCount':close_buttons,'separateWindowVerified':0<tabs<=2}

@@ -33,14 +33,14 @@ def main():
     with tempfile.TemporaryDirectory(prefix='controlled-menu-',dir=ROOT/'reports') as tmp:
         tmp=Path(tmp);remote='/data/local/tmp/chromium158-menu-'+args.label
         def layout(suffix):
-            run('shell','uitest','dumpLayout','-b','com.example.ohos.chromium','-p',remote+'.json','-m','false')
+            run('shell','uitest','dumpLayout','-b','com.example.chromium','-p',remote+'.json','-m','false')
             p=tmp/(suffix+'.json');run('file','recv',remote+'.json',win(p));return json.loads(p.read_text())
         try:
             before=layout('before');owned=None
             for node,trail in nodes(before):
                 a=node.get('attributes',{})
                 if a.get('type','').lower()=='rootwebarea' and a.get('visible')!='false' and any('CHROMIUM_TEST_RENDER' in str(a.get(k,'')) for k in ('text','description','title')):
-                    roots=[n for n in trail if n.get('attributes',{}).get('type')=='root' and n.get('attributes',{}).get('bundleName')=='com.example.ohos.chromium']
+                    roots=[n for n in trail if n.get('attributes',{}).get('type')=='root' and n.get('attributes',{}).get('bundleName')=='com.example.chromium']
                     if roots: owned=roots[-1];break
             if owned is None: raise RuntimeError('Generated render window not found')
             window_rect=rect(owned['attributes']);buttons=[]

@@ -15,6 +15,8 @@ def main():
     parser.add_argument("--keep-going", type=int, default=1, metavar="N",
                         help="Stop after N failed tasks; 0 builds all independent tasks")
     parser.add_argument("--generate-only", action="store_true")
+    parser.add_argument("--v8-logging-level", type=int, choices=(0, 1, 2),
+                        help="Override V8 fatal diagnostics without changing the release/DCHECK profile")
     parser.add_argument("--diagnostic-build", action="store_true",
                         help="Enable DCHECKs for local diagnosis; release defaults to the 132 official-build profile")
     args = parser.parse_args()
@@ -58,6 +60,8 @@ def main():
                     # FFmpeg decoders, regardless of available OHOS hardware.
                     "proprietary_codecs = true", 'ffmpeg_branding = "Chrome"',
                     "media_use_ffmpeg = true", "media_use_openh264 = true"]
+    if args.v8_logging_level is not None:
+        profile.append(f"v8_logging_level = {args.v8_logging_level}")
     (out / "args.gn").write_text("\n".join(profile) + "\n")
     commands = [[ROOT / "tools/gn", "gen", out,
                  "--root-target=//" + args.stage]]

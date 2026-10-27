@@ -13,7 +13,7 @@ import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-BUNDLE = "com.example.ohos.chromium"
+BUNDLE = "com.example.chromium"
 
 
 def decode(data):

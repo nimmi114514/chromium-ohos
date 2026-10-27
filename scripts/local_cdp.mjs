@@ -40,7 +40,7 @@ export async function connect(port = 19222) {
   const hdc = process.platform === 'win32'
     ? 'C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/toolchains/hdc.exe'
     : '/mnt/c/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/toolchains/hdc.exe';
-  const expectedPid = Number(execFileSync(hdc, ['-t','6YT0226706000164','shell','pidof','com.example.ohos.chromium'], {encoding:'utf8',timeout:10000}).trim());
+  const expectedPid = Number(execFileSync(hdc, ['-t','6YT0226706000164','shell','pidof','com.example.chromium'], {encoding:'utf8',timeout:10000}).trim());
   const {processInfo} = await connection.send('SystemInfo.getProcessInfo');
   if (!Number.isInteger(expectedPid) || expectedPid <= 0 || !processInfo.some(p => p.type === 'browser' && p.id === expectedPid)) {
     socket.close();throw new Error('Diagnostic endpoint does not belong to the intended application process');

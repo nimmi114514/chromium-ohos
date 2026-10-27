@@ -111,7 +111,7 @@ try{
     execFileSync(hdc,['-t','6YT0226706000164','shell','uitest','uiInput','keyEvent','1'],{timeout:10000,encoding:'utf8'});
     if(probeMode==='background-detached'){await c.send('Target.detachFromTarget',{sessionId});report.detachedWhileBackgrounded=true;}
     await new Promise(r=>setTimeout(r,backgroundSeconds*1000));
-    execFileSync(hdc,['-t','6YT0226706000164','shell','aa','start','-a','EntryAbility','-b','com.example.ohos.chromium'],{timeout:10000,encoding:'utf8'});
+    execFileSync(hdc,['-t','6YT0226706000164','shell','aa','start','-a','EntryAbility','-b','com.example.chromium'],{timeout:10000,encoding:'utf8'});
     await c.send('Browser.setWindowBounds',{windowId,bounds:{windowState:'normal'}});
     await c.send('Target.activateTarget',{targetId});
     if(probeMode==='background-detached'){({sessionId}=await c.send('Target.attachToTarget',{targetId,flatten:true}));await c.send('Runtime.enable',{},sessionId);await c.send('Media.enable',{},sessionId);await c.send('Inspector.enable',{},sessionId);const after=await c.send('Runtime.evaluate',{expression:'({wasDiscarded:document.wasDiscarded,probePresent:!!window.probeRun,visibility:document.visibilityState})',returnByValue:true},sessionId);report.backgroundCycle.after=after.result.value;}

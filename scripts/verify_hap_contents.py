@@ -119,7 +119,7 @@ def main():
         names = set(archive.namelist())
         module = json.loads(archive.read("module.json"))
         app = module["app"]
-        if app["bundleName"] != "com.example.ohos.chromium":
+        if app["bundleName"] != "com.example.chromium":
             raise SystemExit("Expected the isolated Chromium 158 bundle name")
         metadata = {key: app[key] for key in (
             "bundleName", "compileSdkVersion", "minAPIVersion",

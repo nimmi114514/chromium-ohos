@@ -11,6 +11,10 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+JIT_PERMISSIONS = (
+    "ohos.permission.kernel.ALLOW_WRITABLE_CODE_MEMORY",
+    "ohos.permission.kernel.ALLOW_USE_JITFORT_INTERFACE",
+)
 
 
 def windows_path(path):
@@ -21,6 +25,8 @@ def windows_path(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hap", type=Path, required=True)
+    parser.add_argument("--require-jit-permission", action="store_true",
+                        help="Require both the package declaration and signed Profile ACL")
     parser.add_argument("--deveco", type=Path, default=Path(
         "/mnt/c/Program Files/Huawei/DevEco Studio"))
     args = parser.parse_args()
@@ -42,6 +48,7 @@ def main():
         cryptographic_verified = result.returncode == 0 and "verify-app success" in output
         verified = cryptographic_verified
         profile_bundle = None
+        profile_data = {}
         profile = temp / "profile.p7b"
         if verified and profile.exists():
             content = profile.read_bytes()
@@ -52,13 +59,28 @@ def main():
                 ], capture_output=True, timeout=30)
                 content = cms.stdout if cms.returncode == 0 else b""
             try:
-                profile_bundle = json.loads(content)["bundle-info"]["bundle-name"]
+                profile_data = json.loads(content)
+                profile_bundle = profile_data["bundle-info"]["bundle-name"]
             except (ValueError, KeyError):
                 pass
         with zipfile.ZipFile(args.hap) as archive:
-            package_bundle = json.loads(archive.read("module.json"))["app"]["bundleName"]
-        bundle_matches = profile_bundle == package_bundle == "com.example.ohos.chromium"
-        verified = verified and bundle_matches
+            package_info = json.loads(archive.read("module.json"))
+            package_bundle = package_info["app"]["bundleName"]
+        declared_permissions = {
+            p.get("name") for p in
+            package_info.get("module", {}).get("requestPermissions", [])
+        }
+        allowed_acls = set(profile_data.get("acls", {}).get("allowed-acls", []))
+        declared = all(permission in declared_permissions
+                       for permission in JIT_PERMISSIONS)
+        profile_allows_jit = all(permission in allowed_acls
+                                 for permission in JIT_PERMISSIONS)
+        jit_metadata_matches = (not any(permission in declared_permissions
+                                        for permission in JIT_PERMISSIONS) or
+                                (declared and profile_allows_jit)) and (
+            not args.require_jit_permission or (declared and profile_allows_jit))
+        bundle_matches = profile_bundle == package_bundle == "com.example.chromium"
+        verified = verified and bundle_matches and jit_metadata_matches
     with args.hap.open("rb") as package:
         digest = hashlib.file_digest(package, "sha256").hexdigest()
     report = {
@@ -68,6 +90,11 @@ def main():
         "packageBundleName": package_bundle,
         "profileBundleName": profile_bundle,
         "bundleNameMatchesProvisioningProfile": bundle_matches,
+        "jitPermissionDeclared": declared,
+        "jitAclPresentInSignedProfile": profile_allows_jit,
+        "jitPermissionsRequired": list(JIT_PERMISSIONS),
+        "jitDeclarationMatchesProfile": jit_metadata_matches,
+        "runtimeJitVerified": False,
         "tool": "Installed API26 hap-sign-tool.jar",
         "hap": str(args.hap.resolve()), "hapSha256": digest,
         "log": str(log.relative_to(ROOT)),

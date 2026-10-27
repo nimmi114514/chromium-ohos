@@ -15,7 +15,7 @@ if not re.fullmatch(r'native\d+-[a-z0-9-]+', label):
     raise SystemExit('Invalid label')
 duration = int(sys.argv[2]) if len(sys.argv) > 2 else 90
 pid = subprocess.check_output([HDC, '-t', DEVICE, 'shell', 'pidof',
-                               'com.example.ohos.chromium']).decode().strip()
+                               'com.example.chromium']).decode().strip()
 if not pid.isdigit():
     raise SystemExit('Expected exactly one current Chromium158 browser PID')
 pattern = re.compile(r'bad[ _-]?message|bad IPC|bad Mojo|VALIDATION_ERROR|'

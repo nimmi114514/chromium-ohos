@@ -8,7 +8,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 HDC = '/mnt/c/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/toolchains/hdc.exe'
-BUNDLE = 'com.example.ohos.chromium'
+BUNDLE = 'com.example.chromium'
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)

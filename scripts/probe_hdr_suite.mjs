@@ -44,7 +44,7 @@ try{
    await new Promise(r=>setTimeout(r,30000));
    result.background=await evaluate("(()=>{const v=document.querySelector('#v');return {visibility:document.visibilityState,paused:v.paused,time:v.currentTime,frames:v.getVideoPlaybackQuality().totalVideoFrames,error:v.error?.code||0};})()");
    const hdc='C:/Program Files/Huawei/DevEco Studio/sdk/default/openharmony/toolchains/hdc.exe';
-   execFileSync(hdc,['-t','6YT0226706000164','shell','aa','start','-a','EntryAbility','-b','com.example.ohos.chromium'],{timeout:10000,encoding:'utf8'});
+   execFileSync(hdc,['-t','6YT0226706000164','shell','aa','start','-a','EntryAbility','-b','com.example.chromium'],{timeout:10000,encoding:'utf8'});
    await c.send('Browser.setWindowBounds',{windowId,bounds:{windowState:'normal'}});
    if(bounds.windowState==='maximized')await c.send('Browser.setWindowBounds',{windowId,bounds:{windowState:'maximized'}});
    await c.send('Target.activateTarget',{targetId});
