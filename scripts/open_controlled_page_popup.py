@@ -19,9 +19,9 @@ def label(n):return ' '.join(str(attrs(n).get(k,'')) for k in ['text','descripti
 with tempfile.TemporaryDirectory(dir=ROOT/'reports') as d:
  p=Path(d)/'a.json';remote='/data/local/tmp/chromium158-generated-popup.json'
  def layout():
-  run('shell','uitest','dumpLayout','-b','com.example.chromium','-p',remote,'-m','false');w=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,w);return json.loads(p.read_text())
+  run('shell','uitest','dumpLayout','-b','com.example.ohos.chromium','-p',remote,'-m','false');w=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,w);return json.loads(p.read_text())
  try:
-  tree=layout();parents=[n for n,_ in nodes(tree) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.chromium' and any(attrs(x).get('type','').lower()=='rootwebarea' and 'CHROMIUM_TEST_RENDER' in label(x) for x,_ in nodes(n))]
+  tree=layout();parents=[n for n,_ in nodes(tree) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.ohos.chromium' and any(attrs(x).get('type','').lower()=='rootwebarea' and 'CHROMIUM_TEST_RENDER' in label(x) for x,_ in nodes(n))]
   if not parents:raise RuntimeError('Generated parent window unavailable')
   parents=parents[-1:]
   buttons=[n for n,_ in nodes(parents[0]) if 'button' in attrs(n).get('type','').lower() and 'CHROMIUM_TEST_POPUP' in label(n)]

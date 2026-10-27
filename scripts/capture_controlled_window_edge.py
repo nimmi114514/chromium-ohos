@@ -30,7 +30,7 @@ def main():
         temp = Path(temp)
         remote = '/data/local/tmp/chromium158-edge-' + args.label
         try:
-            run('shell', 'uitest', 'dumpLayout', '-b', 'com.example.chromium',
+            run('shell', 'uitest', 'dumpLayout', '-b', 'com.example.ohos.chromium',
                 '-p', remote + '.json', '-m', 'false')
             run('file', 'recv', remote + '.json', win(temp / 'layout.json'))
             tree = json.loads((temp / 'layout.json').read_text())
@@ -44,7 +44,7 @@ def main():
                     if a.get('type','').lower() == 'rootwebarea' and a.get('visible') != 'false' and any(args.marker in str(a.get(k, ''))
                            for k in ('text', 'description', 'title')):
                         roots = [x for x in path if x.get('type') == 'root' and
-                                 x.get('bundleName') == 'com.example.chromium']
+                                 x.get('bundleName') == 'com.example.ohos.chromium']
                         if roots: found.append(roots[-1])
                     for child in n.get('children', []): visit(child, path)
             visit(tree, [])

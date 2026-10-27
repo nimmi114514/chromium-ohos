@@ -25,7 +25,7 @@
 | SDK | API 26，已使用 `26.0.0.105` 构建 |
 | 原生工具链 | Chromium 固定版本的 Google Clang 24、Rust 与 libc++ |
 | HAP 工具链 | Windows DevEco Studio 26，Hvigor 6.26.8 |
-| 当前应用包名 | `com.example.chromium` |
+| 当前应用包名 | `com.example.ohos.chromium` |
 
 源码、参考分支和工具链版本记录在 [versions.json](versions.json)，依赖补丁的目标提交记录在 [dependency-patches/series.json](dependency-patches/series.json)。SDK 的 compiler-rt/CRT 来自 API 26 SDK，并非重新编译的 compiler-rt 24。
 
@@ -135,7 +135,7 @@ python3 scripts/build_hap.py --stage hap --build-mode release
 
 这里 `--stage install` 安装的是 **OHPM 工程依赖**，不会安装应用到设备。`--stage hap` 会先同步本次编译的库与资源，再执行 Hvigor；release 流程还会校验包内容和签名。
 
-使用其他路径时，通过 `--deveco`、`--hap-project` 指定。当前打包校验针对包名 `com.example.chromium`；更改包名需要同步应用配置与校验规则。
+使用其他路径时，通过 `--deveco`、`--hap-project` 指定。当前打包校验针对包名 `com.example.ohos.chromium`；更改包名需要同步应用配置与校验规则。
 
 生成位置：
 

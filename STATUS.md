@@ -2,7 +2,7 @@
 
 ## 当前：native107 密码填充认证与截图隐私状态修正
 
-2026-10-26。包名为 `com.example.chromium`，不覆盖132。
+2026-10-26。包名为 `com.example.ohos.chromium`，不覆盖132。
 
 - native105的屏幕锁定开关缺少settings-private偏好读取白名单，造成认证成功后界面
   无法跟随状态；native106已补回读取与通知，保留只读限制，修改仍经过系统认证。
@@ -34,7 +34,7 @@ DRM工作停止；菜单尺寸保持不动；Google社区凭证配置保持原�
 2026-10-26：用户要求先放弃DRM，相关任务已停止。当前安装native104诊断包；测试目标已关闭，临时HDC映射已清理，HAP源码已移除临时CDP参数（未重新编译安装）。未解决的AAC缺钥后seek问题与修改记录保留，不能视为DRM完成。详见reports/drm-work-stopped.json。
 
 更新：2026-10-26。当前安装为native102 WisePlay诊断包，包含临时localhost CDP参数，不是DRM已完成的最终交付。native097是此前清理调试参数的归档。Widevine原生实测不可用；WisePlay会话已验证，加密音视频完整播放未通过。本轮按要求转为官方示例审计，停止试改和编译安装。
-独立包名 `com.example.chromium`，132 应用未改动。以下native073以前记录为历史验证，HDR本轮见文末。
+独立包名 `com.example.ohos.chromium`，132 应用未改动。以下native073以前记录为历史验证，HDR本轮见文末。
 
 本轮硬解修正：明确初始化 DRM 等待状态；撤回本轮引入、造成 EGL 跨线程失败的
 OHOS DrDc 默认启用；为 158 新的 Canvas 视频读取接口补齐共享纹理 RasterRead 用途。

@@ -25,9 +25,9 @@ def marked(n):return any(attrs(x).get('type','').lower()=='rootwebarea' and attr
 with tempfile.TemporaryDirectory(dir=ROOT/'reports') as d:
  p=Path(d)/'layout.json';remote='/data/local/tmp/chromium158-menu-new-window.json'
  def layout():
-  run('shell','uitest','dumpLayout','-b','com.example.chromium','-p',remote,'-m','false');win=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,win);return json.loads(p.read_text())
+  run('shell','uitest','dumpLayout','-b','com.example.ohos.chromium','-p',remote,'-m','false');win=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,win);return json.loads(p.read_text())
  try:
-  before=layout();parents=[n for n in nodes(before) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.chromium' and marked(n)]
+  before=layout();parents=[n for n in nodes(before) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.ohos.chromium' and marked(n)]
   if len(parents)!=1:raise RuntimeError('Expected one visible generated parent')
   buttons=[n for n in nodes(parents[0]) if 'button' in attrs(n).get('type','').lower() and re.search(r'自定义|Customize',label(n),re.I)]
   if not buttons:raise RuntimeError('Native app menu control unavailable')
@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(dir=ROOT/'reports') as d:
   items=[n for n in nodes(menu) if re.search(r'^(打开新的窗口|新建窗口|新窗口|New window)',label(n).strip(),re.I)]
   if not items:raise RuntimeError('New window menu item unavailable')
   click(items[0]);time.sleep(1.8);after=layout()
-  roots=[n for n in nodes(after) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.chromium' and not marked(n) and sum(attrs(x).get('type','').lower()=='tab' for x in nodes(n))==1]
+  roots=[n for n in nodes(after) if attrs(n).get('type')=='root' and attrs(n).get('bundleName')=='com.example.ohos.chromium' and not marked(n) and sum(attrs(x).get('type','').lower()=='tab' for x in nodes(n))==1]
   if len(roots)!=1:raise RuntimeError('Separate single-tab test window not proven')
   inputs=[n for n in nodes(roots[0]) if re.search(r'地址栏|Address and search|Address bar',label(n),re.I)]
   if not inputs:raise RuntimeError('Address field unavailable in the new test window')

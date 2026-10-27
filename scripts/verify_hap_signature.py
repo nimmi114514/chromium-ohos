@@ -13,7 +13,6 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 JIT_PERMISSIONS = (
     "ohos.permission.kernel.ALLOW_WRITABLE_CODE_MEMORY",
-    "ohos.permission.kernel.ALLOW_USE_JITFORT_INTERFACE",
 )
 
 
@@ -26,7 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hap", type=Path, required=True)
     parser.add_argument("--require-jit-permission", action="store_true",
-                        help="Require both the package declaration and signed Profile ACL")
+                        help="Require the JIT permission in the package and signed Profile ACL")
     parser.add_argument("--deveco", type=Path, default=Path(
         "/mnt/c/Program Files/Huawei/DevEco Studio"))
     args = parser.parse_args()
@@ -79,7 +78,7 @@ def main():
                                         for permission in JIT_PERMISSIONS) or
                                 (declared and profile_allows_jit)) and (
             not args.require_jit_permission or (declared and profile_allows_jit))
-        bundle_matches = profile_bundle == package_bundle == "com.example.chromium"
+        bundle_matches = profile_bundle == package_bundle == "com.example.ohos.chromium"
         verified = verified and bundle_matches and jit_metadata_matches
     with args.hap.open("rb") as package:
         digest = hashlib.file_digest(package, "sha256").hexdigest()

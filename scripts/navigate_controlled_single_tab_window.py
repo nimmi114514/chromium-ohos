@@ -19,9 +19,9 @@ def b(n):return tuple(map(int,re.findall(r'-?\d+',a(n).get('bounds',''))))
 with tempfile.TemporaryDirectory(dir=ROOT/'reports') as d:
  p=Path(d)/'layout.json';remote='/data/local/tmp/chromium158-own-single-tab.json'
  def layout():
-  run('shell','uitest','dumpLayout','-b','com.example.chromium','-p',remote,'-m','false');w=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,w);return json.loads(p.read_text())
+  run('shell','uitest','dumpLayout','-b','com.example.ohos.chromium','-p',remote,'-m','false');w=subprocess.check_output(['wslpath','-w',str(p)],text=True).strip();run('file','recv',remote,w);return json.loads(p.read_text())
  try:
-  tree=layout();roots=[n for n in nodes(tree) if a(n).get('type')=='root' and a(n).get('bundleName')=='com.example.chromium' and sum(a(x).get('type','').lower()=='tab' for x in nodes(n))==1]
+  tree=layout();roots=[n for n in nodes(tree) if a(n).get('type')=='root' and a(n).get('bundleName')=='com.example.ohos.chromium' and sum(a(x).get('type','').lower()=='tab' for x in nodes(n))==1]
   if len(roots)!=1:raise RuntimeError('Expected the newly created single-tab test window')
   fields=[n for n in nodes(roots[0]) if re.search(r'input|edit|combo|field',a(n).get('type',''),re.I) and len(b(n))==4 and b(n)[1]<250 and b(n)[2]-b(n)[0]>500]
   if not fields:

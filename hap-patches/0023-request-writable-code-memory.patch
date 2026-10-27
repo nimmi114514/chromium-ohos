@@ -1,0 +1,14 @@
+--- a/chromium/src/main/module.json5
++++ b/chromium/src/main/module.json5
+@@ -9,6 +9,11 @@
+     "deviceTypes": [
+       "2in1",
+       "tablet"
++    ],
++    "requestPermissions": [
++      {
++        "name": "ohos.permission.kernel.ALLOW_WRITABLE_CODE_MEMORY"
++      }
+     ],
+     "deliveryWithInstall": true,
+     "installationFree": false,
