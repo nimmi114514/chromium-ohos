@@ -305,6 +305,161 @@ index c327c2e1af..6742e37795 100644
  #endif
  
  #if BUILDFLAG(IS_POSIX)
+diff --git a/base/base_paths_ohos.cc b/base/base_paths_ohos.cc
+new file mode 100644
+index 0000000000..9da7a07363
+--- /dev/null
++++ b/base/base_paths_ohos.cc
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++// Defines base::PathProviderOHOS which replaces base::PathProviderPosix for
++// OHOS in base/path_service.cc.
++#include "base/base_paths_ohos.h"
++
++#include "base/base_paths.h"
++#include "base/base_switches.h"
++#include "base/command_line.h"
++#include "base/files/file_path.h"
++#include "base/files/file_util.h"
++#include "base/logging.h"
++#include "base/notreached.h"
++#include "base/process/process_metrics.h"
++#include "ohos/adapter/context_path/context_path_adapter.h"
++
++namespace base {
++// TODO: temporary solution to load resources for multiple processes
++bool ParseAssetsOHOS(FilePath* result) {
++  auto bundle_path =
++      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
++          switches::kBundleInstallationDir);
++  if (bundle_path.empty()) {
++    FilePath bin_dir;
++    if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
++      LOG(ERROR) << "Unable to resolve " << kProcSelfExe << ".";
++      return false;
++    }
++    *result = bin_dir.DirName();
++    return true;
++  }
++  *result = FilePath(bundle_path.c_str());
++  return true;
++}
++
++bool PathProviderOHOS(int key, FilePath* result) {
++  FilePath bin_dir;
++  switch (key) {
++    case base::FILE_EXE: {
++      if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
++        NOTREACHED() << "Unable to resolve " << kProcSelfExe << ".";
++        return false;
++      }
++      *result = bin_dir;
++      return true;
++    }
++    case base::DIR_MODULE: {
++      *result = base::FilePath();
++      return true;
++    }
++    case base::DIR_USER_DESKTOP:
++      *result =
++          FilePath(::ohos::adapter::ContextPathAdapter::GetUserDesktopDir());
++      return !result->empty();
++    case base::DIR_CACHE:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetCacheDir());
++      return !result->empty();
++    case base::DIR_TEMP:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetTempDir());
++      return !result->empty();
++    case base::DIR_ASSETS:
++      // TODO: temporary solution to load resources for multiple processes
++      // resource file packed to system images
++      return ParseAssetsOHOS(result);
++    case base::DIR_OHOS_APP_DATA:
++      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetFilesDir());
++      return !result->empty();
++    default:
++      return false;
++  }
++}
++
++}  // namespace base
+diff --git a/base/base_paths_ohos.h b/base/base_paths_ohos.h
+new file mode 100644
+index 0000000000..2db55081d8
+--- /dev/null
++++ b/base/base_paths_ohos.h
+@@ -0,0 +1,43 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_BASE_PATHS_OHOS_H_
++#define BASE_BASE_PATHS_OHOS_H_
++
++namespace base {
++
++enum {
++  PATH_OHOS_START = 500,
++  DIR_OHOS_APP_DATA,
++  PATH_OHOS_END
++};
++
++}  // namespace base
++
++#endif  // BASE_BASE_PATHS_OHOS_H_
 diff --git a/base/base_switches.h b/base/base_switches.h
 index ceda2075cb..3297949483 100644
 --- a/base/base_switches.h
@@ -367,6 +522,272 @@ index 77b1d88d99..1bc10b36b5 100644
  #include <pthread.h>
  
  #include "base/process/process_handle.h"
+diff --git a/base/debug/stack_trace_ohos.cc b/base/debug/stack_trace_ohos.cc
+new file mode 100644
+index 0000000000..e031b5059d
+--- /dev/null
++++ b/base/debug/stack_trace_ohos.cc
+@@ -0,0 +1,223 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/debug/stack_trace.h"
++
++#include <unwind.h>
++
++#include <algorithm>
++#include <cstddef>
++#include <ostream>
++
++#include "base/containers/span_writer.h"
++#include "base/debug/proc_maps_linux.h"
++#include "base/logging.h"
++#include "base/memory/raw_ptr.h"
++#include "base/stl_util.h"
++#include "base/strings/strcat.h"
++#include "base/strings/stringprintf.h"
++#include "base/threading/thread_restrictions.h"
++
++#ifdef __LP64__
++#define FMT_ADDR "0x%016lx"
++#else
++#define FMT_ADDR "0x%08x"
++#endif
++
++namespace {
++
++struct StackCrawlState {
++  StackCrawlState(uintptr_t* frames, size_t max_depth)
++      : frames(frames),
++        frame_count(0),
++        max_depth(max_depth),
++        have_skipped_self(false) {}
++
++  raw_ptr<uintptr_t, AllowPtrArithmetic> frames;
++  size_t frame_count;
++  size_t max_depth;
++  bool have_skipped_self;
++};
++
++_Unwind_Reason_Code TraceStackFrame(_Unwind_Context* context, void* arg) {
++  StackCrawlState* state = static_cast<StackCrawlState*>(arg);
++  uintptr_t ip = _Unwind_GetIP(context);
++
++  // The first stack frame is this function itself.  Skip it.
++  if (ip != 0 && !state->have_skipped_self) {
++    state->have_skipped_self = true;
++    return _URC_NO_REASON;
++  }
++
++  state->frames[state->frame_count++] = ip;
++  if (state->frame_count >= state->max_depth) {
++    return _URC_END_OF_STACK;
++  }
++  return _URC_NO_REASON;
++}
++
++bool EndsWith(const std::string& s, const std::string& suffix) {
++  return s.size() >= suffix.size() &&
++      s.substr(s.size() - suffix.size(), suffix.size()) == suffix;
++}
++
++}  // namespace
++
++namespace base {
++namespace debug {
++
++namespace internal {
++void itoa_r(intptr_t i, int base, size_t padding, base::span<char> buf) {
++  // Make sure we can write at least one NUL byte.
++  if (buf.empty()) {
++    return;
++  }
++
++  if (base < 2 || base > 16) {
++    buf[0u] = '\000';
++    return;
++  }
++
++  auto writer = base::SpanWriter(buf);
++  size_t start = 0u;
++
++  uintptr_t j = static_cast<uintptr_t>(i);
++
++  // Handle negative numbers (only for base 10).
++  if (i < 0 && base == 10) {
++    // This does "j = -i" while avoiding integer overflow.
++    j = static_cast<uintptr_t>(-(i + 1)) + 1;
++
++    // Make sure we can write the '-' character.
++    if (!writer.Write('-')) {
++      buf[0u] = '\000';
++      return;
++    }
++    start += 1u;  // The number starts after the sign.
++  }
++
++  // Loop until we have converted the entire number. Output at least one
++  // character (i.e. '0').
++  constexpr std::string_view digits = "0123456789abcdef";
++  do {
++    // Output the next digit.
++    if (!writer.Write(digits[j % static_cast<uintptr_t>(base)])) {
++      buf[0] = '\000';
++      return;
++    }
++    j /= static_cast<uintptr_t>(base);
++
++    if (padding > 0) {
++      padding--;
++    }
++  } while (j > 0 || padding > 0);
++
++  // Terminate the output with a NUL character.
++  if (!writer.Write('\000')) {
++    buf[0] = '\000';
++    return;
++  }
++
++  // Conversion to ASCII actually resulted in the digits being in reverse order.
++  // We can't easily generate them in forward order, as we can't tell the number
++  // of characters needed until we are done converting. So, now, we reverse the
++  // string (except for the possible "-" sign and the NUL terminator).
++  std::ranges::reverse(buf.first(writer.num_written() - 1u).subspan(start));
++}
++}  // namespace internal
++
++bool EnableInProcessStackDumping() {
++  struct sigaction action;
++  std::fill(reinterpret_cast<unsigned char *>(&action),
++            reinterpret_cast<unsigned char *>(&action) + sizeof(action),
++            0);
++  action.sa_handler = SIG_IGN;
++  sigemptyset(&action.sa_mask);
++  const bool pipe_handler_installed =
++      (sigaction(SIGPIPE, &action, nullptr) == 0);
++  return pipe_handler_installed;
++}
++
++size_t CollectStackTrace(span<const void*> trace) {
++  StackCrawlState state(reinterpret_cast<uintptr_t*>(trace.data()),
++                        trace.size());
++  _Unwind_Backtrace(&TraceStackFrame, &state);
++  return state.frame_count;
++}
++
++// static
++void StackTrace::PrintMessageWithPrefix(cstring_view prefix_string,
++                                        cstring_view message) {
++  if (!prefix_string.empty()) {
++    LOG(ERROR) << StrCat({prefix_string, message}).c_str();
++  } else {
++    LOG(ERROR) << message.c_str();
++  }
++}
++
++void StackTrace::PrintWithPrefixImpl(cstring_view prefix_string) const {
++  std::string backtrace = ToStringWithPrefix(prefix_string);
++  LOG(ERROR) << backtrace;
++}
++
++// NOTE: Native libraries in APKs are stripped before installing. Print out the
++// relocatable address and library names so host computers can use tools to
++// symbolize and demangle (e.g., addr2line, c++filt).
++void StackTrace::OutputToStreamWithPrefixImpl(std::ostream* os,
++                                              cstring_view prefix_string) const {
++  std::string proc_maps;
++  std::vector<MappedMemoryRegion> regions;
++  // Allow IO to read /proc/self/maps. Reading this file doesn't hit the disk
++  // since it lives in procfs, and this is currently used to print a stack trace
++  // on fatal log messages in debug builds only. If the restriction is enabled
++  // then it will recursively trigger fatal failures when this enters on the
++  // UI thread.
++  base::ScopedAllowBlocking scoped_allow_blocking;
++  if (!ReadProcMaps(&proc_maps)) {
++    LOG(ERROR) << "Failed to read /proc/self/maps";
++  } else if (!ParseProcMaps(proc_maps, &regions)) {
++    LOG(ERROR) << "Failed to parse /proc/self/maps";
++  }
++
++  for (size_t i = 0; i < count_; ++i) {
++    // Subtract one as return address of function may be in the next
++    // function when a function is annotated as noreturn.
++    uintptr_t address = reinterpret_cast<uintptr_t>(trace_[i]) - 1;
++
++    std::vector<MappedMemoryRegion>::iterator iter = regions.begin();
++    while (iter != regions.end()) {
++      if (address >= iter->start && address < iter->end &&
++          !iter->path.empty()) {
++        break;
++      }
++      ++iter;
++    }
++
++    *os << prefix_string;
++
++    // Adjust absolute address to be an offset within the mapped region, to
++    // match the format dumped by Android's crash output.
++    if (iter != regions.end()) {
++      address -= iter->start;
++    }
++
++    // The format below intentionally matches that of Android's debuggerd
++    // output. This simplifies decoding by scripts such as stack.py.
++    *os << base::StringPrintf("#%02zd pc " FMT_ADDR " ", i, address);
++
++    if (iter != regions.end()) {
++      *os << base::StringPrintf("%s", iter->path.c_str());
++      if (EndsWith(iter->path, ".apk")) {
++        *os << base::StringPrintf(" (offset 0x%llx)", iter->offset);
++      }
++    } else {
++      *os << "<unknown>";
++    }
++
++    *os << "\n";
++  }
++}
++
++}  // namespace debug
++}  // namespace base
+diff --git a/base/debug/stack_trace_posix.cc b/base/debug/stack_trace_posix.cc
+index d4b6111077..e6979d619f 100644
+--- a/base/debug/stack_trace_posix.cc
++++ b/base/debug/stack_trace_posix.cc
+@@ -18,6 +18,7 @@
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
++
+ #include <algorithm>
+ #include <array>
+ #include <map>
+@@ -34,8 +35,6 @@
+ #include "base/debug/debugging_buildflags.h"
+ #include "base/memory/raw_ptr.h"
+ #include "base/strings/cstring_view.h"
+-#include "build/build_config.h"
+-
+ // Controls whether `dladdr(...)` is used to print the callstack. This is
+ // only used on iOS Official build where `backtrace_symbols(...)` prints
+ // misleading symbols (as the binary is stripped).
+@@ -85,6 +84,7 @@
+ #include "base/strings/string_number_conversions.h"
+ #include "base/strings/string_util.h"
+ #include "build/build_config.h"
++#include "build/build_config.h"
+ 
+ #if defined(USE_SYMBOLIZE)
+ #include "base/third_party/symbolize/symbolize.h"  // nogncheck
+@@ -350,6 +350,7 @@ void StackDumpSignalHandler(int signal, siginfo_t* info, void* void_context) {
+   // NOTE: This code MUST be async-signal safe.
+   // NO malloc or stdio is allowed here.
+ 
++
+   // Give a registered callback a chance to recover from this signal
+   //
+   // V8 uses guard regions to guarantee memory safety in WebAssembly. This means
 diff --git a/base/files/dir_reader_posix.h b/base/files/dir_reader_posix.h
 index 7fbda52ab4..63d858d2ea 100644
 --- a/base/files/dir_reader_posix.h
@@ -755,6 +1176,18 @@ index ebcbcaade9..530646a442 100644
    // The platform-specific mechanisms used by ICU's detectHostTimeZone() to
    // determine the default time zone will not work on Fuchsia. Therefore,
    // proactively set the default system.
+diff --git a/base/immediate_crash.h b/base/immediate_crash.h
+index 45ba38153e..6bd68d3bcf 100644
+--- a/base/immediate_crash.h
++++ b/base/immediate_crash.h
+@@ -9,6 +9,7 @@
+ #include "base/fuzzing_buildflags.h"
+ #include "build/build_config.h"
+ 
++
+ #if !(defined(OFFICIAL_BUILD) || BUILDFLAG(IS_WIN))
+ #include <stdlib.h>
+ #endif
 diff --git a/base/linux_util.cc b/base/linux_util.cc
 index a6b4fce5d4..dfd03842a0 100644
 --- a/base/linux_util.cc
@@ -846,6 +1279,50 @@ index 2eb9a4f39a..276c161ee2 100644
  using PlatformSharedMemoryHandle = int;
  using ScopedPlatformSharedMemoryHandle = ScopedFD;
  #else
+diff --git a/base/memory/platform_shared_memory_mapper_ohos.cc b/base/memory/platform_shared_memory_mapper_ohos.cc
+new file mode 100644
+index 0000000000..e87edbadcf
+--- /dev/null
++++ b/base/memory/platform_shared_memory_mapper_ohos.cc
+@@ -0,0 +1,38 @@
++// Copyright 2022 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "base/memory/platform_shared_memory_mapper.h"
++
++#include "base/compiler_specific.h"
++#include "base/logging.h"
++#include "base/numerics/safe_conversions.h"
++
++#include <sys/mman.h>
++
++namespace base {
++
++std::optional<span<uint8_t>> PlatformSharedMemoryMapper::Map(
++    subtle::PlatformSharedMemoryHandle handle,
++    bool write_allowed,
++    uint64_t offset,
++    size_t size) {
++  void* address =
++      mmap(nullptr, size, PROT_READ | (write_allowed ? PROT_WRITE : 0),
++           MAP_SHARED, handle, checked_cast<off_t>(offset));
++
++  if (address == MAP_FAILED) {
++    DPLOG(ERROR) << "mmap " << handle << " failed";
++    return std::nullopt;
++  }
++
++  // SAFETY: mmap successfully created a mapping covering exactly size bytes.
++  return UNSAFE_BUFFERS(span(static_cast<uint8_t*>(address), size));
++}
++
++void PlatformSharedMemoryMapper::Unmap(span<uint8_t> mapping) {
++  if (munmap(mapping.data(), mapping.size()) < 0)
++    DPLOG(ERROR) << "munmap";
++}
++
++}  // namespace base
 diff --git a/base/memory/platform_shared_memory_region.h b/base/memory/platform_shared_memory_region.h
 index 2208550e76..5d689734f9 100644
 --- a/base/memory/platform_shared_memory_region.h
@@ -869,6 +1346,223 @@ index 2208550e76..5d689734f9 100644
    // Specialized version of Take() for POSIX that takes only one file descriptor
    // instead of pair. Cannot be used with kWritable |mode|.
    static PlatformSharedMemoryRegion Take(ScopedFD handle,
+diff --git a/base/memory/platform_shared_memory_region_ohos.cc b/base/memory/platform_shared_memory_region_ohos.cc
+new file mode 100644
+index 0000000000..2ff3a50a30
+--- /dev/null
++++ b/base/memory/platform_shared_memory_region_ohos.cc
+@@ -0,0 +1,211 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/memory/platform_shared_memory_region.h"
++
++#include <sys/mman.h>
++
++#include "base/bits.h"
++#include "base/logging.h"
++#include "base/memory/page_size.h"
++#include "base/memory/shared_memory_tracker.h"
++#include "base/metrics/histogram_macros.h"
++#include "base/posix/eintr_wrapper.h"
++#include "third_party/ashmem/ashmem.h"
++
++namespace base {
++namespace subtle {
++
++// For OHOS, we use ashmem the same way Android does to implement SharedMemory.
++
++namespace {
++
++int GetAshmemRegionProtectionMask(int fd) {
++  int prot = ashmem_get_prot_region(fd);
++  if (prot < 0) {
++    PLOG(ERROR) << "ashmem_get_prot_region failed";
++    return -1;
++  }
++  return prot;
++}
++
++}  // namespace
++
++// static
++expected<PlatformSharedMemoryRegion, PlatformSharedMemoryRegion::TakeError>
++PlatformSharedMemoryRegion::TakeOrFail(
++    ScopedFD fd,
++    Mode mode,
++    size_t size,
++    const UnguessableToken& guid) {
++  if (!fd.is_valid())
++    return {};
++
++  if (size == 0)
++    return {};
++
++  if (size > static_cast<size_t>(std::numeric_limits<int>::max()))
++    return {};
++
++  return CheckPlatformHandlePermissionsCorrespondToMode(fd.get(), mode, size)
++      .transform([&] {
++        return PlatformSharedMemoryRegion(std::move(fd), mode, size, guid);
++      });
++}
++
++int PlatformSharedMemoryRegion::GetPlatformHandle() const {
++  return handle_.get();
++}
++
++bool PlatformSharedMemoryRegion::IsValid() const {
++  return handle_.is_valid();
++}
++
++PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Duplicate() const {
++  if (!IsValid())
++    return {};
++
++  CHECK_NE(mode_, Mode::kWritable)
++      << "Duplicating a writable shared memory region is prohibited";
++
++  ScopedFD duped_fd(HANDLE_EINTR(dup(handle_.get())));
++  if (!duped_fd.is_valid()) {
++    DPLOG(ERROR) << "dup(" << handle_.get() << ") failed";
++    return {};
++  }
++
++  return PlatformSharedMemoryRegion(std::move(duped_fd), mode_, size_, guid_);
++}
++
++bool PlatformSharedMemoryRegion::ConvertToReadOnly() {
++  if (!IsValid())
++    return false;
++
++  CHECK_EQ(mode_, Mode::kWritable)
++      << "Only writable shared memory region can be converted to read-only";
++
++  ScopedFD handle_copy(handle_.release());
++
++  int prot = GetAshmemRegionProtectionMask(handle_copy.get());
++  if (prot < 0)
++    return false;
++
++  prot &= ~PROT_WRITE;
++  int ret = ashmem_set_prot_region(handle_copy.get(), prot);
++  if (ret != 0) {
++    DPLOG(ERROR) << "ashmem_set_prot_region failed";
++    return false;
++  }
++
++  handle_ = std::move(handle_copy);
++  mode_ = Mode::kReadOnly;
++  return true;
++}
++
++bool PlatformSharedMemoryRegion::ConvertToUnsafe() {
++  if (!IsValid())
++    return false;
++
++  CHECK_EQ(mode_, Mode::kWritable)
++      << "Only writable shared memory region can be converted to unsafe";
++
++  mode_ = Mode::kUnsafe;
++  return true;
++}
++
++// static
++PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Create(Mode mode,
++                                                              size_t size) {
++  if (size == 0) {
++    return {};
++  }
++
++  // Align size as required by ashmem_create_region() API documentation. This
++  // operation may overflow so check that the result doesn't decrease.
++  size_t rounded_size = bits::AlignUp(size, GetPageSize());
++  if (rounded_size < size ||
++      rounded_size > static_cast<size_t>(std::numeric_limits<int>::max())) {
++    return {};
++  }
++
++  CHECK_NE(mode, Mode::kReadOnly) << "Creating a region in read-only mode will "
++                                     "lead to this region being non-modifiable";
++
++  UnguessableToken guid = UnguessableToken::Create();
++
++  int fd = ashmem_create_region(
++      SharedMemoryTracker::GetDumpNameForTracing(guid).c_str(), rounded_size);
++  if (fd < 0) {
++    DPLOG(ERROR) << "ashmem_create_region failed";
++    return {};
++  }
++
++  ScopedFD scoped_fd(fd);
++  int err = ashmem_set_prot_region(scoped_fd.get(), PROT_READ | PROT_WRITE);
++  if (err < 0) {
++    DPLOG(ERROR) << "ashmem_set_prot_region failed";
++    return {};
++  }
++
++  return PlatformSharedMemoryRegion(std::move(scoped_fd), mode, size, guid);
++}
++
++expected<void, PlatformSharedMemoryRegion::TakeError>
++PlatformSharedMemoryRegion::CheckPlatformHandlePermissionsCorrespondToMode(
++    PlatformSharedMemoryHandle handle,
++    Mode mode,
++    size_t size) {
++  int prot = GetAshmemRegionProtectionMask(handle);
++  if (prot < 0) {
++    return unexpected(TakeError::kFailedToGetAshmemRegionProtectionMask);
++  }
++
++  bool is_read_only = (prot & PROT_WRITE) == 0;
++  bool expected_read_only = mode == Mode::kReadOnly;
++
++  if (is_read_only != expected_read_only) {
++    LOG(ERROR) << "Ashmem region has a wrong protection mask: it is"
++               << (is_read_only ? " " : " not ") << "read-only but it should"
++               << (expected_read_only ? " " : " not ") << "be";
++    return unexpected(expected_read_only ? TakeError::kExpectedReadOnlyButNot
++                                         : TakeError::kExpectedWritableButNot);
++  }
++
++  return ok();
++}
++
++PlatformSharedMemoryRegion::PlatformSharedMemoryRegion(
++    ScopedFD fd,
++    Mode mode,
++    size_t size,
++    const UnguessableToken& guid)
++    : handle_(std::move(fd)), mode_(mode), size_(size), guid_(guid) {}
++
++}  // namespace subtle
++}  // namespace base
 diff --git a/base/memory/platform_shared_memory_region_unittest.cc b/base/memory/platform_shared_memory_region_unittest.cc
 index 2f7d5f4726..2557fd129a 100644
 --- a/base/memory/platform_shared_memory_region_unittest.cc
@@ -944,6 +1638,250 @@ index e421d75201..c98388f28c 100644
  using MessagePumpForUI = MessagePumpEpoll;
  #elif BUILDFLAG(IS_FUCHSIA)
  using MessagePumpForUI = MessagePumpFuchsia;
+diff --git a/base/ohos/task_scheduler/task_runner_ohos.cc b/base/ohos/task_scheduler/task_runner_ohos.cc
+new file mode 100644
+index 0000000000..929280ab52
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_runner_ohos.cc
+@@ -0,0 +1,107 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/ohos/task_scheduler/task_runner_ohos.h"
++
++#include "base/check.h"
++#include "base/compiler_specific.h"
++#include "base/functional/bind.h"
++#include "base/no_destructor.h"
++#include "base/time/time.h"
++
++namespace base {
++
++namespace {
++
++TaskRunnerOHOS::UiThreadTaskRunnerCallback& GetUiThreadTaskRunnerCallback() {
++  static base::NoDestructor<TaskRunnerOHOS::UiThreadTaskRunnerCallback>
++      callback;
++  return *callback;
++}
++
++}  // namespace
++
++long Init(int task_traits) {
++  TaskRunnerOHOS* task_runner =
++      TaskRunnerOHOS::Create(task_traits).release();
++  return reinterpret_cast<intptr_t>(task_runner);
++}
++
++TaskRunnerOHOS::TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner)
++    : task_runner_(std::move(task_runner)) {}
++
++TaskRunnerOHOS::~TaskRunnerOHOS() = default;
++
++void TaskRunnerOHOS::Destroy() {
++  delete this;
++}
++
++void TaskRunnerOHOS::PostDelayedTask(const Location& from_here, OnceClosure task, int delay) {
++  task_runner_->PostDelayedTask(
++      from_here,
++      std::move(task),
++      Milliseconds(delay));
++}
++
++void TaskRunnerOHOS::PostTask(const Location& from_here, OnceClosure task) {
++  PostDelayedTask(from_here, std::move(task), 0);
++}
++
++bool TaskRunnerOHOS::BelongsToCurrentThread() {
++  return static_cast<SequencedTaskRunner*>(task_runner_.get())
++      ->RunsTasksInCurrentSequence();
++}
++
++// static
++std::unique_ptr<TaskRunnerOHOS> TaskRunnerOHOS::Create(int task_traits) {
++  CHECK(GetUiThreadTaskRunnerCallback());
++  scoped_refptr<TaskRunner> task_runner = GetUiThreadTaskRunnerCallback().Run(
++      static_cast<::TaskTraits>(task_traits));
++
++  return std::make_unique<TaskRunnerOHOS>(task_runner);
++}
++
++// static
++void TaskRunnerOHOS::SetUiThreadTaskRunnerCallback(
++    UiThreadTaskRunnerCallback callback) {
++  GetUiThreadTaskRunnerCallback() = std::move(callback);
++}
++
++// static
++scoped_refptr<base::SingleThreadTaskRunner>
++TaskRunnerOHOS::GetUIThreadTaskRunner(int task_traits) {
++  if (task_traits == ::TaskTraits::UI_DEFAULT &&
++      base::SingleThreadTaskRunner::HasCurrentDefault()) {
++    return base::SingleThreadTaskRunner::GetCurrentDefault();
++  }
++  CHECK(GetUiThreadTaskRunnerCallback());
++  return GetUiThreadTaskRunnerCallback().Run(static_cast<::TaskTraits>(task_traits));
++}
++
++}  // namespace base
+diff --git a/base/ohos/task_scheduler/task_runner_ohos.h b/base/ohos/task_scheduler/task_runner_ohos.h
+new file mode 100644
+index 0000000000..79d93acdeb
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_runner_ohos.h
+@@ -0,0 +1,77 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
++#define BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
++
++#include <memory>
++
++#include "base/ohos/task_scheduler/task_traits_ohos.h"
++#include "base/base_export.h"
++#include "base/functional/callback_forward.h"
++#include "base/task/single_thread_task_runner.h"
++
++namespace base {
++
++class BASE_EXPORT TaskRunnerOHOS {
++ public:
++  explicit TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner);
++
++  TaskRunnerOHOS(const TaskRunnerOHOS&) = delete;
++  TaskRunnerOHOS& operator=(const TaskRunnerOHOS&) = delete;
++
++  ~TaskRunnerOHOS();
++
++  void Destroy();
++
++  void PostDelayedTask(const Location& from_here, OnceClosure task, int delay);
++
++  void PostTask(const Location& from_here, OnceClosure task);
++
++  bool BelongsToCurrentThread();
++
++  static std::unique_ptr<TaskRunnerOHOS> Create(int task_traits = ::TaskTraits::UI_DEFAULT);
++
++  using UiThreadTaskRunnerCallback =
++      RepeatingCallback<scoped_refptr<base::SingleThreadTaskRunner>(
++          ::TaskTraits)>;
++
++  static void SetUiThreadTaskRunnerCallback(
++      UiThreadTaskRunnerCallback callback);
++
++  static scoped_refptr<base::SingleThreadTaskRunner> GetUIThreadTaskRunner(
++      int task_traits = ::TaskTraits::UI_DEFAULT);
++
++ private:
++  const scoped_refptr<TaskRunner> task_runner_;
++};
++
++}  // namespace base
++
++#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
+diff --git a/base/ohos/task_scheduler/task_traits_ohos.h b/base/ohos/task_scheduler/task_traits_ohos.h
+new file mode 100644
+index 0000000000..b4671d912c
+--- /dev/null
++++ b/base/ohos/task_scheduler/task_traits_ohos.h
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
++#define BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
++
++enum TaskTraits {
++  UI_TRAITS_START = 0,
++  UI_BEST_EFFORT = UI_TRAITS_START + 1,
++  UI_USER_VISIBLE = UI_TRAITS_START + 2,
++  UI_USER_BLOCKING = UI_TRAITS_START + 3,
++  UI_DEFAULT = UI_TRAITS_START,
++  UI_TRAITS_END = UI_USER_BLOCKING
++};
++
++#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
 diff --git a/base/path_service.cc b/base/path_service.cc
 index 1da6005749..7ef5e17bf6 100644
 --- a/base/path_service.cc
@@ -1076,6 +2014,93 @@ index c791858e98..6a95118aaf 100644
  
  #if BUILDFLAG(IS_MAC)
    // Callback from IORegisterForSystemPower(). |refcon| is the |this| pointer.
+diff --git a/base/power_monitor/power_monitor_device_source_ohos.cc b/base/power_monitor/power_monitor_device_source_ohos.cc
+new file mode 100644
+index 0000000000..7b0cd3a148
+--- /dev/null
++++ b/base/power_monitor/power_monitor_device_source_ohos.cc
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "base/power_monitor/power_monitor_device_source.h"
++
++#include <memory>
++
++namespace ohos::adapter {
++class OhosPowerMonitorImpl final : public ohos::adapter::OhosPowerMonitor {
++ public:
++  OhosPowerMonitorImpl() = default;
++  OhosPowerMonitorImpl(const OhosPowerMonitorImpl&) = delete;
++  OhosPowerMonitorImpl& operator=(const OhosPowerMonitorImpl&) = delete;
++  void OnSuspend() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::SUSPEND_EVENT);
++  }
++  void OnResume() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::RESUME_EVENT);
++  }
++  void OnPowerStateChanged() override {
++    ProcessPowerEventHelper(base::PowerMonitorSource::POWER_STATE_EVENT);
++  }
++};
++}  // namespace ohos::adapter
++
++namespace base {
++
++// A helper function which is a friend of PowerMonitorSource.
++void ProcessPowerEventHelper(PowerMonitorSource::PowerEvent event) {
++  PowerMonitorSource::ProcessPowerEvent(event);
++}
++
++void PowerMonitorDeviceSource::PlatformInit() {
++  if (impl == nullptr) {
++    impl = std::make_unique<ohos::adapter::OhosPowerMonitorImpl>();
++    ::ohos::adapter::PowerMonitor::SetMonitor(impl.get());
++  }
++}
++
++void PowerMonitorDeviceSource::PlatformDestroy() {
++  if (impl != nullptr) {
++    ::ohos::adapter::PowerMonitor::ReleaseMonitor();
++    impl = nullptr;
++  }
++}
++
++PowerStateObserver::BatteryPowerStatus
++PowerMonitorDeviceSource::GetBatteryPowerStatus() const {
++  if (::ohos::adapter::PowerMonitor::IsOnBatteryPower()) {
++    return PowerStateObserver::BatteryPowerStatus::kBatteryPower;
++  } else {
++    return PowerStateObserver::BatteryPowerStatus::kExternalPower;
++  }
++}
++}  // namespace base
 diff --git a/base/process/kill_posix.cc b/base/process/kill_posix.cc
 index 846605f502..6e80f9acb8 100644
 --- a/base/process/kill_posix.cc
@@ -1983,6 +3008,152 @@ index 6a0a06a56d..97abf4e198 100644
    PreInitialize();
  }
  
+diff --git a/base/test/test_support_ohos.cc b/base/test/test_support_ohos.cc
+new file mode 100644
+index 0000000000..5bab2b345f
+--- /dev/null
++++ b/base/test/test_support_ohos.cc
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
++#define BASE_TEST_TEST_SUPPORT_OHOS_H_
++
++
++#include "base/path_service.h"
++#include "base/files/file_path.h"
++#include "base/base_paths.h"
++
++namespace {
++// Provides the test path for paths overridden during tests.
++bool GetTestProviderPath(int key, base::FilePath* result) {
++  // On OHOS, such directory relate to arkui env, unittest cannot get. MOCK it.
++  switch (key) {
++    case base::DIR_TEMP:
++      *result = base::FilePath("./tmp");
++      return true;
++    case base::DIR_CACHE:
++      *result = base::FilePath("./cache");
++      return true;
++    case base::DIR_USER_DESKTOP:
++      *result = base::FilePath("./user_desktop");
++      return true;
++    case base::DIR_SRC_TEST_DATA_ROOT:
++      *result = base::FilePath("./src");
++      return true;
++    case base::DIR_TEST_DATA:
++      *result = base::FilePath("./test_data");
++      return true;
++    case base::DIR_EXE:
++    case base::DIR_MODULE:
++    case base::DIR_OHOS_APP_DATA:
++      *result = base::FilePath(base::FilePath::kCurrentDirectory);
++      return true;
++    case base::DIR_GEN_TEST_DATA_ROOT:
++      *result = base::FilePath("./test_gen_data");
++      return true;
++    default:
++      return false;
++  }
++}
++
++void InitPathProvider(int key) {
++  base::FilePath path;
++  // If failed to override the key, that means the way has not been registered.
++  if (GetTestProviderPath(key, &path) &&
++      !base::PathService::Override(key, path)) {
++    base::PathService::RegisterProvider(&GetTestProviderPath, key, key + 1);
++  }
++}
++}
++
++namespace base {
++void RegisterPathProviderForOhosTest() {
++  InitPathProvider(DIR_TEMP);
++  InitPathProvider(DIR_SRC_TEST_DATA_ROOT);
++  InitPathProvider(DIR_TEST_DATA);
++  InitPathProvider(DIR_EXE);
++  InitPathProvider(DIR_OHOS_APP_DATA);
++  InitPathProvider(DIR_GEN_TEST_DATA_ROOT);
++  InitPathProvider(DIR_CACHE);
++  InitPathProvider(DIR_USER_DESKTOP);
++  InitPathProvider(DIR_MODULE);
++}
++
++}  // namespace base
++#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
+diff --git a/base/test/test_support_ohos.h b/base/test/test_support_ohos.h
+new file mode 100644
+index 0000000000..79b4a995ad
+--- /dev/null
++++ b/base/test/test_support_ohos.h
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
++#define BASE_TEST_TEST_SUPPORT_OHOS_H_
++
++#include "base/test/test_suite.h"
++
++namespace base {
++void RegisterPathProviderForOhosTest();
++}  // namespace base
++
++#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
 diff --git a/base/threading/hang_watcher.cc b/base/threading/hang_watcher.cc
 index 8d87190fad..62b5ab1ac2 100644
 --- a/base/threading/hang_watcher.cc
@@ -2402,1174 +3573,6 @@ index 4a41bebb51..4ccfebec3b 100644
    }
  }
  
-diff --git a/base/trace_event/trace_config.cc b/base/trace_event/trace_config.cc
-index c62e869588..0efc54e09a 100644
---- a/base/trace_event/trace_config.cc
-+++ b/base/trace_event/trace_config.cc
-@@ -597,7 +597,13 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
-         const std::string* trigger_type_str =
-             trigger_dict.FindString(kTriggerTypeParam);
-         DCHECK(trigger_type_str);
-+#if BUILDFLAG(IS_OHOS)
-+        if (trigger_type_str) {
-+          dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
-+        }
-+#else
-         dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
-+#endif
-       }
-       DCHECK(interval.has_value());
-       DCHECK_GT(*interval, 0);
-@@ -606,9 +612,15 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
-       const std::string* level_of_detail_str =
-           trigger_dict.FindString(kTriggerModeParam);
-       DCHECK(level_of_detail_str);
-+#if BUILDFLAG(IS_OHOS)
-+      if (level_of_detail_str) {
-+        dump_config.level_of_detail =
-+            StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
-+      }
-+#else
-       dump_config.level_of_detail =
-           StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
--
-+#endif
-       memory_dump_config_.triggers.push_back(dump_config);
-     }
-   }
-diff --git a/base/version_info/version_info.h b/base/version_info/version_info.h
-index 3d83451f3a..7a90ef46d7 100644
---- a/base/version_info/version_info.h
-+++ b/base/version_info/version_info.h
-@@ -82,6 +82,8 @@ constexpr std::string_view GetOSType() {
-   return "Solaris";
- #elif BUILDFLAG(IS_FUCHSIA)
-   return "Fuchsia";
-+#elif BUILDFLAG(IS_OHOS)
-+  return "OHOS";
- #else
-   return "Unknown";
- #endif
-diff --git a/base/base_paths_ohos.cc b/base/base_paths_ohos.cc
-new file mode 100644
-index 0000000000..9da7a07363
---- /dev/null
-+++ b/base/base_paths_ohos.cc
-@@ -0,0 +1,100 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+// Defines base::PathProviderOHOS which replaces base::PathProviderPosix for
-+// OHOS in base/path_service.cc.
-+#include "base/base_paths_ohos.h"
-+
-+#include "base/base_paths.h"
-+#include "base/base_switches.h"
-+#include "base/command_line.h"
-+#include "base/files/file_path.h"
-+#include "base/files/file_util.h"
-+#include "base/logging.h"
-+#include "base/notreached.h"
-+#include "base/process/process_metrics.h"
-+#include "ohos/adapter/context_path/context_path_adapter.h"
-+
-+namespace base {
-+// TODO: temporary solution to load resources for multiple processes
-+bool ParseAssetsOHOS(FilePath* result) {
-+  auto bundle_path =
-+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-+          switches::kBundleInstallationDir);
-+  if (bundle_path.empty()) {
-+    FilePath bin_dir;
-+    if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
-+      LOG(ERROR) << "Unable to resolve " << kProcSelfExe << ".";
-+      return false;
-+    }
-+    *result = bin_dir.DirName();
-+    return true;
-+  }
-+  *result = FilePath(bundle_path.c_str());
-+  return true;
-+}
-+
-+bool PathProviderOHOS(int key, FilePath* result) {
-+  FilePath bin_dir;
-+  switch (key) {
-+    case base::FILE_EXE: {
-+      if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
-+        NOTREACHED() << "Unable to resolve " << kProcSelfExe << ".";
-+        return false;
-+      }
-+      *result = bin_dir;
-+      return true;
-+    }
-+    case base::DIR_MODULE: {
-+      *result = base::FilePath();
-+      return true;
-+    }
-+    case base::DIR_USER_DESKTOP:
-+      *result =
-+          FilePath(::ohos::adapter::ContextPathAdapter::GetUserDesktopDir());
-+      return !result->empty();
-+    case base::DIR_CACHE:
-+      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetCacheDir());
-+      return !result->empty();
-+    case base::DIR_TEMP:
-+      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetTempDir());
-+      return !result->empty();
-+    case base::DIR_ASSETS:
-+      // TODO: temporary solution to load resources for multiple processes
-+      // resource file packed to system images
-+      return ParseAssetsOHOS(result);
-+    case base::DIR_OHOS_APP_DATA:
-+      *result = FilePath(::ohos::adapter::ContextPathAdapter::GetFilesDir());
-+      return !result->empty();
-+    default:
-+      return false;
-+  }
-+}
-+
-+}  // namespace base
-diff --git a/base/base_paths_ohos.h b/base/base_paths_ohos.h
-new file mode 100644
-index 0000000000..2db55081d8
---- /dev/null
-+++ b/base/base_paths_ohos.h
-@@ -0,0 +1,43 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef BASE_BASE_PATHS_OHOS_H_
-+#define BASE_BASE_PATHS_OHOS_H_
-+
-+namespace base {
-+
-+enum {
-+  PATH_OHOS_START = 500,
-+  DIR_OHOS_APP_DATA,
-+  PATH_OHOS_END
-+};
-+
-+}  // namespace base
-+
-+#endif  // BASE_BASE_PATHS_OHOS_H_
-diff --git a/base/debug/stack_trace_ohos.cc b/base/debug/stack_trace_ohos.cc
-new file mode 100644
-index 0000000000..90dc414cdf
---- /dev/null
-+++ b/base/debug/stack_trace_ohos.cc
-@@ -0,0 +1,221 @@
-+// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
-+// Use of this source code is governed by a BSD-style license that can be
-+// found in the LICENSE file.
-+
-+#include "base/debug/stack_trace.h"
-+
-+#include <unwind.h>
-+
-+#include <algorithm>
-+#include <cstddef>
-+#include <ostream>
-+
-+#include "base/containers/span_writer.h"
-+#include "base/debug/proc_maps_linux.h"
-+#include "base/logging.h"
-+#include "base/memory/raw_ptr.h"
-+#include "base/stl_util.h"
-+#include "base/strings/strcat.h"
-+#include "base/strings/stringprintf.h"
-+#include "base/threading/thread_restrictions.h"
-+
-+#ifdef __LP64__
-+#define FMT_ADDR "0x%016lx"
-+#else
-+#define FMT_ADDR "0x%08x"
-+#endif
-+
-+namespace {
-+
-+struct StackCrawlState {
-+  StackCrawlState(uintptr_t* frames, size_t max_depth)
-+      : frames(frames),
-+        frame_count(0),
-+        max_depth(max_depth),
-+        have_skipped_self(false) {}
-+
-+  raw_ptr<uintptr_t, AllowPtrArithmetic> frames;
-+  size_t frame_count;
-+  size_t max_depth;
-+  bool have_skipped_self;
-+};
-+
-+_Unwind_Reason_Code TraceStackFrame(_Unwind_Context* context, void* arg) {
-+  StackCrawlState* state = static_cast<StackCrawlState*>(arg);
-+  uintptr_t ip = _Unwind_GetIP(context);
-+
-+  // The first stack frame is this function itself.  Skip it.
-+  if (ip != 0 && !state->have_skipped_self) {
-+    state->have_skipped_self = true;
-+    return _URC_NO_REASON;
-+  }
-+
-+  state->frames[state->frame_count++] = ip;
-+  if (state->frame_count >= state->max_depth) {
-+    return _URC_END_OF_STACK;
-+  }
-+  return _URC_NO_REASON;
-+}
-+
-+bool EndsWith(const std::string& s, const std::string& suffix) {
-+  return s.size() >= suffix.size() &&
-+      s.substr(s.size() - suffix.size(), suffix.size()) == suffix;
-+}
-+
-+}  // namespace
-+
-+namespace base {
-+namespace debug {
-+
-+namespace internal {
-+void itoa_r(intptr_t i, int base, size_t padding, base::span<char> buf) {
-+  // Make sure we can write at least one NUL byte.
-+  if (buf.empty()) {
-+    return;
-+  }
-+
-+  if (base < 2 || base > 16) {
-+    buf[0u] = '\000';
-+    return;
-+  }
-+
-+  auto writer = base::SpanWriter(buf);
-+  size_t start = 0u;
-+
-+  uintptr_t j = static_cast<uintptr_t>(i);
-+
-+  // Handle negative numbers (only for base 10).
-+  if (i < 0 && base == 10) {
-+    // This does "j = -i" while avoiding integer overflow.
-+    j = static_cast<uintptr_t>(-(i + 1)) + 1;
-+
-+    // Make sure we can write the '-' character.
-+    if (!writer.Write('-')) {
-+      buf[0u] = '\000';
-+      return;
-+    }
-+    start += 1u;  // The number starts after the sign.
-+  }
-+
-+  // Loop until we have converted the entire number. Output at least one
-+  // character (i.e. '0').
-+  constexpr std::string_view digits = "0123456789abcdef";
-+  do {
-+    // Output the next digit.
-+    if (!writer.Write(digits[j % static_cast<uintptr_t>(base)])) {
-+      buf[0] = '\000';
-+      return;
-+    }
-+    j /= static_cast<uintptr_t>(base);
-+
-+    if (padding > 0) {
-+      padding--;
-+    }
-+  } while (j > 0 || padding > 0);
-+
-+  // Terminate the output with a NUL character.
-+  if (!writer.Write('\000')) {
-+    buf[0] = '\000';
-+    return;
-+  }
-+
-+  // Conversion to ASCII actually resulted in the digits being in reverse order.
-+  // We can't easily generate them in forward order, as we can't tell the number
-+  // of characters needed until we are done converting. So, now, we reverse the
-+  // string (except for the possible "-" sign and the NUL terminator).
-+  std::ranges::reverse(buf.first(writer.num_written() - 1u).subspan(start));
-+}
-+}  // namespace internal
-+
-+bool EnableInProcessStackDumping() {
-+  struct sigaction action;
-+  std::fill(reinterpret_cast<unsigned char *>(&action),
-+            reinterpret_cast<unsigned char *>(&action) + sizeof(action),
-+            0);
-+  action.sa_handler = SIG_IGN;
-+  sigemptyset(&action.sa_mask);
-+  return (sigaction(SIGPIPE, &action, NULL) == 0);
-+}
-+
-+size_t CollectStackTrace(span<const void*> trace) {
-+  StackCrawlState state(reinterpret_cast<uintptr_t*>(trace.data()),
-+                        trace.size());
-+  _Unwind_Backtrace(&TraceStackFrame, &state);
-+  return state.frame_count;
-+}
-+
-+// static
-+void StackTrace::PrintMessageWithPrefix(cstring_view prefix_string,
-+                                        cstring_view message) {
-+  if (!prefix_string.empty()) {
-+    LOG(ERROR) << StrCat({prefix_string, message}).c_str();
-+  } else {
-+    LOG(ERROR) << message.c_str();
-+  }
-+}
-+
-+void StackTrace::PrintWithPrefixImpl(cstring_view prefix_string) const {
-+  std::string backtrace = ToStringWithPrefix(prefix_string);
-+  LOG(ERROR) << backtrace;
-+}
-+
-+// NOTE: Native libraries in APKs are stripped before installing. Print out the
-+// relocatable address and library names so host computers can use tools to
-+// symbolize and demangle (e.g., addr2line, c++filt).
-+void StackTrace::OutputToStreamWithPrefixImpl(std::ostream* os,
-+                                              cstring_view prefix_string) const {
-+  std::string proc_maps;
-+  std::vector<MappedMemoryRegion> regions;
-+  // Allow IO to read /proc/self/maps. Reading this file doesn't hit the disk
-+  // since it lives in procfs, and this is currently used to print a stack trace
-+  // on fatal log messages in debug builds only. If the restriction is enabled
-+  // then it will recursively trigger fatal failures when this enters on the
-+  // UI thread.
-+  base::ScopedAllowBlocking scoped_allow_blocking;
-+  if (!ReadProcMaps(&proc_maps)) {
-+    LOG(ERROR) << "Failed to read /proc/self/maps";
-+  } else if (!ParseProcMaps(proc_maps, &regions)) {
-+    LOG(ERROR) << "Failed to parse /proc/self/maps";
-+  }
-+
-+  for (size_t i = 0; i < count_; ++i) {
-+    // Subtract one as return address of function may be in the next
-+    // function when a function is annotated as noreturn.
-+    uintptr_t address = reinterpret_cast<uintptr_t>(trace_[i]) - 1;
-+
-+    std::vector<MappedMemoryRegion>::iterator iter = regions.begin();
-+    while (iter != regions.end()) {
-+      if (address >= iter->start && address < iter->end &&
-+          !iter->path.empty()) {
-+        break;
-+      }
-+      ++iter;
-+    }
-+
-+    *os << prefix_string;
-+
-+    // Adjust absolute address to be an offset within the mapped region, to
-+    // match the format dumped by Android's crash output.
-+    if (iter != regions.end()) {
-+      address -= iter->start;
-+    }
-+
-+    // The format below intentionally matches that of Android's debuggerd
-+    // output. This simplifies decoding by scripts such as stack.py.
-+    *os << base::StringPrintf("#%02zd pc " FMT_ADDR " ", i, address);
-+
-+    if (iter != regions.end()) {
-+      *os << base::StringPrintf("%s", iter->path.c_str());
-+      if (EndsWith(iter->path, ".apk")) {
-+        *os << base::StringPrintf(" (offset 0x%llx)", iter->offset);
-+      }
-+    } else {
-+      *os << "<unknown>";
-+    }
-+
-+    *os << "\n";
-+  }
-+}
-+
-+}  // namespace debug
-+}  // namespace base
-diff --git a/base/memory/platform_shared_memory_mapper_ohos.cc b/base/memory/platform_shared_memory_mapper_ohos.cc
-new file mode 100644
-index 0000000000..e87edbadcf
---- /dev/null
-+++ b/base/memory/platform_shared_memory_mapper_ohos.cc
-@@ -0,0 +1,38 @@
-+// Copyright 2022 The Chromium Authors
-+// Use of this source code is governed by a BSD-style license that can be
-+// found in the LICENSE file.
-+
-+#include "base/memory/platform_shared_memory_mapper.h"
-+
-+#include "base/compiler_specific.h"
-+#include "base/logging.h"
-+#include "base/numerics/safe_conversions.h"
-+
-+#include <sys/mman.h>
-+
-+namespace base {
-+
-+std::optional<span<uint8_t>> PlatformSharedMemoryMapper::Map(
-+    subtle::PlatformSharedMemoryHandle handle,
-+    bool write_allowed,
-+    uint64_t offset,
-+    size_t size) {
-+  void* address =
-+      mmap(nullptr, size, PROT_READ | (write_allowed ? PROT_WRITE : 0),
-+           MAP_SHARED, handle, checked_cast<off_t>(offset));
-+
-+  if (address == MAP_FAILED) {
-+    DPLOG(ERROR) << "mmap " << handle << " failed";
-+    return std::nullopt;
-+  }
-+
-+  // SAFETY: mmap successfully created a mapping covering exactly size bytes.
-+  return UNSAFE_BUFFERS(span(static_cast<uint8_t*>(address), size));
-+}
-+
-+void PlatformSharedMemoryMapper::Unmap(span<uint8_t> mapping) {
-+  if (munmap(mapping.data(), mapping.size()) < 0)
-+    DPLOG(ERROR) << "munmap";
-+}
-+
-+}  // namespace base
-diff --git a/base/memory/platform_shared_memory_region_ohos.cc b/base/memory/platform_shared_memory_region_ohos.cc
-new file mode 100644
-index 0000000000..2ff3a50a30
---- /dev/null
-+++ b/base/memory/platform_shared_memory_region_ohos.cc
-@@ -0,0 +1,211 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "base/memory/platform_shared_memory_region.h"
-+
-+#include <sys/mman.h>
-+
-+#include "base/bits.h"
-+#include "base/logging.h"
-+#include "base/memory/page_size.h"
-+#include "base/memory/shared_memory_tracker.h"
-+#include "base/metrics/histogram_macros.h"
-+#include "base/posix/eintr_wrapper.h"
-+#include "third_party/ashmem/ashmem.h"
-+
-+namespace base {
-+namespace subtle {
-+
-+// For OHOS, we use ashmem the same way Android does to implement SharedMemory.
-+
-+namespace {
-+
-+int GetAshmemRegionProtectionMask(int fd) {
-+  int prot = ashmem_get_prot_region(fd);
-+  if (prot < 0) {
-+    PLOG(ERROR) << "ashmem_get_prot_region failed";
-+    return -1;
-+  }
-+  return prot;
-+}
-+
-+}  // namespace
-+
-+// static
-+expected<PlatformSharedMemoryRegion, PlatformSharedMemoryRegion::TakeError>
-+PlatformSharedMemoryRegion::TakeOrFail(
-+    ScopedFD fd,
-+    Mode mode,
-+    size_t size,
-+    const UnguessableToken& guid) {
-+  if (!fd.is_valid())
-+    return {};
-+
-+  if (size == 0)
-+    return {};
-+
-+  if (size > static_cast<size_t>(std::numeric_limits<int>::max()))
-+    return {};
-+
-+  return CheckPlatformHandlePermissionsCorrespondToMode(fd.get(), mode, size)
-+      .transform([&] {
-+        return PlatformSharedMemoryRegion(std::move(fd), mode, size, guid);
-+      });
-+}
-+
-+int PlatformSharedMemoryRegion::GetPlatformHandle() const {
-+  return handle_.get();
-+}
-+
-+bool PlatformSharedMemoryRegion::IsValid() const {
-+  return handle_.is_valid();
-+}
-+
-+PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Duplicate() const {
-+  if (!IsValid())
-+    return {};
-+
-+  CHECK_NE(mode_, Mode::kWritable)
-+      << "Duplicating a writable shared memory region is prohibited";
-+
-+  ScopedFD duped_fd(HANDLE_EINTR(dup(handle_.get())));
-+  if (!duped_fd.is_valid()) {
-+    DPLOG(ERROR) << "dup(" << handle_.get() << ") failed";
-+    return {};
-+  }
-+
-+  return PlatformSharedMemoryRegion(std::move(duped_fd), mode_, size_, guid_);
-+}
-+
-+bool PlatformSharedMemoryRegion::ConvertToReadOnly() {
-+  if (!IsValid())
-+    return false;
-+
-+  CHECK_EQ(mode_, Mode::kWritable)
-+      << "Only writable shared memory region can be converted to read-only";
-+
-+  ScopedFD handle_copy(handle_.release());
-+
-+  int prot = GetAshmemRegionProtectionMask(handle_copy.get());
-+  if (prot < 0)
-+    return false;
-+
-+  prot &= ~PROT_WRITE;
-+  int ret = ashmem_set_prot_region(handle_copy.get(), prot);
-+  if (ret != 0) {
-+    DPLOG(ERROR) << "ashmem_set_prot_region failed";
-+    return false;
-+  }
-+
-+  handle_ = std::move(handle_copy);
-+  mode_ = Mode::kReadOnly;
-+  return true;
-+}
-+
-+bool PlatformSharedMemoryRegion::ConvertToUnsafe() {
-+  if (!IsValid())
-+    return false;
-+
-+  CHECK_EQ(mode_, Mode::kWritable)
-+      << "Only writable shared memory region can be converted to unsafe";
-+
-+  mode_ = Mode::kUnsafe;
-+  return true;
-+}
-+
-+// static
-+PlatformSharedMemoryRegion PlatformSharedMemoryRegion::Create(Mode mode,
-+                                                              size_t size) {
-+  if (size == 0) {
-+    return {};
-+  }
-+
-+  // Align size as required by ashmem_create_region() API documentation. This
-+  // operation may overflow so check that the result doesn't decrease.
-+  size_t rounded_size = bits::AlignUp(size, GetPageSize());
-+  if (rounded_size < size ||
-+      rounded_size > static_cast<size_t>(std::numeric_limits<int>::max())) {
-+    return {};
-+  }
-+
-+  CHECK_NE(mode, Mode::kReadOnly) << "Creating a region in read-only mode will "
-+                                     "lead to this region being non-modifiable";
-+
-+  UnguessableToken guid = UnguessableToken::Create();
-+
-+  int fd = ashmem_create_region(
-+      SharedMemoryTracker::GetDumpNameForTracing(guid).c_str(), rounded_size);
-+  if (fd < 0) {
-+    DPLOG(ERROR) << "ashmem_create_region failed";
-+    return {};
-+  }
-+
-+  ScopedFD scoped_fd(fd);
-+  int err = ashmem_set_prot_region(scoped_fd.get(), PROT_READ | PROT_WRITE);
-+  if (err < 0) {
-+    DPLOG(ERROR) << "ashmem_set_prot_region failed";
-+    return {};
-+  }
-+
-+  return PlatformSharedMemoryRegion(std::move(scoped_fd), mode, size, guid);
-+}
-+
-+expected<void, PlatformSharedMemoryRegion::TakeError>
-+PlatformSharedMemoryRegion::CheckPlatformHandlePermissionsCorrespondToMode(
-+    PlatformSharedMemoryHandle handle,
-+    Mode mode,
-+    size_t size) {
-+  int prot = GetAshmemRegionProtectionMask(handle);
-+  if (prot < 0) {
-+    return unexpected(TakeError::kFailedToGetAshmemRegionProtectionMask);
-+  }
-+
-+  bool is_read_only = (prot & PROT_WRITE) == 0;
-+  bool expected_read_only = mode == Mode::kReadOnly;
-+
-+  if (is_read_only != expected_read_only) {
-+    LOG(ERROR) << "Ashmem region has a wrong protection mask: it is"
-+               << (is_read_only ? " " : " not ") << "read-only but it should"
-+               << (expected_read_only ? " " : " not ") << "be";
-+    return unexpected(expected_read_only ? TakeError::kExpectedReadOnlyButNot
-+                                         : TakeError::kExpectedWritableButNot);
-+  }
-+
-+  return ok();
-+}
-+
-+PlatformSharedMemoryRegion::PlatformSharedMemoryRegion(
-+    ScopedFD fd,
-+    Mode mode,
-+    size_t size,
-+    const UnguessableToken& guid)
-+    : handle_(std::move(fd)), mode_(mode), size_(size), guid_(guid) {}
-+
-+}  // namespace subtle
-+}  // namespace base
-diff --git a/base/ohos/task_scheduler/task_runner_ohos.cc b/base/ohos/task_scheduler/task_runner_ohos.cc
-new file mode 100644
-index 0000000000..929280ab52
---- /dev/null
-+++ b/base/ohos/task_scheduler/task_runner_ohos.cc
-@@ -0,0 +1,107 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "base/ohos/task_scheduler/task_runner_ohos.h"
-+
-+#include "base/check.h"
-+#include "base/compiler_specific.h"
-+#include "base/functional/bind.h"
-+#include "base/no_destructor.h"
-+#include "base/time/time.h"
-+
-+namespace base {
-+
-+namespace {
-+
-+TaskRunnerOHOS::UiThreadTaskRunnerCallback& GetUiThreadTaskRunnerCallback() {
-+  static base::NoDestructor<TaskRunnerOHOS::UiThreadTaskRunnerCallback>
-+      callback;
-+  return *callback;
-+}
-+
-+}  // namespace
-+
-+long Init(int task_traits) {
-+  TaskRunnerOHOS* task_runner =
-+      TaskRunnerOHOS::Create(task_traits).release();
-+  return reinterpret_cast<intptr_t>(task_runner);
-+}
-+
-+TaskRunnerOHOS::TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner)
-+    : task_runner_(std::move(task_runner)) {}
-+
-+TaskRunnerOHOS::~TaskRunnerOHOS() = default;
-+
-+void TaskRunnerOHOS::Destroy() {
-+  delete this;
-+}
-+
-+void TaskRunnerOHOS::PostDelayedTask(const Location& from_here, OnceClosure task, int delay) {
-+  task_runner_->PostDelayedTask(
-+      from_here,
-+      std::move(task),
-+      Milliseconds(delay));
-+}
-+
-+void TaskRunnerOHOS::PostTask(const Location& from_here, OnceClosure task) {
-+  PostDelayedTask(from_here, std::move(task), 0);
-+}
-+
-+bool TaskRunnerOHOS::BelongsToCurrentThread() {
-+  return static_cast<SequencedTaskRunner*>(task_runner_.get())
-+      ->RunsTasksInCurrentSequence();
-+}
-+
-+// static
-+std::unique_ptr<TaskRunnerOHOS> TaskRunnerOHOS::Create(int task_traits) {
-+  CHECK(GetUiThreadTaskRunnerCallback());
-+  scoped_refptr<TaskRunner> task_runner = GetUiThreadTaskRunnerCallback().Run(
-+      static_cast<::TaskTraits>(task_traits));
-+
-+  return std::make_unique<TaskRunnerOHOS>(task_runner);
-+}
-+
-+// static
-+void TaskRunnerOHOS::SetUiThreadTaskRunnerCallback(
-+    UiThreadTaskRunnerCallback callback) {
-+  GetUiThreadTaskRunnerCallback() = std::move(callback);
-+}
-+
-+// static
-+scoped_refptr<base::SingleThreadTaskRunner>
-+TaskRunnerOHOS::GetUIThreadTaskRunner(int task_traits) {
-+  if (task_traits == ::TaskTraits::UI_DEFAULT &&
-+      base::SingleThreadTaskRunner::HasCurrentDefault()) {
-+    return base::SingleThreadTaskRunner::GetCurrentDefault();
-+  }
-+  CHECK(GetUiThreadTaskRunnerCallback());
-+  return GetUiThreadTaskRunnerCallback().Run(static_cast<::TaskTraits>(task_traits));
-+}
-+
-+}  // namespace base
-diff --git a/base/ohos/task_scheduler/task_runner_ohos.h b/base/ohos/task_scheduler/task_runner_ohos.h
-new file mode 100644
-index 0000000000..79d93acdeb
---- /dev/null
-+++ b/base/ohos/task_scheduler/task_runner_ohos.h
-@@ -0,0 +1,77 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
-+#define BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
-+
-+#include <memory>
-+
-+#include "base/ohos/task_scheduler/task_traits_ohos.h"
-+#include "base/base_export.h"
-+#include "base/functional/callback_forward.h"
-+#include "base/task/single_thread_task_runner.h"
-+
-+namespace base {
-+
-+class BASE_EXPORT TaskRunnerOHOS {
-+ public:
-+  explicit TaskRunnerOHOS(scoped_refptr<TaskRunner> task_runner);
-+
-+  TaskRunnerOHOS(const TaskRunnerOHOS&) = delete;
-+  TaskRunnerOHOS& operator=(const TaskRunnerOHOS&) = delete;
-+
-+  ~TaskRunnerOHOS();
-+
-+  void Destroy();
-+
-+  void PostDelayedTask(const Location& from_here, OnceClosure task, int delay);
-+
-+  void PostTask(const Location& from_here, OnceClosure task);
-+
-+  bool BelongsToCurrentThread();
-+
-+  static std::unique_ptr<TaskRunnerOHOS> Create(int task_traits = ::TaskTraits::UI_DEFAULT);
-+
-+  using UiThreadTaskRunnerCallback =
-+      RepeatingCallback<scoped_refptr<base::SingleThreadTaskRunner>(
-+          ::TaskTraits)>;
-+
-+  static void SetUiThreadTaskRunnerCallback(
-+      UiThreadTaskRunnerCallback callback);
-+
-+  static scoped_refptr<base::SingleThreadTaskRunner> GetUIThreadTaskRunner(
-+      int task_traits = ::TaskTraits::UI_DEFAULT);
-+
-+ private:
-+  const scoped_refptr<TaskRunner> task_runner_;
-+};
-+
-+}  // namespace base
-+
-+#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_RUNNER_OHOS_H_
-diff --git a/base/ohos/task_scheduler/task_traits_ohos.h b/base/ohos/task_scheduler/task_traits_ohos.h
-new file mode 100644
-index 0000000000..b4671d912c
---- /dev/null
-+++ b/base/ohos/task_scheduler/task_traits_ohos.h
-@@ -0,0 +1,42 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
-+#define BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
-+
-+enum TaskTraits {
-+  UI_TRAITS_START = 0,
-+  UI_BEST_EFFORT = UI_TRAITS_START + 1,
-+  UI_USER_VISIBLE = UI_TRAITS_START + 2,
-+  UI_USER_BLOCKING = UI_TRAITS_START + 3,
-+  UI_DEFAULT = UI_TRAITS_START,
-+  UI_TRAITS_END = UI_USER_BLOCKING
-+};
-+
-+#endif  // BASE_OHOS_TASK_SCHEDULER_TASK_TRAITS_OHOS_H_
-diff --git a/base/power_monitor/power_monitor_device_source_ohos.cc b/base/power_monitor/power_monitor_device_source_ohos.cc
-new file mode 100644
-index 0000000000..7b0cd3a148
---- /dev/null
-+++ b/base/power_monitor/power_monitor_device_source_ohos.cc
-@@ -0,0 +1,81 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "base/power_monitor/power_monitor_device_source.h"
-+
-+#include <memory>
-+
-+namespace ohos::adapter {
-+class OhosPowerMonitorImpl final : public ohos::adapter::OhosPowerMonitor {
-+ public:
-+  OhosPowerMonitorImpl() = default;
-+  OhosPowerMonitorImpl(const OhosPowerMonitorImpl&) = delete;
-+  OhosPowerMonitorImpl& operator=(const OhosPowerMonitorImpl&) = delete;
-+  void OnSuspend() override {
-+    ProcessPowerEventHelper(base::PowerMonitorSource::SUSPEND_EVENT);
-+  }
-+  void OnResume() override {
-+    ProcessPowerEventHelper(base::PowerMonitorSource::RESUME_EVENT);
-+  }
-+  void OnPowerStateChanged() override {
-+    ProcessPowerEventHelper(base::PowerMonitorSource::POWER_STATE_EVENT);
-+  }
-+};
-+}  // namespace ohos::adapter
-+
-+namespace base {
-+
-+// A helper function which is a friend of PowerMonitorSource.
-+void ProcessPowerEventHelper(PowerMonitorSource::PowerEvent event) {
-+  PowerMonitorSource::ProcessPowerEvent(event);
-+}
-+
-+void PowerMonitorDeviceSource::PlatformInit() {
-+  if (impl == nullptr) {
-+    impl = std::make_unique<ohos::adapter::OhosPowerMonitorImpl>();
-+    ::ohos::adapter::PowerMonitor::SetMonitor(impl.get());
-+  }
-+}
-+
-+void PowerMonitorDeviceSource::PlatformDestroy() {
-+  if (impl != nullptr) {
-+    ::ohos::adapter::PowerMonitor::ReleaseMonitor();
-+    impl = nullptr;
-+  }
-+}
-+
-+PowerStateObserver::BatteryPowerStatus
-+PowerMonitorDeviceSource::GetBatteryPowerStatus() const {
-+  if (::ohos::adapter::PowerMonitor::IsOnBatteryPower()) {
-+    return PowerStateObserver::BatteryPowerStatus::kBatteryPower;
-+  } else {
-+    return PowerStateObserver::BatteryPowerStatus::kExternalPower;
-+  }
-+}
-+}  // namespace base
-diff --git a/base/test/test_support_ohos.cc b/base/test/test_support_ohos.cc
-new file mode 100644
-index 0000000000..5bab2b345f
---- /dev/null
-+++ b/base/test/test_support_ohos.cc
-@@ -0,0 +1,95 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
-+#define BASE_TEST_TEST_SUPPORT_OHOS_H_
-+
-+
-+#include "base/path_service.h"
-+#include "base/files/file_path.h"
-+#include "base/base_paths.h"
-+
-+namespace {
-+// Provides the test path for paths overridden during tests.
-+bool GetTestProviderPath(int key, base::FilePath* result) {
-+  // On OHOS, such directory relate to arkui env, unittest cannot get. MOCK it.
-+  switch (key) {
-+    case base::DIR_TEMP:
-+      *result = base::FilePath("./tmp");
-+      return true;
-+    case base::DIR_CACHE:
-+      *result = base::FilePath("./cache");
-+      return true;
-+    case base::DIR_USER_DESKTOP:
-+      *result = base::FilePath("./user_desktop");
-+      return true;
-+    case base::DIR_SRC_TEST_DATA_ROOT:
-+      *result = base::FilePath("./src");
-+      return true;
-+    case base::DIR_TEST_DATA:
-+      *result = base::FilePath("./test_data");
-+      return true;
-+    case base::DIR_EXE:
-+    case base::DIR_MODULE:
-+    case base::DIR_OHOS_APP_DATA:
-+      *result = base::FilePath(base::FilePath::kCurrentDirectory);
-+      return true;
-+    case base::DIR_GEN_TEST_DATA_ROOT:
-+      *result = base::FilePath("./test_gen_data");
-+      return true;
-+    default:
-+      return false;
-+  }
-+}
-+
-+void InitPathProvider(int key) {
-+  base::FilePath path;
-+  // If failed to override the key, that means the way has not been registered.
-+  if (GetTestProviderPath(key, &path) &&
-+      !base::PathService::Override(key, path)) {
-+    base::PathService::RegisterProvider(&GetTestProviderPath, key, key + 1);
-+  }
-+}
-+}
-+
-+namespace base {
-+void RegisterPathProviderForOhosTest() {
-+  InitPathProvider(DIR_TEMP);
-+  InitPathProvider(DIR_SRC_TEST_DATA_ROOT);
-+  InitPathProvider(DIR_TEST_DATA);
-+  InitPathProvider(DIR_EXE);
-+  InitPathProvider(DIR_OHOS_APP_DATA);
-+  InitPathProvider(DIR_GEN_TEST_DATA_ROOT);
-+  InitPathProvider(DIR_CACHE);
-+  InitPathProvider(DIR_USER_DESKTOP);
-+  InitPathProvider(DIR_MODULE);
-+}
-+
-+}  // namespace base
-+#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
-diff --git a/base/test/test_support_ohos.h b/base/test/test_support_ohos.h
-new file mode 100644
-index 0000000000..79b4a995ad
---- /dev/null
-+++ b/base/test/test_support_ohos.h
-@@ -0,0 +1,39 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef BASE_TEST_TEST_SUPPORT_OHOS_H_
-+#define BASE_TEST_TEST_SUPPORT_OHOS_H_
-+
-+#include "base/test/test_suite.h"
-+
-+namespace base {
-+void RegisterPathProviderForOhosTest();
-+}  // namespace base
-+
-+#endif  // BASE_TEST_TEST_SUPPORT_OHOS_H_
 diff --git a/base/trace_event/ohos_fix_buffer.cc b/base/trace_event/ohos_fix_buffer.cc
 new file mode 100644
 index 0000000000..3273f203f8
@@ -4850,3 +4853,51 @@ index 0000000000..2c846708d5
 +}  // namespace base::trace_event::ohos
 +
 +#endif  // BASE_TRACE_EVENT_OHOS_HITRACE_INTERCEPTOR_H_
+diff --git a/base/trace_event/trace_config.cc b/base/trace_event/trace_config.cc
+index c62e869588..0efc54e09a 100644
+--- a/base/trace_event/trace_config.cc
++++ b/base/trace_event/trace_config.cc
+@@ -597,7 +597,13 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
+         const std::string* trigger_type_str =
+             trigger_dict.FindString(kTriggerTypeParam);
+         DCHECK(trigger_type_str);
++#if BUILDFLAG(IS_OHOS)
++        if (trigger_type_str) {
++          dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
++        }
++#else
+         dump_config.trigger_type = StringToMemoryDumpType(*trigger_type_str);
++#endif
+       }
+       DCHECK(interval.has_value());
+       DCHECK_GT(*interval, 0);
+@@ -606,9 +612,15 @@ void TraceConfig::SetMemoryDumpConfigFromConfigDict(
+       const std::string* level_of_detail_str =
+           trigger_dict.FindString(kTriggerModeParam);
+       DCHECK(level_of_detail_str);
++#if BUILDFLAG(IS_OHOS)
++      if (level_of_detail_str) {
++        dump_config.level_of_detail =
++            StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
++      }
++#else
+       dump_config.level_of_detail =
+           StringToMemoryDumpLevelOfDetail(*level_of_detail_str);
+-
++#endif
+       memory_dump_config_.triggers.push_back(dump_config);
+     }
+   }
+diff --git a/base/version_info/version_info.h b/base/version_info/version_info.h
+index 3d83451f3a..7a90ef46d7 100644
+--- a/base/version_info/version_info.h
++++ b/base/version_info/version_info.h
+@@ -82,6 +82,8 @@ constexpr std::string_view GetOSType() {
+   return "Solaris";
+ #elif BUILDFLAG(IS_FUCHSIA)
+   return "Fuchsia";
++#elif BUILDFLAG(IS_OHOS)
++  return "OHOS";
+ #else
+   return "Unknown";
+ #endif

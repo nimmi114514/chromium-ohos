@@ -69,9 +69,13 @@ def main():
     def git(*args, **kwargs):
         return subprocess.check_output(["git", *args], cwd=source, **kwargs)
 
-    if git("rev-parse", "HEAD", text=True).strip() != lock["revision"]:
-        raise SystemExit("Source is not pinned")
-    tracked = git("diff", "--ignore-submodules=all", "--name-only", "HEAD", text=True).splitlines()
+    revision = lock["revision"]
+    subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"],
+                   cwd=source, check=True)
+    # Export from the upstream pin, including port changes already committed
+    # locally. HEAD is a checkpoint, not necessarily the pristine source.
+    tracked = git("diff", "--ignore-submodules=all", "--no-renames",
+                  "--name-only", revision, text=True).splitlines()
     added = git("ls-files", "--others", "--exclude-standard", text=True).splitlines()
     buckets = collections.defaultdict(list)
     for path in tracked + added:
@@ -79,7 +83,7 @@ def main():
     for key, name in GROUPS.items():
         paths = sorted(buckets[key])
         common = [p for p in paths if p in tracked]
-        patch = git("diff", "--binary", "HEAD", "--", *common) if common else b""
+        patch = git("diff", "--binary", "--no-renames", revision, "--", *common) if common else b""
         for path in paths:
             if path not in added:
                 continue
@@ -91,7 +95,7 @@ def main():
         (ROOT / "patches" / name).write_bytes(patch)
     (ROOT / "patches/series").write_text("\n".join(GROUPS.values()) + "\n")
     # Keep the readable overlay aligned with the actual new build files.
-    for path in added:
+    for path in tracked + added:
         if path.startswith(("build/config/ohos/", "build/toolchain/ohos/", "ohos/bringup/")):
             dest = ROOT / "overlay" / path
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -102,13 +106,22 @@ def main():
         for path in tracked:
             dest = clean / path
             dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(git("show", "HEAD:" + path))
+            original = subprocess.run(["git", "show", revision + ":" + path],
+                                      cwd=source, capture_output=True)
+            if original.returncode == 0:
+                dest.write_bytes(original.stdout)
+            elif (source / path).exists():
+                # A committed addition has no pristine blob to seed.
+                subprocess.run(["git", "cat-file", "-e", revision],
+                               cwd=source, check=True)
         for name in GROUPS.values():
             patch = ROOT / "patches" / name
             subprocess.run(["git", "apply", "--check", patch], cwd=clean, check=True)
             subprocess.run(["git", "apply", patch], cwd=clean, check=True)
         for path in tracked + added:
-            if (clean / path).read_bytes() != (source / path).read_bytes():
+            actual, expected = clean / path, source / path
+            if actual.exists() != expected.exists() or (
+                    actual.exists() and actual.read_bytes() != expected.read_bytes()):
                 raise RuntimeError(f"Patch replay differs: {path}")
     report = {"revision": lock["revision"], "tracked_files": len(tracked),
               "added_files": len(added), "replay_matches_worktree": True,

@@ -176,52 +176,6 @@ index 73915fef4f..c64ecca47f 100644
  
    # Enables the DWARF line number reader on Linux. This only has an effect if
    # print_unsymbolized_stack_traces is false.
-diff --git a/build/config/sysroot.gni b/build/config/sysroot.gni
-index e7aaa18479..8f498c4949 100644
---- a/build/config/sysroot.gni
-+++ b/build/config/sysroot.gni
-@@ -29,6 +29,9 @@ if (sysroot == "") {
- 
-     # Android uses unified headers, and thus a single compile time sysroot
-     sysroot = "$android_toolchain_root/sysroot"
-+  } else if (is_ohos) {
-+    import("//build/config/ohos/config.gni")
-+    sysroot = ohos_sysroot
-   } else if ((is_linux || is_chromeos) && use_sysroot) {
-     # By default build against a sysroot image downloaded from Cloud Storage
-     # during gclient runhooks.
-diff --git a/build/modules/BUILD.gn b/build/modules/BUILD.gn
-index 27ba1a128f..454ce356ef 100644
---- a/build/modules/BUILD.gn
-+++ b/build/modules/BUILD.gn
-@@ -101,7 +101,7 @@ if (use_unified_system_module) {
-     extra_headers += [ ":ios_sysroot(${default_toolchain})" ]
-   } else if (is_mac && use_system_xcode) {
-     extra_headers += [ ":mac_sysroot(${default_toolchain})" ]
--  } else if (is_linux || is_mac || is_android || is_chromeos) {
-+  } else if (is_linux || is_mac || is_android || is_chromeos || is_ohos) {
-     root_include_dir = "usr/include"
-   } else if (is_fuchsia) {
-     root_include_dir = "include"
-diff --git a/build_overrides/partition_alloc.gni b/build_overrides/partition_alloc.gni
-index f5956013a8..595c2637e9 100644
---- a/build_overrides/partition_alloc.gni
-+++ b/build_overrides/partition_alloc.gni
-@@ -77,6 +77,14 @@ _disable_partition_alloc_everywhere =
- 
- use_allocator_shim_default = true  # Updated below:
- 
-+# HAP loads the native adapter before the browser library. Their public C++
-+# interfaces transfer strings and containers between the two DSOs, so both
-+# must use the same libc heap. The adapter's eager libc bindings cannot be
-+# redirected by an allocator shim loaded later with the browser library.
-+if (is_ohos) {
-+  use_allocator_shim_default = false
-+}
-+
- # Sanitizers replace the allocator, don't use our own.
- if (is_asan || is_hwasan || is_lsan || is_tsan || is_msan) {
-   use_allocator_shim_default = false
 diff --git a/build/config/ohos/BUILD.gn b/build/config/ohos/BUILD.gn
 new file mode 100644
 index 0000000000..eee01c1a14
@@ -304,6 +258,33 @@ index 0000000000..46320e411e
 +if (current_os == "ohos") {
 +  assert(current_cpu == "arm64", "Initial OHOS port supports arm64 only.")
 +}
+diff --git a/build/config/sysroot.gni b/build/config/sysroot.gni
+index e7aaa18479..8f498c4949 100644
+--- a/build/config/sysroot.gni
++++ b/build/config/sysroot.gni
+@@ -29,6 +29,9 @@ if (sysroot == "") {
+ 
+     # Android uses unified headers, and thus a single compile time sysroot
+     sysroot = "$android_toolchain_root/sysroot"
++  } else if (is_ohos) {
++    import("//build/config/ohos/config.gni")
++    sysroot = ohos_sysroot
+   } else if ((is_linux || is_chromeos) && use_sysroot) {
+     # By default build against a sysroot image downloaded from Cloud Storage
+     # during gclient runhooks.
+diff --git a/build/modules/BUILD.gn b/build/modules/BUILD.gn
+index 27ba1a128f..454ce356ef 100644
+--- a/build/modules/BUILD.gn
++++ b/build/modules/BUILD.gn
+@@ -101,7 +101,7 @@ if (use_unified_system_module) {
+     extra_headers += [ ":ios_sysroot(${default_toolchain})" ]
+   } else if (is_mac && use_system_xcode) {
+     extra_headers += [ ":mac_sysroot(${default_toolchain})" ]
+-  } else if (is_linux || is_mac || is_android || is_chromeos) {
++  } else if (is_linux || is_mac || is_android || is_chromeos || is_ohos) {
+     root_include_dir = "usr/include"
+   } else if (is_fuchsia) {
+     root_include_dir = "include"
 diff --git a/build/toolchain/ohos/BUILD.gn b/build/toolchain/ohos/BUILD.gn
 new file mode 100644
 index 0000000000..82f5d5c6af
@@ -332,3 +313,22 @@ index 0000000000..82f5d5c6af
 +  readelf = "$_bin/llvm-readobj"
 +  loadable_module_extension = ".so"
 +}
+diff --git a/build_overrides/partition_alloc.gni b/build_overrides/partition_alloc.gni
+index f5956013a8..595c2637e9 100644
+--- a/build_overrides/partition_alloc.gni
++++ b/build_overrides/partition_alloc.gni
+@@ -77,6 +77,14 @@ _disable_partition_alloc_everywhere =
+ 
+ use_allocator_shim_default = true  # Updated below:
+ 
++# HAP loads the native adapter before the browser library. Their public C++
++# interfaces transfer strings and containers between the two DSOs, so both
++# must use the same libc heap. The adapter's eager libc bindings cannot be
++# redirected by an allocator shim loaded later with the browser library.
++if (is_ohos) {
++  use_allocator_shim_default = false
++}
++
+ # Sanitizers replace the allocator, don't use our own.
+ if (is_asan || is_hwasan || is_lsan || is_tsan || is_msan) {
+   use_allocator_shim_default = false

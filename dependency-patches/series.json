@@ -5,10 +5,13 @@
     "patch": "v8-ohos-metagen.patch",
     "files": [
       "BUILD.gn",
+      "src/base/immediate-crash.h",
+      "src/base/platform/platform-posix.cc",
+      "src/heap/code-range.cc",
       "tools/metagen/compile_flags.py",
       "tools/metagen/test/compile_flags_test.py"
     ],
-    "sha256": "078978302698fb5b4aeae48c0b3b5dfbf5bda058b28617f460e1bb418cb9d5b4",
+    "sha256": "dfd2e45f1774dccc0471d6bd6173305a80368947ed4e843158138c5154886d99",
     "replay_matches_worktree": true
   },
   {
@@ -45,12 +48,12 @@
     "files": [
       "BUILD.gn",
       "modules/desktop_capture/BUILD.gn",
-      "rtc_base/platform_thread_types.cc",
-      "webrtc.gni",
       "modules/desktop_capture/ohos/native_desktop_capturer.cc",
-      "modules/desktop_capture/ohos/native_desktop_capturer.h"
+      "modules/desktop_capture/ohos/native_desktop_capturer.h",
+      "rtc_base/platform_thread_types.cc",
+      "webrtc.gni"
     ],
-    "sha256": "3ef6716551b9ff758116c7783dc06eca852191f4763222f34c066ea81575498d",
+    "sha256": "d9715e5d5ead1b27d06bf4f6931e1be2bf065540fb988b354f7efd708ba11384",
     "replay_matches_worktree": true
   },
   {

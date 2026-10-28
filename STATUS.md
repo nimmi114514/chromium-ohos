@@ -1,5 +1,24 @@
 # Chromium158 / OHOS API26
 
+## 当前交付：2026-10-28 原生历史/书签弹窗与 JIT 启动修复
+
+- 包名继续使用 `com.example.ohos.chromium`，覆盖安装保留原有 Profile，不覆盖132应用。
+- 原生历史与书签工具栏入口改用 Views 弹窗，读取真实 HistoryService/BookmarkModel；
+  跟随 Chromium 主题，并参考原生下载弹窗的尺寸、标题按钮、边距和底部入口。
+- 修复弹窗关闭后仍监听书签模型所导致的悬空控件访问；显式管理 Widget 与 delegate
+  所有权，关闭时撤销观察和异步任务，新增收藏复用 Chromium 原生收藏流程。
+- OHOS 的 V8 builtins 启动路径改用既有复制回退，避开嵌入代码页重映射的断言崩溃；
+  保留系统权限/安全模式对 JIT 的运行时门控，不重新引入 JITFort。
+- 原生编译、HAP 打包、235项内容检查、签名校验通过；最新包已覆盖安装。
+  用户反馈本次问题已正常。此反馈与局部设备检查不代表所有功能全面回归通过。
+
+当前 signed HAP SHA256：
+`7b841aa6bc5b31d3fad973c5b44cccd2e51659e8bcb2d5ada74ce5dfa8ef196a`。
+输出路径仍为 `artifacts/chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap`。
+详细交付索引见 [2026-10-28交付记录](docs/delivery-2026-10-28.md)。
+
+下方 native107 等章节为历史记录，验证范围按各自记录解释。
+
 ## 当前：native107 密码填充认证与截图隐私状态修正
 
 2026-10-26。包名为 `com.example.ohos.chromium`，不覆盖132。

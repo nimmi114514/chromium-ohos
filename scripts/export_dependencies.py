@@ -24,17 +24,16 @@ def export(source):
     output = ROOT / "dependency-patches"
     output.mkdir(exist_ok=True)
     records = []
+    revision_pin = json.loads((ROOT / "versions.json").read_text())["chromium"]["revision"]
     for path, name in DEPENDENCIES.items():
         repo = source / path
         entry = subprocess.check_output(
-            ["git", "ls-tree", "HEAD", "--", path], cwd=source, text=True)
+            ["git", "ls-tree", revision_pin, "--", path], cwd=source, text=True)
         mode, kind, revision, _ = entry.split()
         assert mode == "160000" and kind == "commit", path
-        actual = subprocess.check_output(["git", "rev-parse", "HEAD"],
-                                         cwd=repo, text=True).strip()
-        if actual != revision:
-            raise RuntimeError(f"Dependency revision differs from Chromium pin: {path}")
-        tracked = subprocess.check_output(["git", "diff", "--name-only", "HEAD"],
+        subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"],
+                       cwd=repo, check=True)
+        tracked = subprocess.check_output(["git", "diff", "--no-renames", "--name-only", revision],
                                         cwd=repo, text=True).splitlines()
         added = subprocess.check_output(
             ["git", "ls-files", "--others", "--exclude-standard"], cwd=repo,
@@ -42,7 +41,7 @@ def export(source):
         files = tracked + added
         if not files:
             continue
-        patch = subprocess.check_output(["git", "diff", "--binary", "HEAD"], cwd=repo)
+        patch = subprocess.check_output(["git", "diff", "--binary", "--no-renames", revision], cwd=repo)
         for file in added:
             diff = subprocess.run(["git", "diff", "--no-index", "--binary", "--",
                                    "/dev/null", file], cwd=repo, capture_output=True)
@@ -55,13 +54,17 @@ def export(source):
             for file in tracked:
                 dest = clean / file
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(subprocess.check_output(
-                    ["git", "show", "HEAD:" + file], cwd=repo))
+                original = subprocess.run(["git", "show", revision + ":" + file],
+                                          cwd=repo, capture_output=True)
+                if original.returncode == 0:
+                    dest.write_bytes(original.stdout)
             subprocess.run(["git", "init", "--quiet", clean], check=True)
             subprocess.run(["git", "apply", "--check", output / name], cwd=clean, check=True)
             subprocess.run(["git", "apply", output / name], cwd=clean, check=True)
             for file in files:
-                if (clean / file).read_bytes() != (repo / file).read_bytes():
+                actual, expected = clean / file, repo / file
+                if actual.exists() != expected.exists() or (
+                        actual.exists() and actual.read_bytes() != expected.read_bytes()):
                     raise RuntimeError(f"Dependency patch replay differs: {path}/{file}")
         records.append({"path": path, "revision": revision, "patch": name,
                         "files": files, "sha256": hashlib.sha256(patch).hexdigest(),

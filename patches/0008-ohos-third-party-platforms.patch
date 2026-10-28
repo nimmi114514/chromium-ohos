@@ -159,6 +159,142 @@ index 674a5e013a..a284e099ab 100644
 +    "layout_theme_ohos.h",
 +  ]
 +}
+diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.cc b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
+new file mode 100644
+index 0000000000..5d2bf2cb9f
+--- /dev/null
++++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "third_party/blink/renderer/core/layout/layout_theme_ohos.h"
++#include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
++
++
++namespace blink {
++
++scoped_refptr<LayoutTheme> LayoutThemeOhos::Create() {
++  return base::AdoptRef(new LayoutThemeOhos());
++}
++
++LayoutTheme& LayoutTheme::NativeTheme() {
++  DEFINE_STATIC_REF(LayoutTheme, layout_theme, (LayoutThemeOhos::Create()));
++  return *layout_theme;
++}
++
++LayoutThemeOhos::~LayoutThemeOhos() {}
++
++Color LayoutThemeOhos::PlatformActiveSelectionBackgroundColor(
++    mojom::blink::ColorScheme color_scheme) const {
++  return color_scheme == mojom::blink::ColorScheme::kDark
++             ? Color::FromRGBA32(0xFF99C8FF)
++             : LayoutThemeOhos::kDefaultActiveSelectionBackgroundColor;
++}
++
++Color LayoutThemeOhos::PlatformActiveSelectionForegroundColor(
++    mojom::blink::ColorScheme color_scheme) const {
++  return color_scheme == mojom::blink::ColorScheme::kDark
++             ? Color::FromRGBA32(0xFF3B3B3B)
++             : LayoutThemeDefault::PlatformActiveSelectionForegroundColor(
++                   color_scheme);
++}
++
++void LayoutThemeOhos::AdjustInnerSpinButtonStyle(
++    ComputedStyleBuilder& builder) const {
++  LayoutThemeDefault::AdjustInnerSpinButtonStyle(builder);
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.h b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
+new file mode 100644
+index 0000000000..2af353b470
+--- /dev/null
++++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
++#define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
++
++#include "third_party/blink/renderer/core/layout/layout_theme_default.h"
++
++namespace blink {
++
++class LayoutThemeOhos final : public LayoutThemeDefault {
++ public:
++  static scoped_refptr<LayoutTheme> Create();
++
++  Color PlatformActiveSelectionBackgroundColor(
++      mojom::blink::ColorScheme color_scheme) const override;
++  Color PlatformActiveSelectionForegroundColor(
++      mojom::blink::ColorScheme color_scheme) const override;
++  void AdjustInnerSpinButtonStyle(ComputedStyleBuilder&) const override;
++
++ private:
++  ~LayoutThemeOhos() override;
++
++ private:
++  static constexpr Color kDefaultActiveSelectionBackgroundColor =
++      Color::FromRGBA32(0xFF1967D2);
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
 diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
 index da36201679..4d1c3a05b9 100644
 --- a/third_party/blink/renderer/platform/BUILD.gn
@@ -244,6 +380,324 @@ index 4a2c5d5f45..32cebcd016 100644
    std::unique_ptr<FontTableMatcher> font_table_matcher_;
  #endif
  };
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
+new file mode 100644
+index 0000000000..9f71802fe5
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
+@@ -0,0 +1,97 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++// Uses the OHOS Skia font manager, as in the original OHOS port.
++#include "third_party/blink/renderer/platform/fonts/font_cache.h"
++
++#include "skia/ext/font_utils.h"
++#include "third_party/blink/renderer/platform/fonts/font_platform_data.h"
++#include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
++#include "third_party/skia/include/core/SkString.h"
++#include "third_party/skia/include/core/SkTypeface.h"
++
++namespace blink {
++
++static AtomicString& MutableSystemFontFamily() {
++  DEFINE_THREAD_SAFE_STATIC_LOCAL(AtomicString, system_font_family, ([] {
++    SkString family;
++    if (auto typeface = skia::DefaultTypeface()) {
++      typeface->getFamilyName(&family);
++    }
++    return family.isEmpty() ? AtomicString("sans-serif")
++                            : AtomicString::FromUtf8(family.c_str());
++  }()));
++  return system_font_family;
++}
++
++// static
++const AtomicString& FontCache::SystemFontFamily() {
++  return MutableSystemFontFamily();
++}
++
++// static
++void FontCache::SetSystemFontFamily(const AtomicString& family_name) {
++  DCHECK(!family_name.empty());
++  MutableSystemFontFamily() = family_name;
++}
++
++const SimpleFontData* FontCache::PlatformFallbackFontForCharacter(
++    const FontDescription& font_description,
++    UChar32 character,
++    const SimpleFontData* font_data_to_substitute,
++    FontFallbackPriority fallback_priority) {
++  sk_sp<SkFontMgr> font_mgr(skia::DefaultFontMgr());
++  if (!font_mgr) {
++    return nullptr;
++  }
++  std::string family_name = font_description.Family().FamilyName().Utf8();
++  Bcp47Vector locales =
++      GetBcp47LocaleForRequest(font_description, fallback_priority);
++  sk_sp<SkTypeface> typeface(font_mgr->matchFamilyStyleCharacter(
++      family_name.c_str(), font_description.SkiaFontStyle(), locales.data(),
++      locales.size(), character));
++  if (!typeface)
++    return nullptr;
++
++  bool synthetic_bold = font_description.Weight() >= kBoldThreshold &&
++                        !typeface->isBold() &&
++                        font_description.SyntheticBoldAllowed();
++  bool synthetic_italic = font_description.Style() > kNormalSlopeValue &&
++                          !typeface->isItalic() &&
++                          font_description.SyntheticItalicAllowed();
++
++  const auto* font_data = MakeGarbageCollected<FontPlatformData>(
++      std::move(typeface), std::string(), font_description.EffectiveFontSize(),
++      synthetic_bold, synthetic_italic, font_description.TextRendering(),
++      ResolvedFontFeatures(), font_description.Orientation());
++
++  return FontDataFromFontPlatformData(font_data);
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
+new file mode 100644
+index 0000000000..9660f8dd5b
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
+@@ -0,0 +1,130 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h"
++
++#include "base/files/file.h"
++#include "base/logging.h"
++#include "base/metrics/histogram_macros.h"
++#include "base/timer/elapsed_timer.h"
++#include "third_party/blink/public/common/features.h"
++#include "third_party/blink/public/common/font_unique_name_lookup/icu_fold_case_util.h"
++#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
++#include "third_party/blink/public/platform/platform.h"
++#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
++#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
++#include "third_party/skia/include/core/SkData.h"
++#include "third_party/skia/include/core/SkRefCnt.h"
++#include "third_party/skia/include/core/SkTypeface.h"
++#include "skia/ext/font_utils.h"
++#include "third_party/skia/include/core/SkFontMgr.h"
++
++#include "base/logging.h"
++
++namespace blink {
++
++FontUniqueNameLookupOhos::~FontUniqueNameLookupOhos() = default;
++
++sk_sp<SkTypeface> FontUniqueNameLookupOhos::MatchUniqueName(
++    const String& font_unique_name) {
++  if (!IsFontUniqueNameLookupReadyForSyncLookup())
++    return nullptr;
++  std::optional<FontTableMatcher::MatchResult> match_result =
++      font_table_matcher_->MatchName(font_unique_name.Utf8().c_str());
++  if (!match_result)
++    return nullptr;
++  return skia::DefaultFontMgr()->makeFromFile(match_result->font_path.c_str(),
++                                              match_result->ttc_index);
++}
++
++void FontUniqueNameLookupOhos::Init() {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++
++  // 158 removed the prefetch feature gate. Keep the original OHOS service
++  // connection; table loading still follows the shared-memory lookup protocol.
++  EnsureServiceConnected();
++}
++
++bool FontUniqueNameLookupOhos::IsFontUniqueNameLookupReadyForSyncLookup() {
++  EnsureServiceConnected();
++
++  if (font_table_matcher_.get())
++    return true;
++
++  if (sync_available_.has_value())
++    return sync_available_.value();
++
++  bool sync_available_from_mojo = false;
++  base::ReadOnlySharedMemoryRegion shared_memory_region;
++  ohos_font_lookup_service_->GetUniqueNameLookupTableIfAvailable(
++      &sync_available_from_mojo, &shared_memory_region);
++  sync_available_ = sync_available_from_mojo;
++
++  if (*sync_available_) {
++    DCHECK_EQ(pending_callbacks_.size(), 0u);
++    ReceiveReadOnlySharedMemoryRegion(std::move(shared_memory_region));
++  }
++
++  return *sync_available_;
++}
++
++void FontUniqueNameLookupOhos::PrepareFontUniqueNameLookup(
++    NotifyFontUniqueNameLookupReady callback) {
++  DCHECK(!font_table_matcher_.get());
++
++  pending_callbacks_.push_back(std::move(callback));
++
++  if (pending_callbacks_.size() > 1)
++    return;
++
++  EnsureServiceConnected();
++
++  ohos_font_lookup_service_->GetUniqueNameLookupTable(base::BindOnce(
++      &FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion,
++      base::Unretained(this)));
++}
++
++void FontUniqueNameLookupOhos::EnsureServiceConnected() {
++  if (!ohos_font_lookup_service_) {
++    Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
++        ohos_font_lookup_service_.BindNewPipeAndPassReceiver());
++  }
++}
++
++void FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion(
++    base::ReadOnlySharedMemoryRegion shared_memory_region) {
++  font_table_matcher_ =
++      std::make_unique<FontTableMatcher>(shared_memory_region.Map());
++  while (!pending_callbacks_.empty()) {
++    NotifyFontUniqueNameLookupReady callback = pending_callbacks_.TakeFirst();
++    std::move(callback).Run();
++  }
++}
++
++}  // namespace blink
+diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
+new file mode 100644
+index 0000000000..840b664e4e
+--- /dev/null
++++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
+@@ -0,0 +1,73 @@
++/*
++ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this list of
++ *    conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
++ *    of conditions and the following disclaimer in the documentation and/or other materials
++ *    provided with the distribution.
++ *
++ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
++ *    to endorse or promote products derived from this software without specific prior written
++ *    permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
++#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
++
++#include "base/sequence_checker.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "third_party/blink/public/common/font_unique_name_lookup/font_table_matcher.h"
++#include "third_party/blink/public/mojom/font_unique_name_lookup/font_unique_name_lookup.mojom-blink.h"
++#include "third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h"
++#include "third_party/blink/renderer/platform/wtf/deque.h"
++
++namespace blink {
++
++class FontUniqueNameLookupOhos : public FontUniqueNameLookup {
++ public:
++  FontUniqueNameLookupOhos() = default;
++  FontUniqueNameLookupOhos(const FontUniqueNameLookupOhos&) = delete;
++  FontUniqueNameLookupOhos& operator=(const FontUniqueNameLookupOhos&) = delete;
++  ~FontUniqueNameLookupOhos() override;
++
++  bool IsFontUniqueNameLookupReadyForSyncLookup() override;
++
++  void PrepareFontUniqueNameLookup(
++      NotifyFontUniqueNameLookupReady callback) override;
++
++  sk_sp<SkTypeface> MatchUniqueName(const String& font_unique_name) override;
++
++  void Init() override;
++
++ private:
++  void EnsureServiceConnected();
++
++  void ReceiveReadOnlySharedMemoryRegion(
++      base::ReadOnlySharedMemoryRegion shared_memory_region);
++
++  mojo::Remote<mojom::blink::FontUniqueNameLookup> ohos_font_lookup_service_;
++  Deque<NotifyFontUniqueNameLookupReady> pending_callbacks_;
++  std::optional<bool> sync_available_;
++
++  SEQUENCE_CHECKER(sequence_checker_);
++};
++
++}  // namespace blink
++
++#endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
 diff --git a/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc b/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc
 index 1d9e9a46ee..2dbc34be84 100644
 --- a/third_party/blink/renderer/platform/fonts/skia/sktypeface_factory.cc
@@ -1307,6 +1761,111 @@ index 8f951683e8..f802578f12 100644
    return close(fd);
  #endif
  }
+diff --git a/third_party/wiseplay/cdm/BUILD.gn b/third_party/wiseplay/cdm/BUILD.gn
+new file mode 100644
+index 0000000000..d04e6e1644
+--- /dev/null
++++ b/third_party/wiseplay/cdm/BUILD.gn
+@@ -0,0 +1,31 @@
++# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/buildflag_header.gni")
++import("//build/config/chrome_build.gni")
++import("//build/config/features.gni")
++import("//build/toolchain/toolchain.gni")
++import("//media/media_options.gni")
++import("//third_party/wiseplay/cdm/wiseplay.gni")
++
++buildflag_header("buildflags") {
++  header = "buildflags.h"
++
++  flags = [
++    "ENABLE_WISEPLAY=$enable_wiseplay",
++  ]
++}
++
++source_set("headers") {
++  public = [ "wiseplay_cdm_common.h" ]
++
++  public_deps = [
++    ":buildflags",
++    "//base",
++  ]
++}
++
++group("cdm") {
++    # NOP
++  }
+\ No newline at end of file
+diff --git a/third_party/wiseplay/cdm/wiseplay.gni b/third_party/wiseplay/cdm/wiseplay.gni
+new file mode 100644
+index 0000000000..55f0ef088a
+--- /dev/null
++++ b/third_party/wiseplay/cdm/wiseplay.gni
+@@ -0,0 +1,14 @@
++# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/config/chrome_build.gni")
++import("//media/media_options.gni")
++
++declare_args() {
++  # Enables wiseplay key system support. Disabled by default on OHOS
++  enable_wiseplay = is_ohos
++    # Relative root directory to //third_party/wiseplay/cdm for CDM files.
++    # Can be overridden if the CDM files are located in other places.
++    wiseplay_root = "."
++}
+\ No newline at end of file
+diff --git a/third_party/wiseplay/cdm/wiseplay_cdm_common.h b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
+new file mode 100644
+index 0000000000..60f710b639
+--- /dev/null
++++ b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
+@@ -0,0 +1,39 @@
++// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
++#define WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
++#include "media/cdm/cdm_type.h"  // nogncheck
++
++// Default constants common to all WisePlay CDMs.
++
++inline constexpr char kWisePlayKeySystem[] = "com.wiseplay.drm";
++
++// WisePlay CDM files are in a directory with this name. This path is also
++// hardcoded in some build files and changing it requires changing the build
++// files as well.
++inline constexpr char kWisePlayCdmBaseDirectory[] = "WisePlayCdm";
++
++// Media Foundation WisePlay CDM files are in a directory with this name.
++inline constexpr char kMediaFoundationWisePlayCdmBaseDirection[] =
++    "MediaFoundationWisePlayCdm";
++
++// This name is used by UMA. Do not change it!
++inline constexpr char kWisePlayKeySystemNameForUMA[] = "WisePlay";
++
++// Name of the CDM library.
++inline constexpr char kWisePlayCdmLibraryName[] = "WisePlaycdm";
++
++inline constexpr char kWisePlayCdmDisplayName[] =
++    "WisePlay Content Decryption Module";
++
++// Identifier used for CDM process site isolation. // ZYX_TODO
++inline constexpr media::CdmType kWisePlayCdmType{0x05d908e5dcca9960ull,
++                                                 0xcd92d30eac98157aull};
++
++inline const uint8_t kWiseplayUuid[16] = {0x3D, 0x5E, 0x6D, 0x35, 0x9B, 0x9A,
++                                          0x41, 0xE8, 0xB8, 0x43, 0xDD, 0x3C,
++                                          0x6E, 0x72, 0xC4, 0x2C};
++
++#endif // WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
+\ No newline at end of file
 diff --git a/third_party/zlib/BUILD.gn b/third_party/zlib/BUILD.gn
 index 29248e1da4..66fec20cb2 100644
 --- a/third_party/zlib/BUILD.gn
@@ -1469,562 +2028,3 @@ index 4c1ecb080a..7e7ad4e850 100755
    'windows',
  ]
  
-diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.cc b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
-new file mode 100644
-index 0000000000..5d2bf2cb9f
---- /dev/null
-+++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.cc
-@@ -0,0 +1,67 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "third_party/blink/renderer/core/layout/layout_theme_ohos.h"
-+#include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink.h"
-+
-+
-+namespace blink {
-+
-+scoped_refptr<LayoutTheme> LayoutThemeOhos::Create() {
-+  return base::AdoptRef(new LayoutThemeOhos());
-+}
-+
-+LayoutTheme& LayoutTheme::NativeTheme() {
-+  DEFINE_STATIC_REF(LayoutTheme, layout_theme, (LayoutThemeOhos::Create()));
-+  return *layout_theme;
-+}
-+
-+LayoutThemeOhos::~LayoutThemeOhos() {}
-+
-+Color LayoutThemeOhos::PlatformActiveSelectionBackgroundColor(
-+    mojom::blink::ColorScheme color_scheme) const {
-+  return color_scheme == mojom::blink::ColorScheme::kDark
-+             ? Color::FromRGBA32(0xFF99C8FF)
-+             : LayoutThemeOhos::kDefaultActiveSelectionBackgroundColor;
-+}
-+
-+Color LayoutThemeOhos::PlatformActiveSelectionForegroundColor(
-+    mojom::blink::ColorScheme color_scheme) const {
-+  return color_scheme == mojom::blink::ColorScheme::kDark
-+             ? Color::FromRGBA32(0xFF3B3B3B)
-+             : LayoutThemeDefault::PlatformActiveSelectionForegroundColor(
-+                   color_scheme);
-+}
-+
-+void LayoutThemeOhos::AdjustInnerSpinButtonStyle(
-+    ComputedStyleBuilder& builder) const {
-+  LayoutThemeDefault::AdjustInnerSpinButtonStyle(builder);
-+}
-+
-+}  // namespace blink
-diff --git a/third_party/blink/renderer/core/layout/layout_theme_ohos.h b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
-new file mode 100644
-index 0000000000..2af353b470
---- /dev/null
-+++ b/third_party/blink/renderer/core/layout/layout_theme_ohos.h
-@@ -0,0 +1,57 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
-+#define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
-+
-+#include "third_party/blink/renderer/core/layout/layout_theme_default.h"
-+
-+namespace blink {
-+
-+class LayoutThemeOhos final : public LayoutThemeDefault {
-+ public:
-+  static scoped_refptr<LayoutTheme> Create();
-+
-+  Color PlatformActiveSelectionBackgroundColor(
-+      mojom::blink::ColorScheme color_scheme) const override;
-+  Color PlatformActiveSelectionForegroundColor(
-+      mojom::blink::ColorScheme color_scheme) const override;
-+  void AdjustInnerSpinButtonStyle(ComputedStyleBuilder&) const override;
-+
-+ private:
-+  ~LayoutThemeOhos() override;
-+
-+ private:
-+  static constexpr Color kDefaultActiveSelectionBackgroundColor =
-+      Color::FromRGBA32(0xFF1967D2);
-+};
-+
-+}  // namespace blink
-+
-+#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
-diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
-new file mode 100644
-index 0000000000..9f71802fe5
---- /dev/null
-+++ b/third_party/blink/renderer/platform/fonts/ohos/font_cache_ohos.cc
-@@ -0,0 +1,97 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+// Uses the OHOS Skia font manager, as in the original OHOS port.
-+#include "third_party/blink/renderer/platform/fonts/font_cache.h"
-+
-+#include "skia/ext/font_utils.h"
-+#include "third_party/blink/renderer/platform/fonts/font_platform_data.h"
-+#include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
-+#include "third_party/skia/include/core/SkString.h"
-+#include "third_party/skia/include/core/SkTypeface.h"
-+
-+namespace blink {
-+
-+static AtomicString& MutableSystemFontFamily() {
-+  DEFINE_THREAD_SAFE_STATIC_LOCAL(AtomicString, system_font_family, ([] {
-+    SkString family;
-+    if (auto typeface = skia::DefaultTypeface()) {
-+      typeface->getFamilyName(&family);
-+    }
-+    return family.isEmpty() ? AtomicString("sans-serif")
-+                            : AtomicString::FromUtf8(family.c_str());
-+  }()));
-+  return system_font_family;
-+}
-+
-+// static
-+const AtomicString& FontCache::SystemFontFamily() {
-+  return MutableSystemFontFamily();
-+}
-+
-+// static
-+void FontCache::SetSystemFontFamily(const AtomicString& family_name) {
-+  DCHECK(!family_name.empty());
-+  MutableSystemFontFamily() = family_name;
-+}
-+
-+const SimpleFontData* FontCache::PlatformFallbackFontForCharacter(
-+    const FontDescription& font_description,
-+    UChar32 character,
-+    const SimpleFontData* font_data_to_substitute,
-+    FontFallbackPriority fallback_priority) {
-+  sk_sp<SkFontMgr> font_mgr(skia::DefaultFontMgr());
-+  if (!font_mgr) {
-+    return nullptr;
-+  }
-+  std::string family_name = font_description.Family().FamilyName().Utf8();
-+  Bcp47Vector locales =
-+      GetBcp47LocaleForRequest(font_description, fallback_priority);
-+  sk_sp<SkTypeface> typeface(font_mgr->matchFamilyStyleCharacter(
-+      family_name.c_str(), font_description.SkiaFontStyle(), locales.data(),
-+      locales.size(), character));
-+  if (!typeface)
-+    return nullptr;
-+
-+  bool synthetic_bold = font_description.Weight() >= kBoldThreshold &&
-+                        !typeface->isBold() &&
-+                        font_description.SyntheticBoldAllowed();
-+  bool synthetic_italic = font_description.Style() > kNormalSlopeValue &&
-+                          !typeface->isItalic() &&
-+                          font_description.SyntheticItalicAllowed();
-+
-+  const auto* font_data = MakeGarbageCollected<FontPlatformData>(
-+      std::move(typeface), std::string(), font_description.EffectiveFontSize(),
-+      synthetic_bold, synthetic_italic, font_description.TextRendering(),
-+      ResolvedFontFeatures(), font_description.Orientation());
-+
-+  return FontDataFromFontPlatformData(font_data);
-+}
-+
-+}  // namespace blink
-diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
-new file mode 100644
-index 0000000000..9660f8dd5b
---- /dev/null
-+++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.cc
-@@ -0,0 +1,130 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h"
-+
-+#include "base/files/file.h"
-+#include "base/logging.h"
-+#include "base/metrics/histogram_macros.h"
-+#include "base/timer/elapsed_timer.h"
-+#include "third_party/blink/public/common/features.h"
-+#include "third_party/blink/public/common/font_unique_name_lookup/icu_fold_case_util.h"
-+#include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
-+#include "third_party/blink/public/platform/platform.h"
-+#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
-+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-+#include "third_party/skia/include/core/SkData.h"
-+#include "third_party/skia/include/core/SkRefCnt.h"
-+#include "third_party/skia/include/core/SkTypeface.h"
-+#include "skia/ext/font_utils.h"
-+#include "third_party/skia/include/core/SkFontMgr.h"
-+
-+#include "base/logging.h"
-+
-+namespace blink {
-+
-+FontUniqueNameLookupOhos::~FontUniqueNameLookupOhos() = default;
-+
-+sk_sp<SkTypeface> FontUniqueNameLookupOhos::MatchUniqueName(
-+    const String& font_unique_name) {
-+  if (!IsFontUniqueNameLookupReadyForSyncLookup())
-+    return nullptr;
-+  std::optional<FontTableMatcher::MatchResult> match_result =
-+      font_table_matcher_->MatchName(font_unique_name.Utf8().c_str());
-+  if (!match_result)
-+    return nullptr;
-+  return skia::DefaultFontMgr()->makeFromFile(match_result->font_path.c_str(),
-+                                              match_result->ttc_index);
-+}
-+
-+void FontUniqueNameLookupOhos::Init() {
-+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-+
-+  // 158 removed the prefetch feature gate. Keep the original OHOS service
-+  // connection; table loading still follows the shared-memory lookup protocol.
-+  EnsureServiceConnected();
-+}
-+
-+bool FontUniqueNameLookupOhos::IsFontUniqueNameLookupReadyForSyncLookup() {
-+  EnsureServiceConnected();
-+
-+  if (font_table_matcher_.get())
-+    return true;
-+
-+  if (sync_available_.has_value())
-+    return sync_available_.value();
-+
-+  bool sync_available_from_mojo = false;
-+  base::ReadOnlySharedMemoryRegion shared_memory_region;
-+  ohos_font_lookup_service_->GetUniqueNameLookupTableIfAvailable(
-+      &sync_available_from_mojo, &shared_memory_region);
-+  sync_available_ = sync_available_from_mojo;
-+
-+  if (*sync_available_) {
-+    DCHECK_EQ(pending_callbacks_.size(), 0u);
-+    ReceiveReadOnlySharedMemoryRegion(std::move(shared_memory_region));
-+  }
-+
-+  return *sync_available_;
-+}
-+
-+void FontUniqueNameLookupOhos::PrepareFontUniqueNameLookup(
-+    NotifyFontUniqueNameLookupReady callback) {
-+  DCHECK(!font_table_matcher_.get());
-+
-+  pending_callbacks_.push_back(std::move(callback));
-+
-+  if (pending_callbacks_.size() > 1)
-+    return;
-+
-+  EnsureServiceConnected();
-+
-+  ohos_font_lookup_service_->GetUniqueNameLookupTable(base::BindOnce(
-+      &FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion,
-+      base::Unretained(this)));
-+}
-+
-+void FontUniqueNameLookupOhos::EnsureServiceConnected() {
-+  if (!ohos_font_lookup_service_) {
-+    Platform::Current()->GetBrowserInterfaceBroker()->GetInterface(
-+        ohos_font_lookup_service_.BindNewPipeAndPassReceiver());
-+  }
-+}
-+
-+void FontUniqueNameLookupOhos::ReceiveReadOnlySharedMemoryRegion(
-+    base::ReadOnlySharedMemoryRegion shared_memory_region) {
-+  font_table_matcher_ =
-+      std::make_unique<FontTableMatcher>(shared_memory_region.Map());
-+  while (!pending_callbacks_.empty()) {
-+    NotifyFontUniqueNameLookupReady callback = pending_callbacks_.TakeFirst();
-+    std::move(callback).Run();
-+  }
-+}
-+
-+}  // namespace blink
-diff --git a/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
-new file mode 100644
-index 0000000000..840b664e4e
---- /dev/null
-+++ b/third_party/blink/renderer/platform/fonts/ohos/font_unique_name_lookup_ohos.h
-@@ -0,0 +1,73 @@
-+/*
-+ * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
-+ *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
-+ *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
-+#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
-+
-+#include "base/sequence_checker.h"
-+#include "mojo/public/cpp/bindings/remote.h"
-+#include "third_party/blink/public/common/font_unique_name_lookup/font_table_matcher.h"
-+#include "third_party/blink/public/mojom/font_unique_name_lookup/font_unique_name_lookup.mojom-blink.h"
-+#include "third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h"
-+#include "third_party/blink/renderer/platform/wtf/deque.h"
-+
-+namespace blink {
-+
-+class FontUniqueNameLookupOhos : public FontUniqueNameLookup {
-+ public:
-+  FontUniqueNameLookupOhos() = default;
-+  FontUniqueNameLookupOhos(const FontUniqueNameLookupOhos&) = delete;
-+  FontUniqueNameLookupOhos& operator=(const FontUniqueNameLookupOhos&) = delete;
-+  ~FontUniqueNameLookupOhos() override;
-+
-+  bool IsFontUniqueNameLookupReadyForSyncLookup() override;
-+
-+  void PrepareFontUniqueNameLookup(
-+      NotifyFontUniqueNameLookupReady callback) override;
-+
-+  sk_sp<SkTypeface> MatchUniqueName(const String& font_unique_name) override;
-+
-+  void Init() override;
-+
-+ private:
-+  void EnsureServiceConnected();
-+
-+  void ReceiveReadOnlySharedMemoryRegion(
-+      base::ReadOnlySharedMemoryRegion shared_memory_region);
-+
-+  mojo::Remote<mojom::blink::FontUniqueNameLookup> ohos_font_lookup_service_;
-+  Deque<NotifyFontUniqueNameLookupReady> pending_callbacks_;
-+  std::optional<bool> sync_available_;
-+
-+  SEQUENCE_CHECKER(sequence_checker_);
-+};
-+
-+}  // namespace blink
-+
-+#endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_LINUX_FONT_UNIQUE_NAME_LOOKUP_OHOS_H_
-diff --git a/third_party/wiseplay/cdm/BUILD.gn b/third_party/wiseplay/cdm/BUILD.gn
-new file mode 100644
-index 0000000000..d04e6e1644
---- /dev/null
-+++ b/third_party/wiseplay/cdm/BUILD.gn
-@@ -0,0 +1,31 @@
-+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
-+# Use of this source code is governed by a BSD-style license that can be
-+# found in the LICENSE file.
-+
-+import("//build/buildflag_header.gni")
-+import("//build/config/chrome_build.gni")
-+import("//build/config/features.gni")
-+import("//build/toolchain/toolchain.gni")
-+import("//media/media_options.gni")
-+import("//third_party/wiseplay/cdm/wiseplay.gni")
-+
-+buildflag_header("buildflags") {
-+  header = "buildflags.h"
-+
-+  flags = [
-+    "ENABLE_WISEPLAY=$enable_wiseplay",
-+  ]
-+}
-+
-+source_set("headers") {
-+  public = [ "wiseplay_cdm_common.h" ]
-+
-+  public_deps = [
-+    ":buildflags",
-+    "//base",
-+  ]
-+}
-+
-+group("cdm") {
-+    # NOP
-+  }
-\ No newline at end of file
-diff --git a/third_party/wiseplay/cdm/wiseplay.gni b/third_party/wiseplay/cdm/wiseplay.gni
-new file mode 100644
-index 0000000000..55f0ef088a
---- /dev/null
-+++ b/third_party/wiseplay/cdm/wiseplay.gni
-@@ -0,0 +1,14 @@
-+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
-+# Use of this source code is governed by a BSD-style license that can be
-+# found in the LICENSE file.
-+
-+import("//build/config/chrome_build.gni")
-+import("//media/media_options.gni")
-+
-+declare_args() {
-+  # Enables wiseplay key system support. Disabled by default on OHOS
-+  enable_wiseplay = is_ohos
-+    # Relative root directory to //third_party/wiseplay/cdm for CDM files.
-+    # Can be overridden if the CDM files are located in other places.
-+    wiseplay_root = "."
-+}
-\ No newline at end of file
-diff --git a/third_party/wiseplay/cdm/wiseplay_cdm_common.h b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
-new file mode 100644
-index 0000000000..60f710b639
---- /dev/null
-+++ b/third_party/wiseplay/cdm/wiseplay_cdm_common.h
-@@ -0,0 +1,39 @@
-+// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
-+// Use of this source code is governed by a BSD-style license that can be
-+// found in the LICENSE file.
-+
-+#ifndef WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
-+#define WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
-+#include "media/cdm/cdm_type.h"  // nogncheck
-+
-+// Default constants common to all WisePlay CDMs.
-+
-+inline constexpr char kWisePlayKeySystem[] = "com.wiseplay.drm";
-+
-+// WisePlay CDM files are in a directory with this name. This path is also
-+// hardcoded in some build files and changing it requires changing the build
-+// files as well.
-+inline constexpr char kWisePlayCdmBaseDirectory[] = "WisePlayCdm";
-+
-+// Media Foundation WisePlay CDM files are in a directory with this name.
-+inline constexpr char kMediaFoundationWisePlayCdmBaseDirection[] =
-+    "MediaFoundationWisePlayCdm";
-+
-+// This name is used by UMA. Do not change it!
-+inline constexpr char kWisePlayKeySystemNameForUMA[] = "WisePlay";
-+
-+// Name of the CDM library.
-+inline constexpr char kWisePlayCdmLibraryName[] = "WisePlaycdm";
-+
-+inline constexpr char kWisePlayCdmDisplayName[] =
-+    "WisePlay Content Decryption Module";
-+
-+// Identifier used for CDM process site isolation. // ZYX_TODO
-+inline constexpr media::CdmType kWisePlayCdmType{0x05d908e5dcca9960ull,
-+                                                 0xcd92d30eac98157aull};
-+
-+inline const uint8_t kWiseplayUuid[16] = {0x3D, 0x5E, 0x6D, 0x35, 0x9B, 0x9A,
-+                                          0x41, 0xE8, 0xB8, 0x43, 0xDD, 0x3C,
-+                                          0x6E, 0x72, 0xC4, 0x2C};
-+
-+#endif // WISEPLAY_CDM_WISEPLAY_CDM_COMMON_H_
-\ No newline at end of file

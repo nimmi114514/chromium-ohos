@@ -1,0 +1,58 @@
+{
+  "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
+  "tracked_files": 1906,
+  "added_files": 0,
+  "replay_matches_worktree": true,
+  "patches": [
+    {
+      "name": "0001-ohos-arm64-build-support.patch",
+      "files": 14,
+      "sha256": "7c7b125b30c99fdf4796b60d5e3ea7c9a6d1d4e9a445d854abe70e473b32b026"
+    },
+    {
+      "name": "0002-ohos-sdk-abi-probe.patch",
+      "files": 4,
+      "sha256": "3e9491d32934a56e486b97bd873836aa7da7dd4e6abf85cce56b4b6aed6fc9a8"
+    },
+    {
+      "name": "0003-ohos-platform-buildflags.patch",
+      "files": 1,
+      "sha256": "e89b7e17742593b5bb038fe5cd5c846e919f3630f78fc16593b9fa52ddc31a54"
+    },
+    {
+      "name": "0004-ohos-rust-target.patch",
+      "files": 2,
+      "sha256": "a5253a16a5d7a362497304e6eda40088fb0d092ad9b646e98d40b54f5909fcf1"
+    },
+    {
+      "name": "0005-ohos-base-platform.patch",
+      "files": 91,
+      "sha256": "81971acd0f08b05db2863d2b0b98ea599b66a611e77377817b16e5e5c5e1ca13"
+    },
+    {
+      "name": "0006-ohos-native-adapter.patch",
+      "files": 406,
+      "sha256": "5f56841166a39802448954227895360e5b24c5c5ced2a29e1e894f10c2dd2e88"
+    },
+    {
+      "name": "0007-ohos-ui-and-ozone.patch",
+      "files": 219,
+      "sha256": "bcec3a4bf6e8400653172c3c4317cb033e001186500eeb6f2077a36c001c8933"
+    },
+    {
+      "name": "0008-ohos-third-party-platforms.patch",
+      "files": 65,
+      "sha256": "2b7634cf0d8e894852a9a09c1bd62dff7ec89781eb719f0a59007dc936597ee1"
+    },
+    {
+      "name": "0009-ohos-chrome-platform.patch",
+      "files": 428,
+      "sha256": "52d04a123da4e4c02bf17afb3382bacb2e3d16155bf515dd73d19b5bec552d56"
+    },
+    {
+      "name": "0010-ohos-shared-components.patch",
+      "files": 676,
+      "sha256": "feb4a9cc4e0785538436c43c1cac92f4c8796a46a945843394d9a8e6dd78b08b"
+    }
+  ]
+}

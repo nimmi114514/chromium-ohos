@@ -44,53 +44,6 @@ index 5247ec0..a16f0aa 100644
        !is_fuchsia) {
      sources += [
        "mouse_cursor_monitor_null.cc",
-diff --git a/rtc_base/platform_thread_types.cc b/rtc_base/platform_thread_types.cc
-index 20bf4af..5dd04ec 100644
---- a/rtc_base/platform_thread_types.cc
-+++ b/rtc_base/platform_thread_types.cc
-@@ -11,8 +11,10 @@
- #include "rtc_base/platform_thread_types.h"
- 
- // IWYU pragma: begin_keep
--#if defined(WEBRTC_LINUX)
-+#if defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
-+#if !defined(WEBRTC_OHOS)
- #include <linux/prctl.h>
-+#endif
- #include <sys/prctl.h>
- #include <sys/syscall.h>
- 
-@@ -50,7 +52,7 @@ PlatformThreadId CurrentThreadId() {
-   return gettid();
- #elif defined(WEBRTC_FUCHSIA)
-   return zx_thread_self();
--#elif defined(WEBRTC_LINUX)
-+#elif defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
-   return syscall(__NR_gettid);
- #elif defined(__EMSCRIPTEN__)
-   return static_cast<PlatformThreadId>(pthread_self());
-@@ -118,7 +120,7 @@ void SetCurrentThreadName(const char* name) {
-   } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
-   }
- #pragma warning(pop)
--#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID)
-+#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID) || defined(WEBRTC_OHOS)
-   prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name));  // NOLINT
- #elif defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
-   pthread_setname_np(name);
-diff --git a/webrtc.gni b/webrtc.gni
-index 42c6a4a..d6160e5 100644
---- a/webrtc.gni
-+++ b/webrtc.gni
-@@ -342,7 +342,7 @@ rtc_opus_dir = "//third_party/opus"
- 
- # Desktop capturer is supported only on Windows, OSX and Linux.
- rtc_desktop_capture_supported =
--    (is_win && current_os != "winuwp") || is_mac ||
-+    (is_win && current_os != "winuwp") || is_mac || is_ohos ||
-     ((is_linux || is_chromeos) && (rtc_use_x11_extensions || rtc_use_pipewire))
- 
- ###############################################################################
 diff --git a/modules/desktop_capture/ohos/native_desktop_capturer.cc b/modules/desktop_capture/ohos/native_desktop_capturer.cc
 new file mode 100644
 index 0000000..5bc80f1
@@ -550,3 +503,50 @@ index 0000000..d6eb444
 +std::unique_ptr<DesktopCapturer> CreateOhosScreenshotCapturer();
 +}  // namespace webrtc
 +#endif  // MODULES_DESKTOP_CAPTURE_OHOS_NATIVE_DESKTOP_CAPTURER_H_
+diff --git a/rtc_base/platform_thread_types.cc b/rtc_base/platform_thread_types.cc
+index 20bf4af..5dd04ec 100644
+--- a/rtc_base/platform_thread_types.cc
++++ b/rtc_base/platform_thread_types.cc
+@@ -11,8 +11,10 @@
+ #include "rtc_base/platform_thread_types.h"
+ 
+ // IWYU pragma: begin_keep
+-#if defined(WEBRTC_LINUX)
++#if defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
++#if !defined(WEBRTC_OHOS)
+ #include <linux/prctl.h>
++#endif
+ #include <sys/prctl.h>
+ #include <sys/syscall.h>
+ 
+@@ -50,7 +52,7 @@ PlatformThreadId CurrentThreadId() {
+   return gettid();
+ #elif defined(WEBRTC_FUCHSIA)
+   return zx_thread_self();
+-#elif defined(WEBRTC_LINUX)
++#elif defined(WEBRTC_LINUX) || defined(WEBRTC_OHOS)
+   return syscall(__NR_gettid);
+ #elif defined(__EMSCRIPTEN__)
+   return static_cast<PlatformThreadId>(pthread_self());
+@@ -118,7 +120,7 @@ void SetCurrentThreadName(const char* name) {
+   } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
+   }
+ #pragma warning(pop)
+-#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID)
++#elif defined(WEBRTC_LINUX) || defined(WEBRTC_ANDROID) || defined(WEBRTC_OHOS)
+   prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name));  // NOLINT
+ #elif defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
+   pthread_setname_np(name);
+diff --git a/webrtc.gni b/webrtc.gni
+index 42c6a4a..d6160e5 100644
+--- a/webrtc.gni
++++ b/webrtc.gni
+@@ -342,7 +342,7 @@ rtc_opus_dir = "//third_party/opus"
+ 
+ # Desktop capturer is supported only on Windows, OSX and Linux.
+ rtc_desktop_capture_supported =
+-    (is_win && current_os != "winuwp") || is_mac ||
++    (is_win && current_os != "winuwp") || is_mac || is_ohos ||
+     ((is_linux || is_chromeos) && (rtc_use_x11_extensions || rtc_use_pipewire))
+ 
+ ###############################################################################

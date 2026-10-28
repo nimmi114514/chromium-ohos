@@ -26222,10 +26222,10 @@ index 0000000000..b950929cc8
 +}
 diff --git a/ohos/adapter/web_entry/chrome/chrome_loader.cc b/ohos/adapter/web_entry/chrome/chrome_loader.cc
 new file mode 100644
-index 0000000000..c49bc3ad00
+index 0000000000..c4021987bd
 --- /dev/null
 +++ b/ohos/adapter/web_entry/chrome/chrome_loader.cc
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,127 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -26277,28 +26277,27 @@ index 0000000000..c49bc3ad00
 +  auto fn = shared_library_.GetFunction<int(const char*, uint32_t, const char*,
 +                                            uint32_t, uint32_t*)>(
 +      "AdvancedSecurityModeGetStateByFeature");
++  int32_t result = -1;
 +  if (fn != nullptr) {
-+    // returns 0 if success or errcode
-+    int32_t ret = fn("default", 7, "default", 7, &mode); // len:7
-+    if (ret == 0 && mode == 1) {
-+      return true;
-+    }
++    result = fn("default", 7, "default", 7, &mode);
 +  }
-+  return false;
++  const bool enabled = result == 0 && mode == 1;
++  LOGI("JIT gate: advanced_security=%{public}d api_result=%{public}d mode=%{public}u",
++       enabled, result, mode);
++  return enabled;
 +}
-+
 +}  // namespace
 +
 +bool ShouldDisableJit() {
 +  if (CheckAdvSecMode()) {
 +    return true;
 +  }
-+  
-+  if (!OH_AT_CheckSelfPermission(
-+      PermissionConstants::ALLOW_WRITABLE_CODE_MEMORY)) {
++  const int32_t permission = OH_AT_CheckSelfPermission(
++      PermissionConstants::ALLOW_WRITABLE_CODE_MEMORY);
++  LOGI("JIT permission check: writable_code_memory=%{public}d", permission);
++  if (!permission) {
 +    return true;
 +  }
-+  
 +  return false;
 +}
 +
@@ -26410,7 +26409,7 @@ index 0000000000..e8b7fba244
 +}  // namespace ohos::adapter::web_entry
 diff --git a/ohos/adapter/web_entry/permission_constants.h b/ohos/adapter/web_entry/permission_constants.h
 new file mode 100644
-index 0000000000..5339074214
+index 0000000000..e007956d6d
 --- /dev/null
 +++ b/ohos/adapter/web_entry/permission_constants.h
 @@ -0,0 +1,44 @@
@@ -26458,7 +26457,6 @@ index 0000000000..5339074214
 +}  // namespace ohos::adapter::web_entry
 +
 +#endif  // OHOS_ADAPTER_WEB_ENTRY_PERMISSION_CONSTANTS_H_
-\ No newline at end of file
 diff --git a/ohos/adapter/web_entry/shell/content_shell_loader.cc b/ohos/adapter/web_entry/shell/content_shell_loader.cc
 new file mode 100644
 index 0000000000..a41f6cf55d

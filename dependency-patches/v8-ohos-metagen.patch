@@ -30,6 +30,113 @@ index 227fd46c..fcd10fdb 100644
      sources += [
        "src/base/debug/stack_trace_posix.cc",
        "src/base/platform/platform-linux.cc",
+diff --git a/src/base/immediate-crash.h b/src/base/immediate-crash.h
+index 9c25a7dc..f220ea9d 100644
+--- a/src/base/immediate-crash.h
++++ b/src/base/immediate-crash.h
+@@ -8,6 +8,7 @@
+ #include "include/v8config.h"
+ #include "src/base/build_config.h"
+ 
++
+ // Crashes in the fastest possible way with no attempt at logging.
+ // There are several constraints; see http://crbug.com/664209 for more context.
+ //
+diff --git a/src/base/platform/platform-posix.cc b/src/base/platform/platform-posix.cc
+index af35b41f..b9f0ac8d 100644
+--- a/src/base/platform/platform-posix.cc
++++ b/src/base/platform/platform-posix.cc
+@@ -24,6 +24,9 @@
+ #include <sys/types.h>
+ #include <time.h>
+ #include <unistd.h>
++#if defined(OSOHOS)
++#include <hilog/log.h>
++#endif
+ #if defined(__APPLE__) || defined(__DragonFly__) || defined(__FreeBSD__) || \
+     defined(__NetBSD__) || defined(__OpenBSD__)
+ #include <sys/sysctl.h>  // for sysctl
+@@ -46,6 +49,8 @@
+ #include "src/base/platform/time.h"
+ #include "src/base/utils/random-number-generator.h"
+ 
++
++
+ #ifdef V8_FAST_TLS_SUPPORTED
+ #include <atomic>
+ #endif
+@@ -175,6 +180,16 @@ void* Allocate(void* hint, size_t size, OS::MemoryPermission access,
+   int fd = handle.has_value() ? handle->GetPlatformHandle() : -1;
+ #endif
+   void* result = mmap(hint, size, prot, flags, fd, kMmapFdOffset);
++#if defined(OSOHOS) && defined(V8_HOST_ARCH_ARM64)
++  if (result == MAP_FAILED &&
++      access == OS::MemoryPermission::kNoAccessWillJitLater) {
++    const int saved_errno = errno;
++    OH_LOG_Print(LOG_APP, LOG_ERROR, 0xA00001, "JitAllocation",
++                 "V8 JIT mmap size=%{public}zu flags=%{public}x errno=%{public}d",
++                 size, flags, saved_errno);
++    errno = saved_errno;
++  }
++#endif
+   if (result == MAP_FAILED) return nullptr;
+ 
+ #if V8_OS_LINUX && V8_ENABLE_PRIVATE_MAPPING_FORK_OPTIMIZATION
+@@ -555,6 +570,15 @@ bool OS::SetPermissions(void* address, size_t size, MemoryPermission access) {
+ 
+   int prot = GetProtectionFromMemoryPermission(access);
+   int ret = mprotect(address, size, prot);
++#if defined(OSOHOS)
++  if (ret != 0) {
++    const int saved_errno = errno;
++    OH_LOG_Print(LOG_APP, LOG_ERROR, 0xA00001, "JitAllocation",
++                 "V8 mprotect size=%{public}zu prot=%{public}d errno=%{public}d",
++                 size, prot, saved_errno);
++    errno = saved_errno;
++  }
++#endif
+ 
+   // Setting permissions can fail if the limit of VMAs is exceeded.
+   // Any failure that's not OOM likely indicates a bug in the caller (e.g.
+@@ -1081,6 +1105,15 @@ void OS::PrintError(const char* format, ...) {
+ 
+ 
+ void OS::VPrintError(const char* format, va_list args) {
++#if defined(OSOHOS)
++  va_list copy;
++  va_copy(copy, args);
++  char message[2048];
++  vsnprintf(message, sizeof(message), format, copy);
++  va_end(copy);
++  OH_LOG_Print(LOG_APP, LOG_ERROR, 0xA00001, "V8Diagnostics", "%{public}s",
++               message);
++#endif
+ #if defined(ANDROID) && !defined(V8_ANDROID_LOG_STDOUT)
+   __android_log_vprint(ANDROID_LOG_ERROR, LOG_TAG, format, args);
+ #else
+diff --git a/src/heap/code-range.cc b/src/heap/code-range.cc
+index 2035801e..c3e75b9c 100644
+--- a/src/heap/code-range.cc
++++ b/src/heap/code-range.cc
+@@ -577,6 +577,10 @@ uint8_t* CodeRange::RemapEmbeddedBuiltins(Isolate* isolate,
+ 
+   const size_t commit_page_size = page_allocator()->CommitPageSize();
+   size_t code_size = RoundUp(embedded_blob_code_size, commit_page_size);
++  // OHOS app sandboxes do not reliably permit file-backed executable remaps.
++  // This remap only saves a copy of the embedded builtins; fall back to the
++  // normal copy path on OHOS rather than invoking the Linux remap path.
++#if !defined(OSOHOS)
+   if constexpr (base::OS::IsRemapPageSupported()) {
+     // By default, the embedded builtins are not remapped, but copied. This
+     // costs memory, since builtins become private dirty anonymous memory,
+@@ -608,6 +612,7 @@ uint8_t* CodeRange::RemapEmbeddedBuiltins(Isolate* isolate,
+       }
+     }
+   }
++#endif
+ 
+   if (V8_HEAP_USE_PTHREAD_JIT_WRITE_PROTECT ||
+       V8_HEAP_USE_BECORE_JIT_WRITE_PROTECT || ThreadIsolation::Enabled()) {
 diff --git a/tools/metagen/compile_flags.py b/tools/metagen/compile_flags.py
 index cc585f45..3f5b1d71 100644
 --- a/tools/metagen/compile_flags.py

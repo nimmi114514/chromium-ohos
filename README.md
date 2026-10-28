@@ -4,6 +4,8 @@
 
 本仓库保存内核及依赖的适配补丁、构建工具和验证记录；配套应用工程位于 [chromium-desktop-ohos](https://github.com/nimmi114514/chromium-desktop-ohos)。完整 Chromium 源码与第三方依赖按固定版本另行获取。
 
+当前本地交付与修复范围见 [2026-10-28交付记录](docs/delivery-2026-10-28.md)。
+
 ## 两个仓库如何配合
 
 | 仓库 | 职责 |
