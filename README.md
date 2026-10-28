@@ -47,17 +47,11 @@
 | 系统截屏 | 已修正受保护媒体结束后窗口隐私状态未释放的路径；最新修改通过主机生命周期检查 |
 | DRM | 受保护内容端到端播放尚未完成，不作为当前已支持功能；相关工作暂停 |
 
-当前最新交付记录为 **native107**：原生与 HAP release 构建、235 项原生/资源文件校验、签名校验和补丁重放通过，已安装独立包。该候选未进行安装后的设备功能回归，密码填充和截屏修正尚不作为实机验收结论。
+当前交付包含 **2026-10-28 原生历史/书签弹窗与新增收藏生命周期修复**，并包含OHOS V8内嵌builtins复制回退。用户反馈本次问题已正常，范围与限制见[交付记录](docs/delivery-2026-10-28.md)及[开发状态](STATUS.md)。应用版本保持 `1.0.0`，Chromium内核版本单独记录为 `158.0.8116.0`。
 
-- [native107 交付与验证摘要](reports/native107-delivery.json)
-- [密码填充认证回归](reports/native107-password-fill-authentication.json)
-- [编译后的中文文案检查](reports/native106-screen-lock-chinese-pack.json)
-- [窗口隐私状态生命周期检查](reports/native106-window-privacy-lifecycle.json)
-- [开发状态与历史验证范围](STATUS.md)
+JIT保留132的系统权限与安全模式门控；满足条件时使用V8 JIT，OHOS启动路径跳过内嵌builtins页重映射优化。未引入JITFort依赖，也不承诺任意固件、签名或系统安全配置下均可启用JIT。
 
-Graphite、Direct Rendering Display Compositor、TreesInViz、WebNN 当前未启用。受系统权限策略影响，进入 jitless 模式时 WebAssembly 不可用。Google 登录/同步还受凭证、网络与服务端策略影响，不保证可用。历史设备原始日志和账户相关数据不随仓库分发。
-
-JIT：已确认当前设备运行在 jitless，普通 Debug Profile 未包含自带 V8 所需的 ACL；正在按华为官方权限流程接入，尚未通过 JIT 真机验证。参见 [JIT 调查与设备基线](docs/JIT.md)。
+Graphite、Direct Rendering Display Compositor、TreesInViz、WebNN当前未启用。DRM工作暂停，Widevine与会员网站受保护内容播放不是已实现功能。Google登录/同步受凭证、网络与服务端策略影响，不保证可用。
 
 ## 目录结构
 
@@ -74,78 +68,134 @@ artifacts/manifest.json  已构建产物的哈希与元数据
 src/                     本地 Chromium 源码工作区，不提交
 ```
 
-## 获取与构建
+## 从两个仓库构建完整 HAP
 
-### 1. 克隆两个仓库
+源码改动由本仓库的10个主补丁和9组依赖补丁完整保存，HAP源码由配套仓库保存。
+V8、Dawn、Skia等上游依赖通过Chromium固定版本的 **DEPS / gclient** 获取，再应用这里的补丁；无需另建或私下获取作者的子仓库，也不是仅克隆这两个小仓库便已经下载了完整Chromium。
 
-公开仓库名与构建脚本默认的本地目录名不同。以下克隆方式保留脚本默认布局：
+以下流程面向 **Windows + WSL2 Linux x86_64**。需要自行安装：
+
+- Windows DevEco Studio 26，SDK Manager中安装API26；本项目已使用SDK `26.0.0.105`、Hvigor `6.26.8`。
+- WSL2 Ubuntu，Git、Python 3.11+、编译宿主依赖。不要在Windows Python里执行原生构建脚本。
+- 能访问GitHub、chromium.googlesource.com、Google CIPD/GCS与OHPM的软件源。源码与预编译工具体量较大，首次同步耗时取决于网络。
+- 建议为源码/依赖/构建输出预留150GB以上空间，RAM 16GB以上；内存较小时减少 `--jobs`。
+- 自己的HarmonyOS签名证书/Profile。SDK和个人签名材料不随仓库提供，源码完整不等于可以复用作者的设备签名。
+
+### 1. 克隆项目并建立源码目录
+
+在WSL执行。HAP工程放Windows盘便于DevEco打开，大型内核工作区放WSL的Linux文件系统：
 
 ```sh
-git clone git@github.com:nimmi114514/chromium-ohos.git chromium158-ohos
-git clone git@github.com:nimmi114514/chromium-desktop-ohos.git chromium-2in1-hap
+mkdir -p /mnt/d/chromium
+cd /mnt/d/chromium
+git clone https://github.com/nimmi114514/chromium-ohos.git chromium158-ohos
+git clone https://github.com/nimmi114514/chromium-desktop-ohos.git chromium-2in1-hap
 cd chromium158-ohos
 mkdir -p logs reports artifacts toolchain-resources
+mkdir -p "$HOME/chromium-build/158.0.8116.0"
+ln -s "$HOME/chromium-build/158.0.8116.0/src" src
 ```
 
-也可以使用 HTTPS 克隆。已有源码工作区可通过 `src` 符号链接接入。建议将大型源码及编译输出放在 WSL 的 Linux 文件系统中，减少跨文件系统 I/O。
+上面的 `ln -s` 只用于首次准备；不要覆盖已有 `src` 或已有源码改动。D盘路径可以自行调整，两项目建议保持同级，后续命令均在内核适配仓库运行。
 
-### 2. 准备固定版本源码与工具
-
-需要 Git、Python 3.11+、Chromium Linux 构建依赖、Google depot_tools，以及安装 API 26 SDK 的 Windows DevEco Studio。
-
-将 depot_tools 放入 `PATH` 后，在**首次准备的工作区**执行：
+### 2. 获取固定版本源码、全部依赖和构建工具
 
 ```sh
+python3 scripts/bootstrap_depot_tools.py
+export PATH="$PWD/tools/depot_tools:$PATH"
+export DEPOT_TOOLS_UPDATE=0
 python3 scripts/sync_chromium.py --mirror --full --deps
-python3 src/tools/clang/scripts/update.py
-python3 src/tools/rust/update_rust.py
 ```
 
-`sync_chromium.py` 会获取 [versions.json](versions.json) 指定的源码，并按其 DEPS 同步依赖；脚本使用 `--nohooks`，工具链需要按上面命令另外准备。depot_tools 的已用提交也记录在 `versions.json`。
+脚本使用 `versions.json` 固定Chromium和depot_tools版本；`gclient sync --nohooks`按该Chromium的DEPS下载Git依赖及CIPD/GCS包，包含Clang、Rust、Node、TypeScript、宿主sysroot、GN和Ninja。
+**不能用 `git submodule update` 代替gclient**：后者还负责非Git工具包及生成gclient配置。
 
-原生构建脚本还要求 Linux 可执行文件 `tools/gn` 和 `tools/ninja`。请准备这两个工具；已用下载来源与归档哈希见 [GN 记录](tools/gn-download.json)、[Ninja 记录](tools/ninja-download.json)。工具二进制不随仓库提交。
+安装Chromium的Linux宿主依赖（会请求sudo并安装系统软件包），然后补齐跳过hooks时必需的版本文件与工具入口：
 
-已有移植改动的工作区应先确认当前状态，避免用重新检出源码或同步依赖覆盖正在修改的文件。
+```sh
+bash src/build/install-build-deps.sh --no-prompt
+python3 scripts/prepare_build.py
+```
 
-### 3. 应用内核和依赖补丁
+`prepare_build.py`检查必需工具，将DEPS固定版本的GN/Ninja链接到 `tools/`，并生成LASTCHANGE、MINIBRANCH、GPU/Skia/Dawn版本头文件；无需手工找工具二进制，也不使用不断变化的GN `latest`。
+这条最小流程不需要下载性能测试数据的全部hooks。正常gclient同步已经取得固定Clang/Rust，无需额外运行会改变工具链的更新命令。
+
+### 3. 应用内核与依赖补丁
 
 ```sh
 python3 scripts/apply_port.py --check
 python3 scripts/apply_port.py
 ```
 
-脚本同时处理主仓库和 `dependency-patches/`，检查目标提交，并识别已经应用的补丁。直接克隆配套 HAP 仓库即可获得应用工程，无需再对它应用 `hap-patches/`；后者用于追溯和重放相对132的改动。
+补丁基线固定为 `566635fe3ce2912169a6ca76a00a7ee1d8e400e9`，依赖基线见 `dependency-patches/series.json`。
+检查不通过应停止，不要跳过失败的补丁继续编译。已完整应用时脚本会识别并跳过。
+**应用补丁后不要再次执行gclient sync覆盖依赖改动**；日常增量编译从第4步继续。
+直接克隆HAP仓库即可获得应用源码，不需要再对它应用 `hap-patches/`（后者仅作132改动追溯）。
 
-### 4. 导入 SDK 并编译
+### 4. 导入API26 SDK并编译原生内核
 
 ```sh
 python3 scripts/import_deveco_sdk.py \
   --sdk-root "/mnt/c/Program Files/Huawei/DevEco Studio/sdk/default"
-python3 scripts/build_native.py --stage chrome --jobs 8 --keep-going 0
+python3 scripts/build_native.py --stage chrome --jobs 4 --keep-going 1
 ```
 
-SDK 路径不同请修改 `--sdk-root`。导入脚本准备 Linux 原生编译所需的 SDK 镜像与资源链接。原生输出目录为 `src/out/OHOS/`，主库为 `libchrome_main_web.so` 和 `libadapter.so`。
+DevEco安装路径不同需修改 `--sdk-root`。导入脚本只复制交叉编译目标文件并准备Clang资源overlay；实际编译器使用Linux版Google Clang，不执行Windows SDK的编译器。
+原生输出为 `src/out/OHOS/`，包含 `libchrome_main_web.so`、`libadapter.so`、ICU、语言PAK和V8快照。
+构建脚本生成当前release配置：官方构建、无DCHECK调试配置、H.264/AAC媒体配置，以及保留V8 fatal日志的 `v8_logging_level=1`。
 
-### 5. 配置签名并生成 HAP
+仅检查GN构建图可使用：
 
-先在 DevEco Studio 打开同级 `chromium-2in1-hap` 工程，为当前包名配置自己的签名。证书、私钥与密码只保留本地。
+```sh
+python3 scripts/build_native.py --stage chrome --generate-only
+```
+
+首次原生编译工作量大；中断后重新运行同一编译命令可增量继续。遇到OOM请减少 `--jobs`，不要通过删除平台补丁解决。
+
+### 5. 配置本机签名
+
+Windows DevEco Studio打开 `D:\chromium\chromium-2in1-hap`，同步工程依赖，在Project Structure → Signing Configs为当前包名 `com.example.ohos.chromium` 配置自己的签名。
+仓库中的 `build-profile.json5` 为无签名模板；本机生成的签名配置、证书路径、私钥、密码不要提交。
+可以在本地签名前执行以下命令，使该模板的本机签名修改不进入普通Git状态列表：
+
+```sh
+git -C ../chromium-2in1-hap update-index --skip-worktree build-profile.json5
+```
+
+此标志不是加密，仍须自行保管签名材料；需要升级模板时先备份本机签名配置，再使用 `--no-skip-worktree` 恢复跟踪。
+JIT是否实际可用由设备固件、系统安全模式和有效授权决定；仓库不提供虚构权限、JITFort绕过或他人的签名文件。
+
+### 6. 编译、校验与安装HAP
 
 ```sh
 python3 scripts/build_hap.py --stage install
 python3 scripts/build_hap.py --stage hap --build-mode release
 ```
 
-这里 `--stage install` 安装的是 **OHPM 工程依赖**，不会安装应用到设备。`--stage hap` 会先同步本次编译的库与资源，再执行 Hvigor；release 流程还会校验包内容和签名。
-
-使用其他路径时，通过 `--deveco`、`--hap-project` 指定。当前打包校验针对包名 `com.example.ohos.chromium`；更改包名需要同步应用配置与校验规则。
+`--stage install`安装的是OHPM工程依赖，不会安装应用到设备。
+`--stage hap`先同步刚编译的原生库和运行资源，再调用Windows Hvigor；release完成后核对库的实际ELF内容、语言资源、快照、WebUI资源及HAP签名。
+使用不同目录时追加 `--deveco`、`--hap-project`；打包工具必须能从Windows访问HAP工程，推荐放在 `/mnt/d/` 等Windows盘路径。
 
 生成位置：
 
-- HAP 工程：`chromium/build/default/outputs/default/chromium-default-signed.hap`
+- HAP工程：`../chromium-2in1-hap/chromium/build/default/outputs/default/chromium-default-signed.hap`
 - 本仓库归档：`artifacts/chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap`
-- 产物记录：[artifacts/manifest.json](artifacts/manifest.json)
+- 本次产物清单：`artifacts/manifest.json`（由每次构建重新生成，历史清单不是附带安装包）。
 
-原生库、运行资源、SDK、工具二进制、HAP 和个人签名文件不进入源码提交。仓库中的 manifest 是已有构建的记录，不表示仓库中附带安装包。
+在Windows终端使用DevEco SDK的hdc覆盖安装：
+
+```sh
+hdc install -r chromium-2in1-hap/chromium/build/default/outputs/default/chromium-default-signed.hap
+hdc shell aa start -b com.example.ohos.chromium -a EntryAbility
+```
+
+覆盖升级还需签名身份一致；使用自己的签名不能直接覆盖另一开发者签名的安装包。不要为排障默认删除用户Profile。
+
+### 可复现范围
+
+目标是从固定源码和补丁构建相同功能的Chromium 158 OHOS。不同机器的绝对路径、构建时间、签名证书和工具细节会影响二进制或HAP哈希，不承诺与作者HAP逐字节相同。
+本仓库不包含私有源码依赖；标准Chromium依赖按DEPS获取，平台适配代码以可重放补丁提供。
+具体已执行检查及未执行部分见 [构建可复现性核查](docs/reproducibility.md)。
 
 ## 修改后导出补丁
 

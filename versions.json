@@ -42,5 +42,11 @@
     "devEcoStudioVersion": "26.0.0.851",
     "native_mirror": "/home/wton5889/chromium-workspaces/158.0.8116.0/sdk-api26",
     "resource_overlay": "toolchain-resources/clang24-ohos-api26"
+  },
+  "hap": {
+    "url": "https://github.com/nimmi114514/chromium-desktop-ohos.git",
+    "revision": "74e098d107128b433acee02443410ce435a2ae3a",
+    "bundle_name": "com.example.ohos.chromium",
+    "version_name": "1.0.0"
   }
 }

@@ -39,6 +39,8 @@ def main():
                         default=(ROOT / "src").resolve().parent / "sdk-api26")
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
+    (ROOT / "reports").mkdir(exist_ok=True)
+    (ROOT / "toolchain-resources").mkdir(exist_ok=True)
     source, destination = args.sdk_root.resolve(), args.output.resolve()
     metadata = json.loads((source / "sdk-pkg.json").read_text())
     if str(metadata["data"]["apiVersion"]) != "26":

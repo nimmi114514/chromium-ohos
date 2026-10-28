@@ -26,10 +26,13 @@ def main():
         parser.error("--keep-going must not be negative")
     source = (ROOT / "src").resolve()
     lock = json.loads((ROOT / "versions.json").read_text())["chromium"]
-    actual = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source,
-                                     text=True).strip()
-    if actual != lock["revision"]:
-        raise SystemExit("Chromium source revision differs from versions.json")
+    if subprocess.run(["git", "merge-base", "--is-ancestor", lock["revision"],
+                       "HEAD"], cwd=source).returncode:
+        raise SystemExit("Chromium source is not based on versions.json")
+    version = dict(line.split("=", 1) for line in
+                   (source / "chrome/VERSION").read_text().splitlines())
+    if ".".join(version[k] for k in ("MAJOR", "MINOR", "BUILD", "PATCH")) != lock["version"]:
+        raise SystemExit("Chromium version differs from versions.json")
     native = (ROOT / "sdk/openharmony/native").resolve()
     sdk_metadata = json.loads((native / "oh-uni-package.json").read_text())
     if str(sdk_metadata.get("apiVersion")) != "26":
@@ -48,6 +51,7 @@ def main():
         "is_official_build = " + ("false" if args.diagnostic_build else "true"),
         "is_debug = false", "is_component_build = false", "symbol_level = 0",
         "use_thin_lto = false", "use_remoteexec = false",
+        "v8_logging_level = 1",
         "clang_use_chrome_plugins = false", "treat_warnings_as_errors = false",
         "ohos_clang_resource_dir = " + json.dumps(str(resource)),
         "ohos_sdk_native = " + json.dumps(str(native)),

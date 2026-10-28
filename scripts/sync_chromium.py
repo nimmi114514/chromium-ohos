@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def run(*args, cwd=None):
     print("+", " ".join(map(str, args)), flush=True)
     subprocess.run(list(map(str, args)), cwd=cwd, check=True,
-                   env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"})
+                   env={**os.environ, "GIT_LFS_SKIP_SMUDGE": "1",
+                        "DEPOT_TOOLS_UPDATE": "0"})
 
 
 def main():
@@ -53,6 +54,9 @@ def main():
             "tools/clang", "tools/rust", "chrome/build", "ui/ozone")
         run("git", "-C", source, "checkout", "--detach", lock["revision"])
     if args.deps:
+        if changes:
+            raise SystemExit("Do not synchronize dependencies over port changes. "
+                             "Use a pristine checkout before apply_port.py.")
         if not shutil.which("gclient"):
             raise SystemExit("Put Google depot_tools on PATH before --deps.")
         sparse = subprocess.run(["git", "-C", str(source), "sparse-checkout", "list"],
