@@ -45,7 +45,7 @@
   },
   "hap": {
     "url": "https://github.com/nimmi114514/chromium-desktop-ohos.git",
-    "revision": "859e69aaaaec2127ecb371b89647df22c0236625",
+    "revision": "76348f28c6e03bad67f99a93caad6cd081fd4fb3",
     "bundle_name": "com.example.ohos.chromium",
     "version_name": "1.0.1"
   }

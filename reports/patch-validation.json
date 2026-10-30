@@ -1,13 +1,13 @@
 {
   "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
-  "tracked_files": 1909,
-  "added_files": 4,
+  "tracked_files": 1927,
+  "added_files": 0,
   "replay_matches_worktree": true,
   "patches": [
     {
       "name": "0001-ohos-arm64-build-support.patch",
-      "files": 14,
-      "sha256": "7c7b125b30c99fdf4796b60d5e3ea7c9a6d1d4e9a445d854abe70e473b32b026"
+      "files": 15,
+      "sha256": "80f82417dbca855d648fe92176b34aeba78433d1b2e2507b268c95022bf8a7d7"
     },
     {
       "name": "0002-ohos-sdk-abi-probe.patch",
@@ -31,8 +31,8 @@
     },
     {
       "name": "0006-ohos-native-adapter.patch",
-      "files": 406,
-      "sha256": "c08318f450c57c6102fb3b9425446d91ab2f445aa6b645d2f2fb08ce94ee435f"
+      "files": 411,
+      "sha256": "ae512a5aed0a0fbfdf99b266a32896d8388a73b8dee55c002742aaa42fa65b92"
     },
     {
       "name": "0007-ohos-ui-and-ozone.patch",
@@ -51,8 +51,8 @@
     },
     {
       "name": "0010-ohos-shared-components.patch",
-      "files": 683,
-      "sha256": "d4409951b8739b76c29074133f714bb2784875ea1d72c3ba731ecc920059ee6b"
+      "files": 691,
+      "sha256": "3b8a3bc8c1395d8f1f58578861fff5fe8069880bc15bc61bfa70b9cc9ef6ee3f"
     }
   ]
 }

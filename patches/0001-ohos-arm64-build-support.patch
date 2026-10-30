@@ -1,3 +1,42 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 4c6f014f81..6059e601b6 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -110,9 +110,6 @@ group("gn_all") {
+       "//skia:skia_unittests",
+       "//sql:sql_unittests",
+       "//testing/libfuzzer/tests",
+-      "//third_party/angle/src/tests:angle_end2end_tests",
+-      "//third_party/angle/src/tests:angle_unittests",
+-      "//third_party/angle/src/tests:angle_white_box_tests",
+       "//third_party/flatbuffers:flatbuffers_unittests",
+       "//third_party/highway:highway_tests",
+       "//third_party/liburlpattern:liburlpattern_unittests",
+@@ -125,6 +122,15 @@ group("gn_all") {
+       "//url:url_unittests",
+     ]
+ 
++    # OHOS does not define the ANGLE desktop test targets.
++    if (!is_ohos) {
++      deps += [
++        "//third_party/angle/src/tests:angle_end2end_tests",
++        "//third_party/angle/src/tests:angle_unittests",
++        "//third_party/angle/src/tests:angle_white_box_tests",
++      ]
++    }
++
+     if (current_cpu == "arm64" && is_android && host_os == "linux") {
+       deps += [
+         "//components/allocation_recorder/tools:dump_allocation_recorder_data",
+@@ -666,7 +672,7 @@ group("gn_all") {
+       }
+     }
+ 
+-    if (!is_fuchsia) {
++    if (!is_fuchsia && !is_ohos) {
+       # The official builders use this binary from the default toolchain's
+       # output directory after building in order to upload the symbols of that
+       # binary. They build the binary like `ninja symupload` which requires the
 diff --git a/build/config/BUILD.gn b/build/config/BUILD.gn
 index 2b957b8c6d..41faac07e6 100644
 --- a/build/config/BUILD.gn

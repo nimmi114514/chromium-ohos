@@ -125851,10 +125851,10 @@ index 0000000000..da9012eea4
 +}
 diff --git a/device/device_watcher/device_watcher.cc b/device/device_watcher/device_watcher.cc
 new file mode 100644
-index 0000000000..931b9b8308
+index 0000000000..ff27e25177
 --- /dev/null
 +++ b/device/device_watcher/device_watcher.cc
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,152 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -125885,6 +125885,7 @@ index 0000000000..931b9b8308
 + */
 +
 +#include "device/device_watcher/device_watcher.h"
++#include <map>
 +#include "base/functional/bind.h"
 +#include "base/location.h"
 +#include "base/logging.h"
@@ -125894,6 +125895,14 @@ index 0000000000..931b9b8308
 +#include "ohos/adapter/device/device_adapter.h"
 +
 +namespace device {
++namespace {
++bool SameUsbDevice(const USBDevice& a, const USBDevice& b) {
++  return a.name == b.name && a.busNum == b.busNum &&
++         a.devAddress == b.devAddress && a.vendorId == b.vendorId &&
++         a.productId == b.productId && a.serial == b.serial;
++}
++}  // namespace
++
 +DeviceWatcher::Observer::~Observer() = default;
 +
 +std::unique_ptr<DeviceWatcher> DeviceWatcher::StartWatching(
@@ -125912,6 +125921,10 @@ index 0000000000..931b9b8308
 +}
 +
 +void DeviceWatcher::EnumerateExistingDevices() {
++  RefreshDevices();
++}
++
++void DeviceWatcher::RefreshDevices() {
 +  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 +  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
 +                                                base::BlockingType::MAY_BLOCK);
@@ -125920,15 +125933,33 @@ index 0000000000..931b9b8308
 +    LOG(WARNING) << "GetDevices Failed.";
 +    return;
 +  }
++  // On this OHOS build USBHostMgr returns an empty list to a regular app
++  // ("neither system app nor sa"), even when a device was delivered through
++  // the USB attach common event. Such a snapshot is not authoritative and
++  // must not erase devices learned from hotplug notifications.
++  if (device_list.empty() && !observed_devices_.empty()) {
++    LOG(WARNING) << "Ignoring empty OHOS USB snapshot; retaining hotplug state.";
++    return;
++  }
 +
++  std::map<std::string, USBDevice> current;
 +  for (const auto& device : device_list) {
-+    if (filter_ && !filter_(device)) {
-+      continue;
-+    }
-+    if (observer_) {
-+      observer_->OnDeviceAdded(device);
++    if (device.name.empty() || (filter_ && !filter_(device))) continue;
++    current.insert_or_assign(device.name, device);
++  }
++  for (const auto& [name, old_device] : observed_devices_) {
++    auto it = current.find(name);
++    if (it == current.end() || !SameUsbDevice(old_device, it->second)) {
++      if (observer_) observer_->OnDeviceRemoved(old_device);
 +    }
 +  }
++  for (const auto& [name, device] : current) {
++    auto it = observed_devices_.find(name);
++    if (it == observed_devices_.end() || !SameUsbDevice(it->second, device)) {
++      if (observer_) observer_->OnDeviceAdded(device);
++    }
++  }
++  observed_devices_ = std::move(current);
 +}
 +
 +DeviceWatcher::DeviceWatcher(Observer* observer, DeviceFilter filter)
@@ -125953,20 +125984,35 @@ index 0000000000..931b9b8308
 +}
 +void DeviceWatcher::NotifyAdded(USBDevice device) {
 +  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-+  if (observer_ && (!filter_ || filter_(device))) observer_->OnDeviceAdded(device);
++  if (!observer_ || device.name.empty() || (filter_ && !filter_(device))) return;
++  auto it = observed_devices_.find(device.name);
++  if (it != observed_devices_.end()) {
++    // OHOS can reuse the same USB name/address after unplug/replug and may
++    // lose the detach broadcast. A repeated attach must invalidate stale HID
++    // handles and start enumeration again.
++    observer_->OnDeviceRemoved(it->second);
++  }
++  observed_devices_.insert_or_assign(device.name, device);
++  observer_->OnDeviceAdded(device);
 +}
 +void DeviceWatcher::NotifyRemoved(USBDevice device) {
 +  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 +  // Detach broadcasts may contain only the device name, without interfaces.
-+  if (observer_) observer_->OnDeviceRemoved(device);
++  if (!observer_) return;
++  auto it = observed_devices_.find(device.name);
++  if (it != observed_devices_.end()) {
++    device = it->second;
++    observed_devices_.erase(it);
++  }
++  observer_->OnDeviceRemoved(device);
 +}
 +}  // namespace device
 diff --git a/device/device_watcher/device_watcher.h b/device/device_watcher/device_watcher.h
 new file mode 100644
-index 0000000000..73ce9f54a6
+index 0000000000..71998e419a
 --- /dev/null
 +++ b/device/device_watcher/device_watcher.h
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,96 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -126000,6 +126046,7 @@ index 0000000000..73ce9f54a6
 +#define DEVICE_DEVICE_WATCHER_DEVICE_WATCHER_H_
 +
 +#include <memory>
++#include <map>
 +#include <vector>
 +
 +#include "base/component_export.h"
@@ -126040,6 +126087,9 @@ index 0000000000..73ce9f54a6
 +  ~DeviceWatcher() override;
 +
 +  void EnumerateExistingDevices();
++  // Reconcile USBManager's current snapshot with hotplug notifications. Some
++  // OHOS builds lose detach broadcasts, so consumers can periodically refresh.
++  void RefreshDevices();
 +  void OnDeviceAttatched(USBDevice& device) override;
 +  void OnDeviceRemoved(USBDevice& device) override;
 +
@@ -126053,6 +126103,7 @@ index 0000000000..73ce9f54a6
 +  raw_ptr<Observer> observer_;
 +  std::unique_ptr<DeviceAdapter> device_adapter_ = nullptr;
 +  DeviceFilter filter_ = nullptr;
++  std::map<std::string, USBDevice> observed_devices_;
 +  base::WeakPtrFactory<DeviceWatcher> weak_factory_{this};
 +  SEQUENCE_CHECKER(sequence_checker_);
 +};
@@ -126085,18 +126136,1165 @@ index 0e886f3868..e5b4411485 100644
  // Allows the passkey unlock error UI to be shown.
  COMPONENT_EXPORT(FIDO_PUBLIC)
 diff --git a/device/gamepad/BUILD.gn b/device/gamepad/BUILD.gn
-index 9741a1a617..29bd26b1d2 100644
+index 9741a1a617..392515998c 100644
 --- a/device/gamepad/BUILD.gn
 +++ b/device/gamepad/BUILD.gn
-@@ -132,7 +132,7 @@ component("gamepad") {
+@@ -132,7 +132,19 @@ component("gamepad") {
      deps += [ ":jni_headers" ]
    }
  
 -  if (!is_android && !is_fuchsia && !is_ios) {
++  if (is_ohos) {
++    sources += [
++      "gamepad_device_ohos.cc",
++      "gamepad_device_ohos.h",
++      "gamepad_ohos_layout.h",
++      "gamepad_platform_data_fetcher_ohos.cc",
++      "gamepad_platform_data_fetcher_ohos.h",
++      "gamepad_standard_mappings_ohos.cc",
++    ]
++    deps += [ "//ohos/adapter/gamepad:gamepad_adapter" ]
++  }
++
 +  if (!is_android && !is_fuchsia && !is_ios && !is_ohos) {
      sources += [
        "nintendo_controller.cc",
        "nintendo_controller.h",
+diff --git a/device/gamepad/gamepad_device_ohos.cc b/device/gamepad/gamepad_device_ohos.cc
+new file mode 100644
+index 0000000000..ba78c4f269
+--- /dev/null
++++ b/device/gamepad/gamepad_device_ohos.cc
+@@ -0,0 +1,109 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "device/gamepad/gamepad_data_fetcher.h"
++#include "device/gamepad/gamepad_device_ohos.h"
++#include "device/gamepad/gamepad_ohos_layout.h"
++#include "device/gamepad/gamepad_standard_mappings.h"
++
++namespace device {
++
++GamepadDeviceOhos::GamepadDeviceOhos(int32_t device_id,
++                                     const std::string& device_name,
++                                     uint16_t vendor_id,
++                                     uint16_t product_id)
++    : device_id_(device_id), name_(device_name),
++      vendor_id_(vendor_id), product_id_(product_id) {
++}
++
++GamepadDeviceOhos::~GamepadDeviceOhos() = default;
++
++GamepadStandardMappingFunction GamepadDeviceOhos::GetMappingFunction() const {
++  return GetGamepadStandardMappingFunction(
++      name_, vendor_id_, product_id_,
++      /*hid_specification_version=*/0, /*version_number=*/0,
++      GAMEPAD_BUS_UNKNOWN, kGamepadDriverUnknown);
++}
++
++void GamepadDeviceOhos::UpdateButtonState(int button_code,
++                                          bool pressed,
++                                          float value) {
++  if (button_code < 0 ||
++      button_code >= static_cast<int>(Gamepad::kButtonsLengthCap)) {
++    return;
++  }
++  buttons_[button_code].pressed = pressed;
++  buttons_[button_code].value = value;
++  if (button_code >= static_cast<int>(buttons_length_)) {
++    buttons_length_ = button_code + 1;
++  }
++}
++
++void GamepadDeviceOhos::UpdateAxisState(int axis_type,
++                                        float x_value,
++                                        float y_value) {
++  // Sticks set axes_[X] and axes_[Y]; triggers set axes_[trigger] only.
++  if (axis_type == kOhosAxisLeftStickX) {
++    axes_[kOhosAxisLeftStickX] = x_value;
++    axes_[kOhosAxisLeftStickY] = y_value;
++  } else if (axis_type == kOhosAxisRightStickX) {
++    axes_[kOhosAxisRightStickX] = x_value;
++    axes_[kOhosAxisRightStickY] = y_value;
++  } else if (axis_type == kOhosAxisLeftTrigger) {
++    axes_[kOhosAxisLeftTrigger] = x_value;
++  } else if (axis_type == kOhosAxisRightTrigger) {
++    axes_[kOhosAxisRightTrigger] = x_value;
++  } else {
++    return;
++  }
++  if (axes_length_ < kOhosRawAxesLength) {
++    axes_length_ = kOhosRawAxesLength;
++  }
++}
++
++void GamepadDeviceOhos::ReadPadState(Gamepad* pad) {
++  if (!pad) {
++    return;
++  }
++
++  pad->connected = connected_;
++  pad->timestamp = GamepadDataFetcher::CurrentTimeInMicroseconds();
++  pad->buttons_length = buttons_length_;
++  pad->axes_length = axes_length_;
++
++  for (size_t i = 0; i < buttons_length_; ++i) {
++    pad->buttons[i] = buttons_[i];
++  }
++  for (size_t i = 0; i < axes_length_; ++i) {
++    pad->axes[i] = axes_[i];
++  }
++}
++
++void GamepadDeviceOhos::SetVibration(
++    mojom::GamepadEffectParametersPtr params) {
++}
++
++void GamepadDeviceOhos::SetZeroVibration() {
++}
++
++base::WeakPtr<AbstractHapticGamepad> GamepadDeviceOhos::GetWeakPtr() {
++  return weak_factory_.GetWeakPtr();
++}
++
++void GamepadDeviceOhos::DoShutdown() {
++  connected_ = false;
++}
++
++}  // namespace device
+diff --git a/device/gamepad/gamepad_device_ohos.h b/device/gamepad/gamepad_device_ohos.h
+new file mode 100644
+index 0000000000..a2b43c335b
+--- /dev/null
++++ b/device/gamepad/gamepad_device_ohos.h
+@@ -0,0 +1,74 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef DEVICE_GAMEPAD_GAMEPAD_DEVICE_OHOS_H_
++#define DEVICE_GAMEPAD_GAMEPAD_DEVICE_OHOS_H_
++
++#include <array>
++#include <string>
++
++#include "base/memory/weak_ptr.h"
++#include "device/gamepad/abstract_haptic_gamepad.h"
++#include "device/gamepad/gamepad_standard_mappings.h"
++#include "device/gamepad/public/cpp/gamepad.h"
++
++namespace device {
++
++class GamepadDeviceOhos final : public AbstractHapticGamepad {
++ public:
++  GamepadDeviceOhos(int32_t device_id, const std::string& device_name,
++                    uint16_t vendor_id, uint16_t product_id);
++  ~GamepadDeviceOhos() override;
++
++  uint16_t GetVendorId() const { return vendor_id_; }
++  uint16_t GetProductId() const { return product_id_; }
++  std::string GetName() const { return name_; }
++  GamepadStandardMappingFunction GetMappingFunction() const;
++
++  void UpdateButtonState(int button_code, bool pressed, float value);
++  void UpdateAxisState(int axis_type, float x_value, float y_value);
++
++  void ReadPadState(Gamepad* pad);
++
++  bool IsEmpty() const { return !connected_; }
++  void SetConnected(bool connected) { connected_ = connected; }
++  size_t GetAxesLength() const { return axes_length_; }
++  size_t GetButtonsLength() const { return buttons_length_; }
++
++  // AbstractHapticGamepad public implementation.
++  void SetVibration(mojom::GamepadEffectParametersPtr params) override;
++  void SetZeroVibration() override;
++  base::WeakPtr<AbstractHapticGamepad> GetWeakPtr() override;
++
++ private:
++  void DoShutdown() override;
++
++  int32_t device_id_;
++  std::string name_;
++  uint16_t vendor_id_ = 0;
++  uint16_t product_id_ = 0;
++  bool connected_ = true;
++
++  std::array<GamepadButton, Gamepad::kButtonsLengthCap> buttons_{};
++  std::array<double, Gamepad::kAxesLengthCap> axes_{};
++  size_t buttons_length_ = 0;
++  size_t axes_length_ = 0;
++
++  base::WeakPtrFactory<GamepadDeviceOhos> weak_factory_{this};
++};
++
++}  // namespace device
++
++#endif  // DEVICE_GAMEPAD_GAMEPAD_DEVICE_OHOS_H_
+diff --git a/device/gamepad/gamepad_ohos_layout.h b/device/gamepad/gamepad_ohos_layout.h
+new file mode 100644
+index 0000000000..7a9d7a8757
+--- /dev/null
++++ b/device/gamepad/gamepad_ohos_layout.h
+@@ -0,0 +1,54 @@
++// Copyright (c) 2026 Huawei Device Co., Ltd.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#ifndef DEVICE_GAMEPAD_GAMEPAD_OHOS_LAYOUT_H_
++#define DEVICE_GAMEPAD_GAMEPAD_OHOS_LAYOUT_H_
++
++#include <cstddef>
++
++namespace device {
++
++// OHOS raw button layout indices for GamepadDeviceOhos::buttons_[].
++// Produced by MapButtonCode, transformed to W3C canonical order by mappers.
++// Matches common HID Button usage page ordering (index 2 reserved).
++inline constexpr int kOhosButtonA = 0;
++inline constexpr int kOhosButtonB = 1;
++inline constexpr int kOhosButtonX = 3;
++inline constexpr int kOhosButtonY = 4;
++inline constexpr int kOhosButtonMeta = 5;
++inline constexpr int kOhosButtonLeftShoulder = 6;
++inline constexpr int kOhosButtonRightShoulder = 7;
++inline constexpr int kOhosButtonLeftTrigger = 8;
++inline constexpr int kOhosButtonRightTrigger = 9;
++inline constexpr int kOhosButtonBackSelect = 10;
++inline constexpr int kOhosButtonStart = 11;
++inline constexpr int kOhosButtonLeftThumbstick = 12;
++inline constexpr int kOhosButtonRightThumbstick = 13;
++inline constexpr int kOhosButtonDpadUp = 14;
++inline constexpr int kOhosButtonDpadDown = 15;
++inline constexpr int kOhosButtonDpadLeft = 16;
++inline constexpr int kOhosButtonDpadRight = 17;
++
++// OHOS raw axis layout. Sticks: 0-3, triggers: 4-5.
++inline constexpr int kOhosAxisLeftStickX = 0;
++inline constexpr int kOhosAxisLeftStickY = 1;
++inline constexpr int kOhosAxisRightStickX = 2;
++inline constexpr int kOhosAxisRightStickY = 3;
++inline constexpr int kOhosAxisLeftTrigger = 4;
++inline constexpr int kOhosAxisRightTrigger = 5;
++
++inline constexpr size_t kOhosRawAxesLength = 6;
++
++}  // namespace device
++
++#endif  // DEVICE_GAMEPAD_GAMEPAD_OHOS_LAYOUT_H_
+diff --git a/device/gamepad/gamepad_pad_state_provider.h b/device/gamepad/gamepad_pad_state_provider.h
+index 915fe3a148..a314755271 100644
+--- a/device/gamepad/gamepad_pad_state_provider.h
++++ b/device/gamepad/gamepad_pad_state_provider.h
+@@ -43,7 +43,8 @@ enum class GamepadSource {
+   kWinWgi,
+   kSimulated,
+   kWinGameInput,
+-  kMaxValue = kWinGameInput,
++  kOhosGameController,
++  kMaxValue = kOhosGameController,
+ };
+ 
+ // PadState must not have a user-provided constructor so that it remains
+diff --git a/device/gamepad/gamepad_platform_data_fetcher.h b/device/gamepad/gamepad_platform_data_fetcher.h
+index 254f349c5b..02f1ede7ee 100644
+--- a/device/gamepad/gamepad_platform_data_fetcher.h
++++ b/device/gamepad/gamepad_platform_data_fetcher.h
+@@ -18,6 +18,8 @@
+ 
+ #if BUILDFLAG(IS_ANDROID)
+ #include "device/gamepad/gamepad_platform_data_fetcher_android.h"
++#elif BUILDFLAG(IS_OHOS)
++#include "device/gamepad/gamepad_platform_data_fetcher_ohos.h"
+ #elif BUILDFLAG(IS_WIN)
+ #include "base/win/windows_version.h"
+ #include "device/gamepad/gameinput_data_fetcher.h"
+@@ -43,6 +45,10 @@ void AddGamepadPlatformDataFetchers(GamepadDataFetcherManager* manager) {
+ 
+   manager->AddFactory(new GamepadPlatformDataFetcherAndroid::Factory());
+ 
++#elif BUILDFLAG(IS_OHOS)
++
++  manager->AddFactory(new GamepadPlatformDataFetcherOhos::Factory());
++
+ #elif BUILDFLAG(IS_WIN)
+ 
+   if (base::win::GetVersion() >= base::win::Version::WIN11 &&
+diff --git a/device/gamepad/gamepad_platform_data_fetcher_ohos.cc b/device/gamepad/gamepad_platform_data_fetcher_ohos.cc
+new file mode 100644
+index 0000000000..f6859a9cea
+--- /dev/null
++++ b/device/gamepad/gamepad_platform_data_fetcher_ohos.cc
+@@ -0,0 +1,520 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "base/check.h"
++#include "base/functional/bind.h"
++#include "base/functional/callback_helpers.h"
++#include "base/numerics/safe_conversions.h"
++#include "base/trace_event/trace_event.h"
++#include "device/gamepad/gamepad_data_fetcher.h"
++#include "device/gamepad/gamepad_platform_data_fetcher_ohos.h"
++#include "ohos/adapter/gamepad/gamepad_platform_data_fetcher_bridge.h"
++
++namespace device {
++
++GamepadPlatformDataFetcherOhos::Factory::Factory() = default;
++
++GamepadPlatformDataFetcherOhos::Factory::~Factory() = default;
++
++std::unique_ptr<GamepadDataFetcher>
++GamepadPlatformDataFetcherOhos::Factory::CreateDataFetcher() {
++  return std::make_unique<GamepadPlatformDataFetcherOhos>();
++}
++
++GamepadSource GamepadPlatformDataFetcherOhos::Factory::source() {
++  return Factory::static_source();
++}
++
++GamepadSource GamepadPlatformDataFetcherOhos::Factory::static_source() {
++  return GamepadSource::kOhosGameController;
++}
++
++GamepadPlatformDataFetcherOhos::GamepadPlatformDataFetcherOhos() = default;
++
++GamepadPlatformDataFetcherOhos::~GamepadPlatformDataFetcherOhos() {
++  // Unregister callbacks before destroying members — blocks until in-flight
++  // FFRT callbacks complete, preventing Use-After-Free.
++  device::UnregisterGamepadFetcherCallbacks();
++
++  for (auto& [device_id, device] : devices_) {
++    device->Shutdown();
++  }
++  for (auto& [device_id, connection] : haptic_connections_) {
++    connection.reset();
++  }
++}
++
++GamepadSource GamepadPlatformDataFetcherOhos::source() {
++  return Factory::static_source();
++}
++
++namespace {
++
++void OnDeviceStateFromBridge(void* user_data,
++                             const GamepadDeviceStateEvent& event) {
++  auto* fetcher = static_cast<GamepadPlatformDataFetcherOhos*>(user_data);
++  fetcher->PostDeviceStateEvent(event);
++}
++
++void OnButtonFromBridge(void* user_data,
++                        const GamepadButtonEvent& event) {
++  auto* fetcher = static_cast<GamepadPlatformDataFetcherOhos*>(user_data);
++  fetcher->PostButtonEvent(event);
++}
++
++void OnAxisFromBridge(void* user_data,
++                      const GamepadAxisEvent& event) {
++  auto* fetcher = static_cast<GamepadPlatformDataFetcherOhos*>(user_data);
++  fetcher->PostAxisEvent(event);
++}
++
++}  // anonymous namespace
++
++void GamepadPlatformDataFetcherOhos::OnAddedToProvider() {
++  polling_task_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
++  BindHidManager(hid_manager_.BindNewPipeAndPassReceiver());
++  hid_manager_->GetDevicesAndSetClient(
++      hid_manager_client_.BindNewEndpointAndPassRemote(),
++      base::BindOnce(&GamepadPlatformDataFetcherOhos::OnHidDevicesEnumerated,
++                     weak_factory_.GetWeakPtr()));
++  device::RegisterGamepadFetcherCallbacks(this,
++                                          OnDeviceStateFromBridge,
++                                          OnButtonFromBridge,
++                                          OnAxisFromBridge);
++  // Enumerate devices already connected at browser startup.
++  device::EnumerateExistingGamepadDevices();
++}
++
++void GamepadPlatformDataFetcherOhos::PostDeviceStateEvent(
++    const GamepadDeviceStateEvent& event) {
++  // Copy device_name before crossing thread boundary.
++  std::string device_name(event.device_name ? event.device_name : "");
++  // Called on FFRT thread — bridge mutex ensures safety.
++  polling_task_runner_->PostTask(
++      FROM_HERE,
++      base::BindOnce(&GamepadPlatformDataFetcherOhos::HandleDeviceStateEvent,
++                     weak_factory_.GetWeakPtr(), event.device_id,
++                     event.connected, std::move(device_name),
++                     event.vendor_id, event.product_id));
++}
++
++void GamepadPlatformDataFetcherOhos::PostButtonEvent(
++    const GamepadButtonEvent& event) {
++  // Called on FFRT thread — bridge mutex ensures safety.
++  polling_task_runner_->PostTask(
++      FROM_HERE,
++      base::BindOnce(&GamepadPlatformDataFetcherOhos::HandleButtonEvent,
++                     weak_factory_.GetWeakPtr(), event.device_id,
++                     event.button_code, event.pressed));
++}
++
++void GamepadPlatformDataFetcherOhos::PostAxisEvent(
++    const GamepadAxisEvent& event) {
++  // Called on FFRT thread — bridge mutex ensures safety.
++  polling_task_runner_->PostTask(
++      FROM_HERE,
++      base::BindOnce(&GamepadPlatformDataFetcherOhos::HandleAxisEvent,
++                     weak_factory_.GetWeakPtr(), event.device_id,
++                     event.axis_type, event.x, event.y));
++}
++
++void GamepadPlatformDataFetcherOhos::HandleDeviceStateEvent(
++    int32_t device_id,
++    bool connected,
++    const std::string& device_name,
++    uint16_t vendor_id,
++    uint16_t product_id) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  if (connected) {
++    OnDeviceConnected(device_id, device_name, vendor_id, product_id);
++  } else {
++    OnDeviceDisconnected(device_id);
++  }
++}
++
++void GamepadPlatformDataFetcherOhos::HandleButtonEvent(int32_t device_id,
++                                                       int button_code,
++                                                       bool pressed) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  OnButtonEvent(device_id, button_code, pressed);
++}
++
++void GamepadPlatformDataFetcherOhos::HandleAxisEvent(int32_t device_id,
++                                                     int axis_type,
++                                                     float x,
++                                                     float y) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  OnAxisEvent(device_id, axis_type, x, y);
++}
++
++void GamepadPlatformDataFetcherOhos::GetGamepadData(bool devices_changed_hint) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  TRACE_EVENT0("GAMEPAD", "GetGamepadData (OHOS)");
++
++  for (const auto& [device_id, device] : devices_) {
++    PadState* state = GetPadState(device_id);
++    if (!state) {
++      continue;
++    }
++
++    Gamepad& pad = state->data;
++    device->ReadPadState(&pad);
++
++    state->is_active = !device->IsEmpty();
++  }
++}
++
++bool GamepadPlatformDataFetcherOhos::DisconnectUnrecognizedGamepad(
++    int source_id) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  auto it = devices_.find(source_id);
++  if (it == devices_.end()) {
++    return false;
++  }
++  it->second->Shutdown();
++  devices_.erase(it);
++  return true;
++}
++
++void GamepadPlatformDataFetcherOhos::PlayEffect(
++    int pad_index,
++    mojom::GamepadHapticEffectType type,
++    mojom::GamepadEffectParametersPtr params,
++    mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback callback,
++    scoped_refptr<base::SequencedTaskRunner> callback_runner) {
++  if (type != mojom::GamepadHapticEffectType::GamepadHapticEffectTypeDualRumble || !params ||
++      !haptic_connections_.contains(pad_index)) {
++    GamepadDataFetcher::RunVibrationCallback(
++        std::move(callback), std::move(callback_runner),
++        mojom::GamepadHapticsResult::GamepadHapticsResultNotSupported);
++    return;
++  }
++
++  const uint64_t sequence = ++vibration_sequences_[pad_index];
++  auto start = base::BindOnce(
++      &GamepadPlatformDataFetcherOhos::StartRumbleEffect,
++      weak_factory_.GetWeakPtr(), pad_index, params->strong_magnitude,
++      params->weak_magnitude, base::Seconds(params->duration), sequence,
++      std::move(callback), std::move(callback_runner));
++  const base::TimeDelta delay = base::Seconds(params->start_delay);
++  if (delay.is_positive()) {
++    polling_task_runner_->PostDelayedTask(FROM_HERE, std::move(start), delay);
++  } else {
++    std::move(start).Run();
++  }
++}
++
++void GamepadPlatformDataFetcherOhos::ResetVibration(
++    int pad_index,
++    mojom::GamepadHapticsManager::ResetVibrationActuatorCallback callback,
++    scoped_refptr<base::SequencedTaskRunner> callback_runner) {
++  auto connection = haptic_connections_.find(pad_index);
++  if (connection == haptic_connections_.end()) {
++    GamepadDataFetcher::RunVibrationCallback(
++        std::move(callback), std::move(callback_runner),
++        mojom::GamepadHapticsResult::GamepadHapticsResultNotSupported);
++    return;
++  }
++
++  ++vibration_sequences_[pad_index];
++  WriteRumbleReport(
++      pad_index, 0, 0,
++      base::BindOnce(
++          [](mojom::GamepadHapticsManager::ResetVibrationActuatorCallback cb,
++             scoped_refptr<base::SequencedTaskRunner> runner, bool success) {
++            GamepadDataFetcher::RunVibrationCallback(
++                std::move(cb), std::move(runner),
++                success ? mojom::GamepadHapticsResult::GamepadHapticsResultComplete
++                        : mojom::GamepadHapticsResult::GamepadHapticsResultError);
++          },
++          std::move(callback), std::move(callback_runner)));
++}
++
++void GamepadPlatformDataFetcherOhos::DeviceAdded(
++    mojom::HidDeviceInfoPtr device_info) {
++  if (!device_info || device_info->vendor_id != 0x054c ||
++      (device_info->product_id != 0x0ce6 &&
++       device_info->product_id != 0x0df2) ||
++      device_info->bus_type != mojom::HidBusType::kHIDBusTypeUSB) {
++    return;
++  }
++
++  const std::string guid = device_info->guid;
++  dualsense_hid_devices_[guid] = std::move(device_info);
++  for (const auto& entry : devices_)
++    TryConnectHidDevice(entry.first);
++}
++
++void GamepadPlatformDataFetcherOhos::DeviceRemoved(
++    mojom::HidDeviceInfoPtr device_info) {
++  if (!device_info)
++    return;
++  const std::string guid = device_info->guid;
++  dualsense_hid_devices_.erase(guid);
++  for (auto it = gamepad_hid_guids_.begin(); it != gamepad_hid_guids_.end();) {
++    if (it->second == guid) {
++      haptic_connections_.erase(it->first);
++      vibration_sequences_.erase(it->first);
++      if (PadState* state = GetPadState(it->first))
++        state->data.vibration_actuator.not_null = false;
++      it = gamepad_hid_guids_.erase(it);
++    } else {
++      ++it;
++    }
++  }
++}
++
++void GamepadPlatformDataFetcherOhos::DeviceChanged(
++    mojom::HidDeviceInfoPtr) {}
++
++void GamepadPlatformDataFetcherOhos::OnHidDevicesEnumerated(
++    std::vector<mojom::HidDeviceInfoPtr> device_infos) {
++  for (auto& device_info : device_infos)
++    DeviceAdded(std::move(device_info));
++}
++
++void GamepadPlatformDataFetcherOhos::TryConnectHidDevice(int32_t gamepad_id) {
++  if (!hid_manager_ || haptic_connections_.contains(gamepad_id) ||
++      gamepad_hid_guids_.contains(gamepad_id)) {
++    return;
++  }
++  GamepadDeviceOhos* gamepad = GetDeviceWithDeviceId(gamepad_id);
++  if (!gamepad || gamepad->GetVendorId() != 0x054c ||
++      (gamepad->GetProductId() != 0x0ce6 &&
++       gamepad->GetProductId() != 0x0df2)) {
++    return;
++  }
++
++  for (const auto& [guid, info] : dualsense_hid_devices_) {
++    bool already_assigned = false;
++    for (const auto& assigned : gamepad_hid_guids_) {
++      if (assigned.second == guid) {
++        already_assigned = true;
++        break;
++      }
++    }
++    if (already_assigned || info->product_id != gamepad->GetProductId())
++      continue;
++
++    gamepad_hid_guids_[gamepad_id] = guid;
++    hid_manager_->Connect(
++        guid, mojo::NullRemote(), mojo::NullRemote(),
++        /*allow_protected_reports=*/false, /*allow_fido_reports=*/false,
++        base::BindOnce(&GamepadPlatformDataFetcherOhos::OnHidConnected,
++                       weak_factory_.GetWeakPtr(), gamepad_id, guid));
++    return;
++  }
++}
++
++void GamepadPlatformDataFetcherOhos::OnHidConnected(
++    int32_t gamepad_id,
++    const std::string& guid,
++    mojo::PendingRemote<mojom::HidConnection> connection) {
++  if (!connection) {
++    gamepad_hid_guids_.erase(gamepad_id);
++    return;
++  }
++  mojo::Remote<mojom::HidConnection> remote(std::move(connection));
++  remote.set_disconnect_handler(base::BindOnce(
++      [](base::WeakPtr<GamepadPlatformDataFetcherOhos> self,
++         int32_t id, std::string expected_guid) {
++        if (!self)
++          return;
++        auto found = self->gamepad_hid_guids_.find(id);
++        if (found != self->gamepad_hid_guids_.end() &&
++            found->second == expected_guid) {
++          self->gamepad_hid_guids_.erase(found);
++          self->haptic_connections_.erase(id);
++          if (PadState* state = self->GetPadState(id))
++            state->data.vibration_actuator.not_null = false;
++        }
++      }, weak_factory_.GetWeakPtr(), gamepad_id, guid));
++  haptic_connections_[gamepad_id] = std::move(remote);
++  if (PadState* state = GetPadState(gamepad_id))
++    state->data.vibration_actuator.not_null = true;
++}
++
++void GamepadPlatformDataFetcherOhos::StartRumbleEffect(
++    int32_t gamepad_id,
++    double strong_magnitude,
++    double weak_magnitude,
++    base::TimeDelta duration,
++    uint64_t vibration_sequence,
++    mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback callback,
++    scoped_refptr<base::SequencedTaskRunner> callback_runner) {
++  if (vibration_sequences_[gamepad_id] != vibration_sequence) {
++    GamepadDataFetcher::RunVibrationCallback(
++        std::move(callback), std::move(callback_runner),
++        mojom::GamepadHapticsResult::GamepadHapticsResultPreempted);
++    return;
++  }
++
++  WriteRumbleReport(
++      gamepad_id, strong_magnitude, weak_magnitude,
++      base::BindOnce(
++          [](base::WeakPtr<GamepadPlatformDataFetcherOhos> self,
++             int32_t id, base::TimeDelta duration, uint64_t sequence,
++             mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback cb,
++             scoped_refptr<base::SequencedTaskRunner> runner, bool success) {
++            if (success && self && duration.is_positive()) {
++              self->polling_task_runner_->PostDelayedTask(
++                  FROM_HERE,
++                  base::BindOnce(
++                      [](base::WeakPtr<GamepadPlatformDataFetcherOhos> owner,
++                         int32_t source_id, uint64_t expected_sequence) {
++                        if (owner && owner->vibration_sequences_[source_id] ==
++                                         expected_sequence) {
++                          owner->WriteRumbleReport(source_id, 0, 0);
++                        }
++                      },
++                      self, id, sequence),
++                  duration);
++            }
++            GamepadDataFetcher::RunVibrationCallback(
++                std::move(cb), std::move(runner),
++                success ? mojom::GamepadHapticsResult::GamepadHapticsResultComplete
++                        : mojom::GamepadHapticsResult::GamepadHapticsResultError);
++          },
++          weak_factory_.GetWeakPtr(), gamepad_id, duration,
++          vibration_sequence, std::move(callback),
++          std::move(callback_runner)));
++}
++
++void GamepadPlatformDataFetcherOhos::WriteRumbleReport(
++    int32_t gamepad_id,
++    double strong_magnitude,
++    double weak_magnitude,
++    base::OnceCallback<void(bool)> callback) {
++  auto connection = haptic_connections_.find(gamepad_id);
++  if (connection == haptic_connections_.end()) {
++    if (callback)
++      std::move(callback).Run(false);
++    return;
++  }
++
++  // DualSense USB report 0x02 uses the DualShock compatible rumble fields.
++  // The OHOS HID transport adds the USB-only 15-byte reserved trailer.
++  std::vector<uint8_t> report(47, 0);
++  // DualSense requires both HAPTICS_SELECT and COMPATIBLE_VIBRATION in
++  // valid_flag0 before it consumes the legacy left/right motor fields. This
++  // matches the upstream hid-playstation driver for controllers that use the
++  // original vibration mode.
++  report[0] = 0x03;
++  report[2] = base::ClampRound<uint8_t>(weak_magnitude * 255.0);
++  report[3] = base::ClampRound<uint8_t>(strong_magnitude * 255.0);
++  if (!callback)
++    callback = base::BindOnce([](bool) {});
++  connection->second->Write(0x02, report, std::move(callback));
++}
++
++GamepadDeviceOhos*
++GamepadPlatformDataFetcherOhos::GetDeviceWithDeviceId(int32_t device_id) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  auto it = devices_.find(device_id);
++  if (it != devices_.end()) {
++    return it->second.get();
++  }
++  return nullptr;
++}
++
++GamepadDeviceOhos*
++GamepadPlatformDataFetcherOhos::GetOrCreateMatchingDevice(
++    int32_t device_id,
++    const std::string& name,
++    uint16_t vendor_id,
++    uint16_t product_id) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  auto it = devices_.find(device_id);
++  if (it != devices_.end()) {
++    return it->second.get();
++  }
++  auto device = std::make_unique<GamepadDeviceOhos>(device_id, name,
++                                                     vendor_id, product_id);
++  GamepadDeviceOhos* result = device.get();
++  devices_[device_id] = std::move(device);
++  return result;
++}
++
++void GamepadPlatformDataFetcherOhos::RemoveDevice(int32_t device_id) {
++  DCHECK(polling_task_runner_->RunsTasksInCurrentSequence());
++  haptic_connections_.erase(device_id);
++  gamepad_hid_guids_.erase(device_id);
++  vibration_sequences_.erase(device_id);
++  auto it = devices_.find(device_id);
++  if (it != devices_.end()) {
++    it->second->Shutdown();
++    devices_.erase(it);
++  }
++}
++
++void GamepadPlatformDataFetcherOhos::OnDeviceConnected(
++    int32_t device_id,
++    const std::string& device_name,
++    uint16_t vendor_id,
++    uint16_t product_id) {
++  GamepadDeviceOhos* device = GetOrCreateMatchingDevice(device_id, device_name,
++                                                        vendor_id, product_id);
++  device->SetConnected(true);
++
++  PadState* state = GetPadState(device_id);
++  if (!state) {
++    return;
++  }
++
++  state->is_newly_active = true;
++  state->is_initialized = true;
++
++  state->mapper = device->GetMappingFunction();
++
++  Gamepad& pad = state->data;
++  GamepadDataFetcher::UpdateGamepadStrings(
++      device->GetName(), device->GetVendorId(), device->GetProductId(),
++      state->mapper != nullptr, pad);
++
++  pad.vibration_actuator.type = GamepadHapticActuatorType::kDualRumble;
++  pad.vibration_actuator.not_null = false;
++  pad.connected = true;
++
++  state->button_mask = ~0u;
++  state->axis_mask = ~0u;
++  TryConnectHidDevice(device_id);
++}
++
++void GamepadPlatformDataFetcherOhos::OnDeviceDisconnected(int32_t device_id) {
++  RemoveDevice(device_id);
++}
++
++void GamepadPlatformDataFetcherOhos::OnButtonEvent(int32_t device_id,
++                                                   int button_code,
++                                                   bool pressed) {
++  GamepadDeviceOhos* device = GetDeviceWithDeviceId(device_id);
++  if (!device) {
++    return;
++  }
++  device->UpdateButtonState(button_code, pressed, pressed ? 1.0f : 0.0f);
++}
++
++void GamepadPlatformDataFetcherOhos::OnAxisEvent(int32_t device_id,
++                                                 int axis_type,
++                                                 float x,
++                                                 float y) {
++  GamepadDeviceOhos* device = GetDeviceWithDeviceId(device_id);
++  if (!device) {
++    return;
++  }
++  device->UpdateAxisState(axis_type, x, y);
++}
++
++}  // namespace device
+diff --git a/device/gamepad/gamepad_platform_data_fetcher_ohos.h b/device/gamepad/gamepad_platform_data_fetcher_ohos.h
+new file mode 100644
+index 0000000000..9100978eed
+--- /dev/null
++++ b/device/gamepad/gamepad_platform_data_fetcher_ohos.h
+@@ -0,0 +1,135 @@
++/*
++ * Copyright (c) 2026 Huawei Device Co., Ltd.
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef DEVICE_GAMEPAD_GAMEPAD_PLATFORM_DATA_FETCHER_OHOS_H_
++#define DEVICE_GAMEPAD_GAMEPAD_PLATFORM_DATA_FETCHER_OHOS_H_
++
++#include <memory>
++#include <map>
++#include <string>
++#include <unordered_map>
++#include <vector>
++
++#include "base/memory/weak_ptr.h"
++#include "base/task/sequenced_task_runner.h"
++#include "base/time/time.h"
++#include "device/gamepad/gamepad_data_fetcher.h"
++#include "device/gamepad/gamepad_device_ohos.h"
++#include "ohos/adapter/gamepad/gamepad_platform_data_fetcher_bridge.h"
++#include "mojo/public/cpp/bindings/associated_receiver.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "services/device/public/mojom/hid.mojom.h"
++
++namespace device {
++class GamepadPlatformDataFetcherOhos : public GamepadDataFetcher,
++                                      public mojom::HidManagerClient {
++ public:
++  class Factory : public GamepadDataFetcherFactory {
++   public:
++    Factory();
++    ~Factory() override;
++    std::unique_ptr<GamepadDataFetcher> CreateDataFetcher() override;
++    GamepadSource source() override;
++    static GamepadSource static_source();
++  };
++
++  GamepadPlatformDataFetcherOhos();
++  ~GamepadPlatformDataFetcherOhos() override;
++
++  GamepadSource source() override;
++
++  void PlayEffect(int pad_index,
++                  mojom::GamepadHapticEffectType,
++                  mojom::GamepadEffectParametersPtr,
++                  mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback,
++                  scoped_refptr<base::SequencedTaskRunner>) override;
++
++  void GetGamepadData(bool devices_changed_hint) override;
++  bool DisconnectUnrecognizedGamepad(int source_id) override;
++
++  void ResetVibration(
++      int pad_index,
++      mojom::GamepadHapticsManager::ResetVibrationActuatorCallback,
++      scoped_refptr<base::SequencedTaskRunner>) override;
++
++  void OnDeviceConnected(int32_t device_id, const std::string& device_name,
++                         uint16_t vendor_id, uint16_t product_id);
++  void OnDeviceDisconnected(int32_t device_id);
++  void OnButtonEvent(int32_t device_id, int button_code, bool pressed);
++  void OnAxisEvent(int32_t device_id, int axis_type, float x, float y);
++
++  void DeviceAdded(mojom::HidDeviceInfoPtr device_info) override;
++  void DeviceRemoved(mojom::HidDeviceInfoPtr device_info) override;
++  void DeviceChanged(mojom::HidDeviceInfoPtr device_info) override;
++
++  // Post events from FFRT callback threads to the polling thread.
++  void PostDeviceStateEvent(const GamepadDeviceStateEvent& event);
++  void PostButtonEvent(const GamepadButtonEvent& event);
++  void PostAxisEvent(const GamepadAxisEvent& event);
++
++ private:
++  void OnAddedToProvider() override;
++
++  // Handlers executed on the polling thread via PostTask.
++  void HandleDeviceStateEvent(int32_t device_id,
++                              bool connected,
++                              const std::string& device_name,
++                              uint16_t vendor_id,
++                              uint16_t product_id);
++  void HandleButtonEvent(int32_t device_id, int button_code, bool pressed);
++  void HandleAxisEvent(int32_t device_id, int axis_type, float x, float y);
++
++  GamepadDeviceOhos* GetDeviceWithDeviceId(int32_t device_id);
++  GamepadDeviceOhos* GetOrCreateMatchingDevice(int32_t device_id,
++                                               const std::string& name,
++                                               uint16_t vendor_id,
++                                               uint16_t product_id);
++  void RemoveDevice(int32_t device_id);
++  void OnHidDevicesEnumerated(
++      std::vector<mojom::HidDeviceInfoPtr> device_infos);
++  void TryConnectHidDevice(int32_t gamepad_id);
++  void OnHidConnected(int32_t gamepad_id,
++                      const std::string& guid,
++                      mojo::PendingRemote<mojom::HidConnection> connection);
++  void StartRumbleEffect(
++      int32_t gamepad_id,
++      double strong_magnitude,
++      double weak_magnitude,
++      base::TimeDelta duration,
++      uint64_t vibration_sequence,
++      mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback callback,
++      scoped_refptr<base::SequencedTaskRunner> callback_runner);
++  void WriteRumbleReport(int32_t gamepad_id,
++                         double strong_magnitude,
++                         double weak_magnitude,
++                         base::OnceCallback<void(bool)> callback = {});
++
++  std::unordered_map<int32_t, std::unique_ptr<GamepadDeviceOhos>> devices_;
++
++  scoped_refptr<base::SequencedTaskRunner> polling_task_runner_;
++
++  mojo::Remote<mojom::HidManager> hid_manager_;
++  mojo::AssociatedReceiver<mojom::HidManagerClient> hid_manager_client_{this};
++  std::map<std::string, mojom::HidDeviceInfoPtr> dualsense_hid_devices_;
++  std::map<int32_t, std::string> gamepad_hid_guids_;
++  std::map<int32_t, mojo::Remote<mojom::HidConnection>> haptic_connections_;
++  std::map<int32_t, uint64_t> vibration_sequences_;
++
++  base::WeakPtrFactory<GamepadPlatformDataFetcherOhos> weak_factory_{this};
++};
++
++}  // namespace device
++
++#endif  // DEVICE_GAMEPAD_GAMEPAD_PLATFORM_DATA_FETCHER_OHOS_H_
+diff --git a/device/gamepad/gamepad_standard_mappings_ohos.cc b/device/gamepad/gamepad_standard_mappings_ohos.cc
+new file mode 100644
+index 0000000000..d9b6aa092b
+--- /dev/null
++++ b/device/gamepad/gamepad_standard_mappings_ohos.cc
+@@ -0,0 +1,169 @@
++// Copyright (c) 2026 Huawei Device Co., Ltd.
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include <algorithm>
++#include <ranges>
++
++#include "device/gamepad/gamepad_standard_mappings.h"
++#include "device/gamepad/gamepad_id_list.h"
++#include "device/gamepad/gamepad_ohos_layout.h"
++
++namespace device {
++
++namespace {
++
++// OHOS triggers report [0, 1] (not [-1, 1] like AxisToButton expects).
++GamepadButton TriggerValueToButton(float value) {
++  bool pressed = value > GamepadButton::kDefaultButtonPressedThreshold;
++  bool touched = value > 0.f;
++  return GamepadButton(pressed, touched, value);
++}
++
++// Xbox-style mapper: A/B/X/Y map directly to W3C canonical order.
++// Covers Xbox 360/One/Bluetooth, PlayStation DS4/DualSense, most third-party.
++void MapperOhosXboxStyle(const Gamepad& input, Gamepad* mapped) {
++  *mapped = input;
++
++  mapped->buttons[BUTTON_INDEX_PRIMARY] = input.buttons[kOhosButtonA];
++  mapped->buttons[BUTTON_INDEX_SECONDARY] = input.buttons[kOhosButtonB];
++  mapped->buttons[BUTTON_INDEX_TERTIARY] = input.buttons[kOhosButtonX];
++  mapped->buttons[BUTTON_INDEX_QUATERNARY] = input.buttons[kOhosButtonY];
++  mapped->buttons[BUTTON_INDEX_LEFT_SHOULDER] =
++      input.buttons[kOhosButtonLeftShoulder];
++  mapped->buttons[BUTTON_INDEX_RIGHT_SHOULDER] =
++      input.buttons[kOhosButtonRightShoulder];
++  mapped->buttons[BUTTON_INDEX_LEFT_TRIGGER] =
++      TriggerValueToButton(input.axes[kOhosAxisLeftTrigger]);
++  mapped->buttons[BUTTON_INDEX_RIGHT_TRIGGER] =
++      TriggerValueToButton(input.axes[kOhosAxisRightTrigger]);
++  mapped->buttons[BUTTON_INDEX_BACK_SELECT] =
++      input.buttons[kOhosButtonBackSelect];
++  mapped->buttons[BUTTON_INDEX_START] = input.buttons[kOhosButtonStart];
++  mapped->buttons[BUTTON_INDEX_LEFT_THUMBSTICK] =
++      input.buttons[kOhosButtonLeftThumbstick];
++  mapped->buttons[BUTTON_INDEX_RIGHT_THUMBSTICK] =
++      input.buttons[kOhosButtonRightThumbstick];
++  mapped->buttons[BUTTON_INDEX_DPAD_UP] = input.buttons[kOhosButtonDpadUp];
++  mapped->buttons[BUTTON_INDEX_DPAD_DOWN] =
++      input.buttons[kOhosButtonDpadDown];
++  mapped->buttons[BUTTON_INDEX_DPAD_LEFT] =
++      input.buttons[kOhosButtonDpadLeft];
++  mapped->buttons[BUTTON_INDEX_DPAD_RIGHT] =
++      input.buttons[kOhosButtonDpadRight];
++  mapped->buttons[BUTTON_INDEX_META] = input.buttons[kOhosButtonMeta];
++
++  mapped->axes[AXIS_INDEX_LEFT_STICK_X] = input.axes[kOhosAxisLeftStickX];
++  mapped->axes[AXIS_INDEX_LEFT_STICK_Y] = input.axes[kOhosAxisLeftStickY];
++  mapped->axes[AXIS_INDEX_RIGHT_STICK_X] = input.axes[kOhosAxisRightStickX];
++  mapped->axes[AXIS_INDEX_RIGHT_STICK_Y] = input.axes[kOhosAxisRightStickY];
++
++  mapped->buttons_length = BUTTON_INDEX_COUNT;
++  mapped->axes_length = AXIS_INDEX_COUNT;
++}
++
++// Nintendo mapper: A/B and X/Y are swapped relative to Xbox layout.
++void MapperOhosNintendoStyle(const Gamepad& input, Gamepad* mapped) {
++  *mapped = input;
++
++  mapped->buttons[BUTTON_INDEX_PRIMARY] = input.buttons[kOhosButtonB];
++  mapped->buttons[BUTTON_INDEX_SECONDARY] = input.buttons[kOhosButtonA];
++  mapped->buttons[BUTTON_INDEX_TERTIARY] = input.buttons[kOhosButtonY];
++  mapped->buttons[BUTTON_INDEX_QUATERNARY] = input.buttons[kOhosButtonX];
++  mapped->buttons[BUTTON_INDEX_LEFT_SHOULDER] =
++      input.buttons[kOhosButtonLeftShoulder];
++  mapped->buttons[BUTTON_INDEX_RIGHT_SHOULDER] =
++      input.buttons[kOhosButtonRightShoulder];
++  mapped->buttons[BUTTON_INDEX_LEFT_TRIGGER] =
++      TriggerValueToButton(input.axes[kOhosAxisLeftTrigger]);
++  mapped->buttons[BUTTON_INDEX_RIGHT_TRIGGER] =
++      TriggerValueToButton(input.axes[kOhosAxisRightTrigger]);
++  mapped->buttons[BUTTON_INDEX_BACK_SELECT] =
++      input.buttons[kOhosButtonBackSelect];
++  mapped->buttons[BUTTON_INDEX_START] = input.buttons[kOhosButtonStart];
++  mapped->buttons[BUTTON_INDEX_LEFT_THUMBSTICK] =
++      input.buttons[kOhosButtonLeftThumbstick];
++  mapped->buttons[BUTTON_INDEX_RIGHT_THUMBSTICK] =
++      input.buttons[kOhosButtonRightThumbstick];
++  mapped->buttons[BUTTON_INDEX_DPAD_UP] = input.buttons[kOhosButtonDpadUp];
++  mapped->buttons[BUTTON_INDEX_DPAD_DOWN] =
++      input.buttons[kOhosButtonDpadDown];
++  mapped->buttons[BUTTON_INDEX_DPAD_LEFT] =
++      input.buttons[kOhosButtonDpadLeft];
++  mapped->buttons[BUTTON_INDEX_DPAD_RIGHT] =
++      input.buttons[kOhosButtonDpadRight];
++  mapped->buttons[BUTTON_INDEX_META] = input.buttons[kOhosButtonMeta];
++
++  mapped->axes[AXIS_INDEX_LEFT_STICK_X] = input.axes[kOhosAxisLeftStickX];
++  mapped->axes[AXIS_INDEX_LEFT_STICK_Y] = input.axes[kOhosAxisLeftStickY];
++  mapped->axes[AXIS_INDEX_RIGHT_STICK_X] = input.axes[kOhosAxisRightStickX];
++  mapped->axes[AXIS_INDEX_RIGHT_STICK_Y] = input.axes[kOhosAxisRightStickY];
++
++  mapped->buttons_length = BUTTON_INDEX_COUNT;
++  mapped->axes_length = AXIS_INDEX_COUNT;
++}
++
++constexpr struct MappingData {
++  GamepadId gamepad_id;
++  GamepadStandardMappingFunction function;
++} kAvailableMappings[] = {
++    // Xbox 360 controllers (OHOS has no XInput, so these need mappers)
++    {GamepadId::kMicrosoftProduct028e, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0291, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct02a1, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0719, MapperOhosXboxStyle},
++    // Xbox One controllers
++    {GamepadId::kMicrosoftProduct02d1, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct02dd, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct02e3, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct02ea, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b00, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b06, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b0a, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b12, MapperOhosXboxStyle},
++    // Xbox Bluetooth (Xbox One S, Elite Series 2, Adaptive)
++    {GamepadId::kMicrosoftProduct0b20, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b21, MapperOhosXboxStyle},
++    {GamepadId::kMicrosoftProduct0b22, MapperOhosXboxStyle},
++    // PlayStation Dualshock 4
++    {GamepadId::kSonyProduct05c4, MapperOhosXboxStyle},
++    {GamepadId::kSonyProduct09cc, MapperOhosXboxStyle},
++    {GamepadId::kSonyProduct0ba0, MapperOhosXboxStyle},
++    // PlayStation DualSense
++    {GamepadId::kSonyProduct0ce6, MapperOhosXboxStyle},
++    {GamepadId::kSonyProduct0df2, MapperOhosXboxStyle},
++    {GamepadId::kSonyProduct0e5f, MapperOhosXboxStyle},
++    // Nintendo Switch — A/B and X/Y are swapped
++    {GamepadId::kNintendoProduct2006, MapperOhosNintendoStyle},
++    {GamepadId::kNintendoProduct2007, MapperOhosNintendoStyle},
++    {GamepadId::kNintendoProduct2009, MapperOhosNintendoStyle},
++    {GamepadId::kNintendoProduct200e, MapperOhosNintendoStyle},
++};
++
++}  // namespace
++
++GamepadStandardMappingFunction GetGamepadStandardMappingFunction(
++    std::string_view product_name,
++    const uint16_t vendor_id,
++    const uint16_t product_id,
++    const uint16_t hid_specification_version,
++    const uint16_t version_number,
++    GamepadBusType bus_type,
++    GamepadDriver driver) {
++  GamepadId gamepad_id =
++      GamepadIdList::Get().GetGamepadId(product_name, vendor_id, product_id);
++  const auto* find_it = std::ranges::find(kAvailableMappings, gamepad_id,
++                                          &MappingData::gamepad_id);
++  return (find_it == std::end(kAvailableMappings)) ? nullptr : find_it->function;
++}
++
++}  // namespace device
 diff --git a/extensions/browser/api/networking_private/networking_private_delegate_factory.cc b/extensions/browser/api/networking_private/networking_private_delegate_factory.cc
 index fa5031aec6..fc380d0b91 100644
 --- a/extensions/browser/api/networking_private/networking_private_delegate_factory.cc
@@ -157262,6 +158460,282 @@ index 1a016eb9a1..d1009a6566 100644
    if (is_chromeos) {
      deps += [ "//chromeos/dbus/permission_broker" ]
    }
+diff --git a/services/device/hid/hid_connection_ohos.cc b/services/device/hid/hid_connection_ohos.cc
+new file mode 100644
+index 0000000000..54ebd09ca4
+--- /dev/null
++++ b/services/device/hid/hid_connection_ohos.cc
+@@ -0,0 +1,219 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license in LICENSE.
++#include "services/device/hid/hid_connection_ohos.h"
++
++#include "base/containers/span.h"
++#include "base/functional/bind.h"
++#include "base/memory/ref_counted_memory.h"
++#include "base/task/sequenced_task_runner.h"
++#include "base/time/time.h"
++#include "components/device_event_log/device_event_log.h"
++#include "services/device/usb/usb_device.h"
++
++namespace device {
++namespace {
++constexpr unsigned int kTransferTimeoutMs = 1000;
++constexpr uint8_t kGetReport = 1;
++constexpr uint8_t kSetReport = 9;
++constexpr uint8_t kOutputReport = 2;
++constexpr uint8_t kFeatureReport = 3;
++}  // namespace
++
++HidConnectionOhos::HidConnectionOhos(
++    scoped_refptr<HidDeviceInfo> info, scoped_refptr<UsbDeviceHandle> handle,
++    uint8_t interface_number, bool allow_protected_reports,
++    bool allow_fido_reports)
++    : HidConnection(std::move(info), allow_protected_reports, allow_fido_reports),
++      handle_(std::move(handle)), interface_number_(interface_number),
++      alive_(base::MakeRefCounted<base::RefCountedData<bool>>(true)) {
++  const auto* config = handle_->GetDevice()->GetActiveConfiguration();
++  if (config) {
++    for (const auto& interface : config->interfaces) {
++      if (interface->interface_number != interface_number_) continue;
++      for (const auto& alternate : interface->alternates) {
++        if (alternate->alternate_setting != 0) continue;
++        for (const auto& endpoint : alternate->endpoints) {
++          if (endpoint->type != mojom::UsbTransferType::INTERRUPT) continue;
++          if (endpoint->direction == mojom::UsbTransferDirection::INBOUND)
++            in_endpoint_ = endpoint->endpoint_number;
++          else
++            out_endpoint_ = endpoint->endpoint_number;
++        }
++      }
++    }
++  }
++  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
++      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
++                               weak_factory_.GetWeakPtr()));
++}
++
++HidConnectionOhos::~HidConnectionOhos() = default;
++
++void HidConnectionOhos::PlatformClose() {
++  alive_->data = false;
++  weak_factory_.InvalidateWeakPtrs();
++  if (handle_) {
++    handle_->Close();
++    handle_ = nullptr;
++  }
++}
++
++void HidConnectionOhos::ReadNext() {
++  if (!handle_ || !in_endpoint_ || !device_info()->max_input_report_size()) return;
++  size_t size = device_info()->max_input_report_size() +
++                (device_info()->has_report_id() ? 1 : 0);
++  handle_->GenericTransfer(
++      mojom::UsbTransferDirection::INBOUND, in_endpoint_,
++      base::MakeRefCounted<base::RefCountedBytes>(size), kTransferTimeoutMs,
++      base::BindOnce(&HidConnectionOhos::OnRead, weak_factory_.GetWeakPtr()));
++}
++
++void HidConnectionOhos::OnRead(mojom::UsbTransferStatus status,
++                              scoped_refptr<base::RefCountedBytes> buffer,
++                              size_t size) {
++  if (!handle_) return;
++  if (status == mojom::UsbTransferStatus::COMPLETED && size &&
++      size <= buffer->size()) {
++    if (!device_info()->has_report_id()) {
++      auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
++      framed->as_vector()[0] = 0;
++      base::span(framed->as_vector()).subspan(1u).copy_from(
++          base::span(buffer->as_vector()).first(size));
++      buffer = std::move(framed);
++      ++size;
++    }
++    ProcessInputReport(std::move(buffer), size);
++  } else if (status != mojom::UsbTransferStatus::TIMEOUT &&
++             status != mojom::UsbTransferStatus::COMPLETED) {
++    HID_LOG(EVENT) << "OHOS HID input stopped: " << static_cast<int>(status);
++    return;
++  }
++  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
++      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
++                               weak_factory_.GetWeakPtr()), base::Milliseconds(1));
++}
++
++void HidConnectionOhos::SendReport(
++    uint8_t type, scoped_refptr<base::RefCountedBytes> framed,
++    WriteCallback callback) {
++  if (!handle_ || !framed->size()) {
++    std::move(callback).Run(false);
++    return;
++  }
++  const uint8_t id = framed->as_vector()[0];
++  if (!device_info()->has_report_id() && id != 0) {
++    std::move(callback).Run(false);
++    return;
++  }
++  auto payload = base::MakeRefCounted<base::RefCountedBytes>();
++  const auto bytes = base::span(framed->as_vector()).subspan(
++      device_info()->has_report_id() ? 0u : 1u);
++  payload->as_vector().assign(bytes.begin(), bytes.end());
++  // DualSense USB output report 0x02 is described as 47 payload bytes, but
++  // the controller's USB transport expects the 63-byte packet used by the
++  // Linux hid-playstation driver (report ID + 47 common bytes + 15 reserved
++  // bytes). Other HID devices must retain the exact report length from their
++  // descriptor.
++  constexpr uint16_t kSonyVendorId = 0x054c;
++  constexpr uint16_t kDualSenseProductId = 0x0ce6;
++  constexpr size_t kDualSenseUsbOutputReportSize = 63;
++  if (type == kOutputReport && device_info()->vendor_id() == kSonyVendorId &&
++      device_info()->product_id() == kDualSenseProductId && id == 0x02 &&
++      payload->size() < kDualSenseUsbOutputReportSize) {
++    payload->as_vector().resize(kDualSenseUsbOutputReportSize, 0);
++  }
++  const size_t transfer_size = payload->size();
++  HID_LOG(EVENT) << "OHOS HID output: vid=" << device_info()->vendor_id()
++                 << " pid=" << device_info()->product_id()
++                 << " interface=" << static_cast<int>(interface_number_)
++                 << " report=" << static_cast<int>(id)
++                 << " type=" << static_cast<int>(type)
++                 << " bytes=" << transfer_size
++                 << " endpoint=" << static_cast<int>(out_endpoint_);
++  if (type == kOutputReport && device_info()->vendor_id() == kSonyVendorId &&
++      device_info()->product_id() == kDualSenseProductId &&
++      payload->size() >= kDualSenseUsbOutputReportSize) {
++    // The DualSense USB output report starts with report ID 0x02, followed by
++    // valid_flag0, valid_flag1, right/left rumble, ... valid_flag2 at byte 39.
++    // Capture the protocol control fields so a successful USB transfer can be
++    // distinguished from a report that never enabled the motors.
++    const auto& report = payload->as_vector();
++    HID_LOG(EVENT) << "OHOS DualSense USB output fields: valid0="
++                   << static_cast<int>(report[1]) << " valid1="
++                   << static_cast<int>(report[2]) << " motor_right="
++                   << static_cast<int>(report[3]) << " motor_left="
++                   << static_cast<int>(report[4]) << " valid2="
++                   << static_cast<int>(report[39]);
++  }
++  auto complete = base::BindOnce(
++      [](scoped_refptr<base::RefCountedData<bool>> alive, size_t expected,
++         uint16_t vendor_id, uint16_t product_id, uint8_t report_id,
++         WriteCallback callback, mojom::UsbTransferStatus status,
++         scoped_refptr<base::RefCountedBytes>, size_t size) {
++        HID_LOG(EVENT) << "OHOS HID output completed: vid=" << vendor_id
++                       << " pid=" << product_id
++                       << " report=" << static_cast<int>(report_id)
++                       << " status=" << static_cast<int>(status)
++                       << " bytes=" << size << " expected=" << expected;
++        std::move(callback).Run(alive->data &&
++            status == mojom::UsbTransferStatus::COMPLETED && size == expected);
++      }, alive_, transfer_size, device_info()->vendor_id(),
++      device_info()->product_id(), id, std::move(callback));
++  if (type == kOutputReport && out_endpoint_) {
++    handle_->GenericTransfer(mojom::UsbTransferDirection::OUTBOUND,
++                             out_endpoint_, payload, kTransferTimeoutMs,
++                             std::move(complete));
++  } else {
++    handle_->ControlTransfer(
++        mojom::UsbTransferDirection::OUTBOUND,
++        mojom::UsbControlTransferType::CLASS,
++        mojom::UsbControlTransferRecipient::INTERFACE, kSetReport,
++        (static_cast<uint16_t>(type) << 8) | id, interface_number_, payload,
++        kTransferTimeoutMs, std::move(complete));
++  }
++}
++
++void HidConnectionOhos::PlatformWrite(
++    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
++  SendReport(kOutputReport, std::move(buffer), std::move(callback));
++}
++void HidConnectionOhos::PlatformSendFeatureReport(
++    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
++  SendReport(kFeatureReport, std::move(buffer), std::move(callback));
++}
++void HidConnectionOhos::PlatformGetFeatureReport(
++    uint8_t report_id, ReadCallback callback) {
++  if (!handle_) {
++    std::move(callback).Run(false, nullptr, 0);
++    return;
++  }
++  const bool has_id = device_info()->has_report_id();
++  auto buffer = base::MakeRefCounted<base::RefCountedBytes>(
++      device_info()->max_feature_report_size() + (has_id ? 1 : 0));
++  handle_->ControlTransfer(
++      mojom::UsbTransferDirection::INBOUND,
++      mojom::UsbControlTransferType::CLASS,
++      mojom::UsbControlTransferRecipient::INTERFACE, kGetReport,
++      (static_cast<uint16_t>(kFeatureReport) << 8) | report_id,
++      interface_number_, buffer, kTransferTimeoutMs,
++      base::BindOnce(
++          [](scoped_refptr<base::RefCountedData<bool>> alive, bool has_id,
++             ReadCallback callback, mojom::UsbTransferStatus status,
++             scoped_refptr<base::RefCountedBytes> bytes, size_t size) {
++            if (!alive->data || status != mojom::UsbTransferStatus::COMPLETED ||
++                !size || size > bytes->size()) {
++              std::move(callback).Run(false, nullptr, 0);
++              return;
++            }
++            if (!has_id) {
++              auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
++              framed->as_vector()[0] = 0;
++              base::span(framed->as_vector()).subspan(1u).copy_from(
++                  base::span(bytes->as_vector()).first(size));
++              bytes = std::move(framed);
++              ++size;
++            }
++            std::move(callback).Run(true, std::move(bytes), size);
++          }, alive_, has_id, std::move(callback)));
++}
++}  // namespace device
+diff --git a/services/device/hid/hid_connection_ohos.h b/services/device/hid/hid_connection_ohos.h
+new file mode 100644
+index 0000000000..ef280aea7d
+--- /dev/null
++++ b/services/device/hid/hid_connection_ohos.h
+@@ -0,0 +1,45 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license in LICENSE.
++#ifndef SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
++#define SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
++
++#include "base/memory/ref_counted.h"
++#include "base/memory/weak_ptr.h"
++#include "services/device/hid/hid_connection.h"
++#include "services/device/usb/usb_device_handle.h"
++
++namespace device {
++// Uses the USBManager-authorized usbfs handle. Chromium still enforces the
++// origin grant, HID blocklist and protected report checks in HidConnection.
++class HidConnectionOhos : public HidConnection {
++ public:
++  HidConnectionOhos(scoped_refptr<HidDeviceInfo> info,
++                    scoped_refptr<UsbDeviceHandle> handle,
++                    uint8_t interface_number,
++                    bool allow_protected_reports,
++                    bool allow_fido_reports);
++
++ private:
++  ~HidConnectionOhos() override;
++  void PlatformClose() override;
++  void PlatformWrite(scoped_refptr<base::RefCountedBytes> buffer,
++                     WriteCallback callback) override;
++  void PlatformGetFeatureReport(uint8_t report_id,
++                                ReadCallback callback) override;
++  void PlatformSendFeatureReport(scoped_refptr<base::RefCountedBytes> buffer,
++                                 WriteCallback callback) override;
++  void ReadNext();
++  void OnRead(mojom::UsbTransferStatus status,
++              scoped_refptr<base::RefCountedBytes> buffer, size_t size);
++  void SendReport(uint8_t type, scoped_refptr<base::RefCountedBytes> buffer,
++                  WriteCallback callback);
++
++  scoped_refptr<UsbDeviceHandle> handle_;
++  const uint8_t interface_number_;
++  uint8_t in_endpoint_ = 0;
++  uint8_t out_endpoint_ = 0;
++  scoped_refptr<base::RefCountedData<bool>> alive_;
++  base::WeakPtrFactory<HidConnectionOhos> weak_factory_{this};
++};
++}  // namespace device
++#endif
 diff --git a/services/device/hid/hid_service.cc b/services/device/hid/hid_service.cc
 index 7f37eeded0..4f3715598e 100644
 --- a/services/device/hid/hid_service.cc
@@ -157286,10 +158760,10 @@ index 7f37eeded0..4f3715598e 100644
  #endif
 diff --git a/services/device/hid/hid_service_ohos.cc b/services/device/hid/hid_service_ohos.cc
 new file mode 100644
-index 0000000000..456474526b
+index 0000000000..972cf86980
 --- /dev/null
 +++ b/services/device/hid/hid_service_ohos.cc
-@@ -0,0 +1,341 @@
+@@ -0,0 +1,392 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -157322,6 +158796,7 @@ index 0000000000..456474526b
 +#include "services/device/hid/hid_service_ohos.h"
 +
 +#include <memory>
++#include <optional>
 +#include <set>
 +#include <string>
 +#include <vector>
@@ -157340,15 +158815,46 @@ index 0000000000..456474526b
 +
 +namespace device {
 +namespace {
-+constexpr size_t kMaxDescriptorSize = 4096;
++// Read the exact report descriptor size from the interface's USB HID class
++// descriptor instead of truncating larger, valid vendor/game-controller
++// descriptors at an arbitrary fixed buffer size.
++std::optional<size_t> GetReportDescriptorSize(
++    const mojom::UsbAlternateInterfaceInfo& alternate) {
++  const auto& extra_data = alternate.extra_data;
++  for (size_t offset = 0; offset + 2 <= extra_data.size();) {
++    const size_t descriptor_length = extra_data[offset];
++    if (descriptor_length < 2 || descriptor_length > extra_data.size() - offset)
++      return std::nullopt;
++
++    // USB HID descriptor: bLength, bDescriptorType, bcdHID, bCountryCode,
++    // bNumDescriptors, followed by (type, length) entries.
++    if (extra_data[offset + 1] == 0x21 && descriptor_length >= 6) {
++      const size_t descriptor_count = extra_data[offset + 5];
++      if (descriptor_count > (descriptor_length - 6) / 3)
++        return std::nullopt;
++      for (size_t i = 0; i < descriptor_count; ++i) {
++        const size_t tuple = offset + 6 + i * 3;
++        if (extra_data[tuple] != 0x22)
++          continue;
++        const size_t report_size = extra_data[tuple + 1] |
++                                   (static_cast<size_t>(extra_data[tuple + 2]) << 8);
++        if (report_size)
++          return report_size;
++      }
++    }
++    offset += descriptor_length;
++  }
++  return std::nullopt;
++}
++
 +bool FilterHidDevice(const USBDevice& device) {
 +  bool eligible = false;
 +  for (const auto& config : device.configs)
 +    for (const auto& interface : config.interfaces)
-+      if (interface.clazz == 3 && interface.subClass != 1) eligible = true;
++      if (interface.clazz == 3) eligible = true;
 +  HID_LOG(EVENT) << "OHOS HID USB candidate: " << device.productName
 +                 << " vid=" << device.vendorId << " pid=" << device.productId
-+                 << " non-boot HID=" << eligible;
++                 << " HID=" << eligible;
 +  return eligible;
 +}
 +}  // namespace
@@ -157373,10 +158879,14 @@ index 0000000000..456474526b
 +
 + private:
 +  struct Probe {
++    struct HidInterface {
++      uint8_t number;
++      size_t report_descriptor_size;
++    };
 +    USBDevice physical;
 +    scoped_refptr<UsbDeviceOhos> device;
 +    scoped_refptr<UsbDeviceHandle> handle;
-+    std::vector<uint8_t> interfaces;
++    std::vector<HidInterface> interfaces;
 +    size_t next = 0;
 +  };
 +  void OnDeviceAdded(const USBDevice& device) override {
@@ -157418,9 +158928,18 @@ index 0000000000..456474526b
 +                         << " class=" << static_cast<int>(alternate->class_code)
 +                         << " subclass=" << static_cast<int>(alternate->subclass_code)
 +                         << " alternate=" << static_cast<int>(alternate->alternate_setting);
-+          if (alternate->alternate_setting == 0 && alternate->class_code == 3 &&
-+              alternate->subclass_code != 1) {
-+            probe->interfaces.push_back(interface->interface_number);
++          if (alternate->alternate_setting == 0 &&
++              alternate->class_code == 3) {
++            const auto report_descriptor_size =
++                GetReportDescriptorSize(*alternate);
++            if (!report_descriptor_size) {
++              HID_LOG(ERROR) << "OHOS HID interface has no valid report "
++                                "descriptor length, interface="
++                             << static_cast<int>(interface->interface_number);
++              continue;
++            }
++            probe->interfaces.push_back(
++                {interface->interface_number, *report_descriptor_size});
 +            break;
 +          }
 +        }
@@ -157433,14 +158952,14 @@ index 0000000000..456474526b
 +      Finish(probe);
 +      return;
 +    }
-+    const uint8_t interface = probe->interfaces[probe->next++];
++    const auto interface = probe->interfaces[probe->next++];
 +    // usbfs requires ownership even for an interface-recipient descriptor
-+    // request. A HID kernel driver may already own this interface. Claim the
-+    // non-boot interface, read its descriptor, then restore it immediately.
++    // request. A HID kernel driver may already own this interface. Claim it,
++    // read its descriptor, then restore the driver immediately.
 +    static_cast<UsbDeviceHandleUsbfs*>(probe->handle.get())
-+        ->ClaimInterfaceForHid(interface, base::BindOnce(
++        ->ClaimInterfaceForHid(interface.number, base::BindOnce(
 +            &BlockingTaskRunnerHelper::DescriptorInterfaceClaimed,
-+            weak_factory_.GetWeakPtr(), probe, interface));
++            weak_factory_.GetWeakPtr(), probe, interface.number));
 +  }
 +  void DescriptorInterfaceClaimed(std::shared_ptr<Probe> probe,
 +                                  uint8_t interface, bool success) {
@@ -157456,7 +158975,8 @@ index 0000000000..456474526b
 +        mojom::UsbControlTransferType::STANDARD,
 +        mojom::UsbControlTransferRecipient::INTERFACE,
 +        /*GET_DESCRIPTOR=*/6, /*HID report descriptor=*/0x2200, interface,
-+        base::MakeRefCounted<base::RefCountedBytes>(kMaxDescriptorSize), 1000,
++        base::MakeRefCounted<base::RefCountedBytes>(
++            probe->interfaces[probe->next - 1].report_descriptor_size), 1000,
 +        base::BindOnce(&BlockingTaskRunnerHelper::DescriptorRead,
 +                       weak_factory_.GetWeakPtr(), probe, interface));
 +  }
@@ -157539,7 +159059,12 @@ index 0000000000..456474526b
 +    task_runner_->PostTask(FROM_HERE,
 +        base::BindOnce(&HidServiceOhos::RemovePhysicalDevice, service_, device.name));
 +  }
-+  void OnDeviceChanged(const USBDevice&) override {}
++  void OnDeviceChanged(const USBDevice& device) override {
++    // DeviceWatcher reports a changed USB identity as remove + add. Keep this
++    // callback as a safety net for observers that report changes directly.
++    OnDeviceRemoved(device);
++    OnDeviceAdded(device);
++  }
 +  std::unique_ptr<DeviceWatcher> watcher_;
 +  base::WeakPtr<HidServiceOhos> service_;
 +  scoped_refptr<base::SequencedTaskRunner> task_runner_;
@@ -157711,6 +159236,241 @@ index 0000000000..20f17ab10d
 +
 +}  // namespace device
 +#endif  // SERVICES_DEVICE_HID_HID_SERVICE_OHOS_H_
+diff --git a/services/device/hid/ohos_tests/BUILD.gn b/services/device/hid/ohos_tests/BUILD.gn
+new file mode 100644
+index 0000000000..9d09f81d11
+--- /dev/null
++++ b/services/device/hid/ohos_tests/BUILD.gn
+@@ -0,0 +1,27 @@
++# Host regression tests execute the actual OHOS HID framing implementation
++# against a deterministic USB transport, without accessing physical devices.
++executable("hid_transport_tests") {
++  testonly = true
++  sources = [
++    "hid_transport_tests.cc",
++    "../hid_connection_ohos.cc",
++    "../hid_connection.cc",
++    "../hid_device_info.cc",
++    "../hid_collection.cc",
++    "../hid_item_state_table.cc",
++    "../hid_report_descriptor.cc",
++    "../hid_report_descriptor_item.cc",
++    "../hid_report_item.cc",
++    "../../public/cpp/hid/hid_blocklist.cc",
++    "../../public/cpp/hid/hid_report_utils.cc",
++    "../../public/cpp/hid/hid_switches.cc",
++    "../../usb/usb_device.cc",
++    "../../usb/usb_device_handle.cc",
++  ]
++  deps = [
++    "//base",
++    "//components/device_event_log",
++    "//services/device/public/mojom:ohos_hid_test_types",
++    "//services/device/public/cpp:device_features",
++  ]
++}
+diff --git a/services/device/hid/ohos_tests/hid_transport_tests.cc b/services/device/hid/ohos_tests/hid_transport_tests.cc
+new file mode 100644
+index 0000000000..d6b775757a
+--- /dev/null
++++ b/services/device/hid/ohos_tests/hid_transport_tests.cc
+@@ -0,0 +1,196 @@
++// Copyright 2026 The Chromium Authors. BSD-style license in LICENSE.
++#include <cstdio>
++#include <utility>
++#include <vector>
++#include "base/check.h"
++#include "base/command_line.h"
++#include "base/feature_list.h"
++#include "base/functional/bind.h"
++#include "base/memory/ref_counted_memory.h"
++#include "base/run_loop.h"
++#include "base/task/single_thread_task_executor.h"
++#include "services/device/hid/hid_connection_ohos.h"
++#include "services/device/usb/usb_device.h"
++
++namespace device {
++using Bytes = base::RefCountedBytes;
++using Status = mojom::UsbTransferStatus;
++class TestDevice : public UsbDevice {
++ public:
++  explicit TestDevice(bool interrupt_out) : UsbDevice(Info(interrupt_out)) {}
++  void Open(OpenCallback callback) override { std::move(callback).Run(nullptr); }
++ private:
++  ~TestDevice() override = default;
++  static mojom::UsbDeviceInfoPtr Info(bool interrupt_out) {
++    auto info = mojom::UsbDeviceInfo::New();
++    info->active_configuration = 1;
++    auto config = mojom::UsbConfigurationInfo::New();
++    config->configuration_value = 1;
++    auto interface = mojom::UsbInterfaceInfo::New();
++    interface->interface_number = 2;
++    auto alternate = mojom::UsbAlternateInterfaceInfo::New();
++    alternate->class_code = 3;
++    auto input = mojom::UsbEndpointInfo::New();
++    input->type = mojom::UsbTransferType::INTERRUPT;
++    input->direction = mojom::UsbTransferDirection::INBOUND;
++    input->endpoint_number = 1;
++    alternate->endpoints.push_back(std::move(input));
++    if (interrupt_out) {
++      auto output = mojom::UsbEndpointInfo::New();
++      output->type = mojom::UsbTransferType::INTERRUPT;
++      output->direction = mojom::UsbTransferDirection::OUTBOUND;
++      output->endpoint_number = 2;
++      alternate->endpoints.push_back(std::move(output));
++    }
++    interface->alternates.push_back(std::move(alternate));
++    config->interfaces.push_back(std::move(interface));
++    info->configurations.push_back(std::move(config));
++    return info;
++  }
++};
++class TestHandle : public UsbDeviceHandle {
++ public:
++  explicit TestHandle(bool interrupt_out)
++      : device(base::MakeRefCounted<TestDevice>(interrupt_out)) {}
++  scoped_refptr<UsbDevice> GetDevice() const override { return device; }
++  void Close() override {
++    device = nullptr;
++    if (input) std::move(input).Run(Status::CANCELLED, nullptr, 0);
++    if (write) std::move(write).Run(Status::CANCELLED, nullptr, 0);
++  }
++  void SetConfiguration(int, ResultCallback cb) override { std::move(cb).Run(false); }
++  void ClaimInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
++  void ReleaseInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
++  void SetInterfaceAlternateSetting(int, int, ResultCallback cb) override { std::move(cb).Run(false); }
++  void ResetDevice(ResultCallback cb) override { std::move(cb).Run(false); }
++  void ClearHalt(mojom::UsbTransferDirection, uint8_t, ResultCallback cb) override { std::move(cb).Run(false); }
++  void IsochronousTransferIn(uint8_t, const std::vector<uint32_t>&, unsigned int,
++                            IsochronousTransferCallback) override { CHECK(false); }
++  void IsochronousTransferOut(uint8_t, scoped_refptr<Bytes>, const std::vector<uint32_t>&,
++                             unsigned int, IsochronousTransferCallback) override { CHECK(false); }
++  const mojom::UsbInterfaceInfo* FindInterfaceByEndpoint(uint8_t) override { return nullptr; }
++  void GenericTransfer(mojom::UsbTransferDirection direction, uint8_t endpoint,
++                       scoped_refptr<Bytes> buffer, unsigned int,
++                       TransferCallback cb) override {
++    if (direction == mojom::UsbTransferDirection::INBOUND) {
++      CHECK_EQ(endpoint, 1); input = std::move(cb);
++    } else {
++      CHECK_EQ(endpoint, 2); Output(buffer, std::move(cb));
++    }
++  }
++  void ControlTransfer(mojom::UsbTransferDirection direction,
++                       mojom::UsbControlTransferType type,
++                       mojom::UsbControlTransferRecipient recipient,
++                       uint8_t request, uint16_t value, uint16_t index,
++                       scoped_refptr<Bytes> buffer, unsigned int,
++                       TransferCallback cb) override {
++    CHECK(type == mojom::UsbControlTransferType::CLASS);
++    CHECK(recipient == mojom::UsbControlTransferRecipient::INTERFACE);
++    CHECK_EQ(index, 2); last_value = value;
++    if (direction == mojom::UsbTransferDirection::INBOUND) {
++      CHECK_EQ(request, 1);
++      buffer->as_vector() = feature;
++      std::move(cb).Run(Status::COMPLETED, buffer, feature.size());
++    } else {
++      CHECK_EQ(request, 9); Output(buffer, std::move(cb));
++    }
++  }
++  void Output(scoped_refptr<Bytes> buffer, TransferCallback cb) {
++    ++writes; last = buffer->as_vector();
++    if (delay_write) write = std::move(cb);
++    else std::move(cb).Run(Status::COMPLETED, buffer, buffer->size());
++  }
++  void Emit(std::vector<uint8_t> bytes) {
++    CHECK(input); auto buffer = base::MakeRefCounted<Bytes>();
++    buffer->as_vector() = std::move(bytes);
++    std::move(input).Run(Status::COMPLETED, buffer, buffer->size());
++  }
++  scoped_refptr<UsbDevice> device;
++  TransferCallback input, write;
++  std::vector<uint8_t> last, feature;
++  int writes = 0;
++  int last_value = 0;
++  bool delay_write = false;
++ private:
++  ~TestHandle() override = default;
++};
++scoped_refptr<HidDeviceInfo> MakeInfo(uint8_t id, bool protected_keyboard = false) {
++  std::vector<uint8_t> descriptor = {
++    0x06,0x00,0xff, 0x09,0x01, 0xa1,0x01,
++    0x75,0x08, 0x95,0x04, 0x09,0x01,0x81,0x02,
++    0x09,0x02,0x91,0x02,0x09,0x03,0xb1,0x02,0xc0};
++  if (protected_keyboard) { descriptor[1] = 1; descriptor[2] = 0; descriptor[4] = 6; }
++  if (id) descriptor.insert(descriptor.begin() + 7, {0x85,id});
++  return base::MakeRefCounted<HidDeviceInfo>("test-interface", "test-device",
++      0x1234,0x5678,"Synthetic generic HID","",mojom::HidBusType::kHIDBusTypeUSB,
++      descriptor);
++}
++scoped_refptr<Bytes> Framed(uint8_t id) {
++  auto buffer = base::MakeRefCounted<Bytes>();
++  buffer->as_vector() = {id,11,22,33,44}; return buffer;
++}
++void CheckWrite(bool* called, bool expected, bool ok) {
++  CHECK_EQ(ok, expected);
++  *called = true;
++}
++void CheckRead(bool* called, std::vector<uint8_t> expected, bool ok,
++               scoped_refptr<Bytes> bytes, size_t size) {
++  CHECK(ok);
++  CHECK_EQ(size, expected.size());
++  CHECK(bytes->as_vector() == expected);
++  *called = true;
++}
++void RunCase(uint8_t id, bool interrupt_out) {
++  auto info = MakeInfo(id); CHECK_EQ(info->max_input_report_size(), 4u);
++  CHECK_EQ(info->max_feature_report_size(), 4u);
++  auto handle = base::MakeRefCounted<TestHandle>(interrupt_out);
++  auto connection = base::MakeRefCounted<HidConnectionOhos>(info,handle,2,false,false);
++  base::RunLoop().RunUntilIdle();
++  const auto framed = Framed(id)->as_vector();
++  std::vector<uint8_t> wire = framed;
++  if (!id) wire.erase(wire.begin());
++  bool input = false;
++  connection->Read(base::BindOnce(&CheckRead, &input, framed));
++  handle->Emit(wire); CHECK(input);
++  bool output = false;
++  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &output, true));
++  CHECK(output); CHECK(handle->last == wire);
++  if (!interrupt_out) CHECK_EQ(handle->last_value, 0x0200 | id);
++  handle->feature = wire;
++  bool feature_read = false;
++  connection->GetFeatureReport(id,base::BindOnce(&CheckRead, &feature_read, framed));
++  CHECK(feature_read); CHECK_EQ(handle->last_value, 0x0300 | id);
++  bool feature_write = false;
++  connection->SendFeatureReport(Framed(id),base::BindOnce(&CheckWrite, &feature_write, true));
++  CHECK(feature_write);CHECK(handle->last==wire);CHECK_EQ(handle->last_value,0x0300|id);
++  bool invalid = false;
++  auto bad = Framed(id ? 0 : 7);
++  connection->Write(bad,base::BindOnce(&CheckWrite, &invalid, false));CHECK(invalid);
++  bool oversized = false;
++  auto large = Framed(id);large->as_vector().push_back(99);
++  connection->Write(large,base::BindOnce(&CheckWrite, &oversized, false));CHECK(oversized);
++  handle->delay_write = true;
++  bool cancelled = false;
++  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &cancelled, false));
++  connection->Close(); CHECK(cancelled); CHECK(!handle->device);
++  std::printf("PASS generic HID: reportId=%u interruptOut=%d\n",id,interrupt_out);
++}
++void ProtectedCase() {
++  auto handle=base::MakeRefCounted<TestHandle>(true);
++  auto connection=base::MakeRefCounted<HidConnectionOhos>(MakeInfo(0,true),handle,2,false,false);
++  bool rejected=false;
++  connection->Write(Framed(0),base::BindOnce(&CheckWrite, &rejected, false));
++  CHECK(rejected);CHECK_EQ(handle->writes,0);connection->Close();
++  base::RunLoop().RunUntilIdle();
++  std::puts("PASS protected keyboard reports remain blocked");
++}
++}  // namespace device
++int main(int argc, char** argv) {
++  base::CommandLine::Init(argc,argv);
++  base::FeatureList::InitInstance("","");
++  base::SingleThreadTaskExecutor executor;
++  for (uint8_t id : {0,7}) for (bool interrupt_out : {false,true})
++    device::RunCase(id,interrupt_out);
++  device::ProtectedCase();
++  std::puts("PASS all OHOS HID transport host regressions");
++}
 diff --git a/services/device/public/mojom/BUILD.gn b/services/device/public/mojom/BUILD.gn
 index 3e4da82946..161fab58a2 100644
 --- a/services/device/public/mojom/BUILD.gn
@@ -158080,7 +159840,7 @@ index 9c45eb5b32..bf73a29919 100644
    void OnDisconnect();
    void HandleClosed(UsbDeviceHandle* handle);
 diff --git a/services/device/usb/usb_device_handle_usbfs.cc b/services/device/usb/usb_device_handle_usbfs.cc
-index 01fff361f0..91a4a0d92c 100644
+index 01fff361f0..855a67999e 100644
 --- a/services/device/usb/usb_device_handle_usbfs.cc
 +++ b/services/device/usb/usb_device_handle_usbfs.cc
 @@ -247,6 +247,19 @@ void UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::Initialize(
@@ -158103,7 +159863,7 @@ index 01fff361f0..91a4a0d92c 100644
  }
  
  void UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::ReleaseFileDescriptor() {
-@@ -628,6 +641,71 @@ void UsbDeviceHandleUsbfs::SetConfiguration(int configuration_value,
+@@ -628,6 +641,72 @@ void UsbDeviceHandleUsbfs::SetConfiguration(int configuration_value,
                             this, configuration_value, std::move(callback)));
  }
  
@@ -158118,9 +159878,10 @@ index 01fff361f0..91a4a0d92c 100644
 +  const auto* config = device_->GetActiveConfiguration();
 +  auto interface = config ? FindInterfaceInfoFromConfig(
 +      config, interface_number, /*alternate_setting=*/0) : CombinedInterfaceInfo();
-+  // Never detach boot keyboard/mouse input interfaces for WebHID.
-+  if (!interface.IsValid() || interface.alternate->class_code != 3 ||
-+      interface.alternate->subclass_code == 1) {
++  // Boot keyboard and mouse reports remain subject to Chromium's normal
++  // protected-report filtering. Do not exclude their whole HID interface:
++  // some devices also expose non-protected feature reports on that interface.
++  if (!interface.IsValid() || interface.alternate->class_code != 3) {
 +    std::move(callback).Run(false);
 +    return;
 +  }
@@ -158175,7 +159936,7 @@ index 01fff361f0..91a4a0d92c 100644
  void UsbDeviceHandleUsbfs::ClaimInterface(int interface_number,
                                            ResultCallback callback) {
    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-@@ -1009,6 +1087,11 @@ void UsbDeviceHandleUsbfs::ReleaseInterfaceComplete(int interface_number,
+@@ -1009,6 +1088,11 @@ void UsbDeviceHandleUsbfs::ReleaseInterfaceComplete(int interface_number,
      RefreshEndpointInfo();
    }
  
@@ -159801,7 +161562,7 @@ index eeea5dd2d1..41bbcfc923 100644
    return SkFontMgr_New_Custom_Empty();
  #else
 diff --git a/tools/metrics/histograms/enums.xml b/tools/metrics/histograms/enums.xml
-index 4ee5e42413..4f40862918 100644
+index 4ee5e42413..3d4e9c3422 100644
 --- a/tools/metrics/histograms/enums.xml
 +++ b/tools/metrics/histograms/enums.xml
 @@ -519,6 +519,9 @@ uploading your change for review.  These are checked by presubmit scripts.
@@ -159814,6 +161575,15 @@ index 4ee5e42413..4f40862918 100644
  </enum>
  
  <enum name="AudioEffectType">
+@@ -4411,6 +4414,8 @@ shown properly on the user-facing crash UI.
+   <int value="15" label="GamepadSource::kOpenxr"/>
+   <int value="16" label="GamepadSource::kWinWgi"/>
+   <int value="17" label="GamepadSource::kSimulated"/>
++  <int value="18" label="GamepadSource::kWinGameInput"/>
++  <int value="19" label="GamepadSource::kOhosGameController"/>
+ </enum>
+ 
+ <enum name="GamepadVendorProduct">
 diff --git a/tools/metrics/histograms/metadata/media/enums.xml b/tools/metrics/histograms/metadata/media/enums.xml
 index 25a00c2dbf..67b99ae9ce 100644
 --- a/tools/metrics/histograms/metadata/media/enums.xml
@@ -159826,471 +161596,3 @@ index 25a00c2dbf..67b99ae9ce 100644
  </enum>
  
  <enum name="VideoCaptureError">
-diff --git a/services/device/hid/hid_connection_ohos.cc b/services/device/hid/hid_connection_ohos.cc
-new file mode 100644
-index 0000000000..0f135059c6
---- /dev/null
-+++ b/services/device/hid/hid_connection_ohos.cc
-@@ -0,0 +1,176 @@
-+// Copyright 2026 The Chromium Authors
-+// Use of this source code is governed by a BSD-style license in LICENSE.
-+#include "services/device/hid/hid_connection_ohos.h"
-+
-+#include "base/containers/span.h"
-+#include "base/functional/bind.h"
-+#include "base/memory/ref_counted_memory.h"
-+#include "base/task/sequenced_task_runner.h"
-+#include "base/time/time.h"
-+#include "components/device_event_log/device_event_log.h"
-+#include "services/device/usb/usb_device.h"
-+
-+namespace device {
-+namespace {
-+constexpr unsigned int kTransferTimeoutMs = 1000;
-+constexpr uint8_t kGetReport = 1;
-+constexpr uint8_t kSetReport = 9;
-+constexpr uint8_t kOutputReport = 2;
-+constexpr uint8_t kFeatureReport = 3;
-+}  // namespace
-+
-+HidConnectionOhos::HidConnectionOhos(
-+    scoped_refptr<HidDeviceInfo> info, scoped_refptr<UsbDeviceHandle> handle,
-+    uint8_t interface_number, bool allow_protected_reports,
-+    bool allow_fido_reports)
-+    : HidConnection(std::move(info), allow_protected_reports, allow_fido_reports),
-+      handle_(std::move(handle)), interface_number_(interface_number),
-+      alive_(base::MakeRefCounted<base::RefCountedData<bool>>(true)) {
-+  const auto* config = handle_->GetDevice()->GetActiveConfiguration();
-+  if (config) {
-+    for (const auto& interface : config->interfaces) {
-+      if (interface->interface_number != interface_number_) continue;
-+      for (const auto& alternate : interface->alternates) {
-+        if (alternate->alternate_setting != 0) continue;
-+        for (const auto& endpoint : alternate->endpoints) {
-+          if (endpoint->type != mojom::UsbTransferType::INTERRUPT) continue;
-+          if (endpoint->direction == mojom::UsbTransferDirection::INBOUND)
-+            in_endpoint_ = endpoint->endpoint_number;
-+          else
-+            out_endpoint_ = endpoint->endpoint_number;
-+        }
-+      }
-+    }
-+  }
-+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-+      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
-+                               weak_factory_.GetWeakPtr()));
-+}
-+
-+HidConnectionOhos::~HidConnectionOhos() = default;
-+
-+void HidConnectionOhos::PlatformClose() {
-+  alive_->data = false;
-+  weak_factory_.InvalidateWeakPtrs();
-+  if (handle_) {
-+    handle_->Close();
-+    handle_ = nullptr;
-+  }
-+}
-+
-+void HidConnectionOhos::ReadNext() {
-+  if (!handle_ || !in_endpoint_ || !device_info()->max_input_report_size()) return;
-+  size_t size = device_info()->max_input_report_size() +
-+                (device_info()->has_report_id() ? 1 : 0);
-+  handle_->GenericTransfer(
-+      mojom::UsbTransferDirection::INBOUND, in_endpoint_,
-+      base::MakeRefCounted<base::RefCountedBytes>(size), kTransferTimeoutMs,
-+      base::BindOnce(&HidConnectionOhos::OnRead, weak_factory_.GetWeakPtr()));
-+}
-+
-+void HidConnectionOhos::OnRead(mojom::UsbTransferStatus status,
-+                              scoped_refptr<base::RefCountedBytes> buffer,
-+                              size_t size) {
-+  if (!handle_) return;
-+  if (status == mojom::UsbTransferStatus::COMPLETED && size &&
-+      size <= buffer->size()) {
-+    if (!device_info()->has_report_id()) {
-+      auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
-+      framed->as_vector()[0] = 0;
-+      base::span(framed->as_vector()).subspan(1u).copy_from(
-+          base::span(buffer->as_vector()).first(size));
-+      buffer = std::move(framed);
-+      ++size;
-+    }
-+    ProcessInputReport(std::move(buffer), size);
-+  } else if (status != mojom::UsbTransferStatus::TIMEOUT &&
-+             status != mojom::UsbTransferStatus::COMPLETED) {
-+    HID_LOG(EVENT) << "OHOS HID input stopped: " << static_cast<int>(status);
-+    return;
-+  }
-+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-+      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
-+                               weak_factory_.GetWeakPtr()), base::Milliseconds(1));
-+}
-+
-+void HidConnectionOhos::SendReport(
-+    uint8_t type, scoped_refptr<base::RefCountedBytes> framed,
-+    WriteCallback callback) {
-+  if (!handle_ || !framed->size()) {
-+    std::move(callback).Run(false);
-+    return;
-+  }
-+  const uint8_t id = framed->as_vector()[0];
-+  if (!device_info()->has_report_id() && id != 0) {
-+    std::move(callback).Run(false);
-+    return;
-+  }
-+  auto payload = base::MakeRefCounted<base::RefCountedBytes>();
-+  const auto bytes = base::span(framed->as_vector()).subspan(
-+      device_info()->has_report_id() ? 0u : 1u);
-+  payload->as_vector().assign(bytes.begin(), bytes.end());
-+  auto complete = base::BindOnce(
-+      [](scoped_refptr<base::RefCountedData<bool>> alive, size_t expected,
-+         WriteCallback callback, mojom::UsbTransferStatus status,
-+         scoped_refptr<base::RefCountedBytes>, size_t size) {
-+        std::move(callback).Run(alive->data &&
-+            status == mojom::UsbTransferStatus::COMPLETED && size == expected);
-+      }, alive_, payload->size(), std::move(callback));
-+  if (type == kOutputReport && out_endpoint_) {
-+    handle_->GenericTransfer(mojom::UsbTransferDirection::OUTBOUND,
-+                             out_endpoint_, payload, kTransferTimeoutMs,
-+                             std::move(complete));
-+  } else {
-+    handle_->ControlTransfer(
-+        mojom::UsbTransferDirection::OUTBOUND,
-+        mojom::UsbControlTransferType::CLASS,
-+        mojom::UsbControlTransferRecipient::INTERFACE, kSetReport,
-+        (static_cast<uint16_t>(type) << 8) | id, interface_number_, payload,
-+        kTransferTimeoutMs, std::move(complete));
-+  }
-+}
-+
-+void HidConnectionOhos::PlatformWrite(
-+    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
-+  SendReport(kOutputReport, std::move(buffer), std::move(callback));
-+}
-+void HidConnectionOhos::PlatformSendFeatureReport(
-+    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
-+  SendReport(kFeatureReport, std::move(buffer), std::move(callback));
-+}
-+void HidConnectionOhos::PlatformGetFeatureReport(
-+    uint8_t report_id, ReadCallback callback) {
-+  if (!handle_) {
-+    std::move(callback).Run(false, nullptr, 0);
-+    return;
-+  }
-+  const bool has_id = device_info()->has_report_id();
-+  auto buffer = base::MakeRefCounted<base::RefCountedBytes>(
-+      device_info()->max_feature_report_size() + (has_id ? 1 : 0));
-+  handle_->ControlTransfer(
-+      mojom::UsbTransferDirection::INBOUND,
-+      mojom::UsbControlTransferType::CLASS,
-+      mojom::UsbControlTransferRecipient::INTERFACE, kGetReport,
-+      (static_cast<uint16_t>(kFeatureReport) << 8) | report_id,
-+      interface_number_, buffer, kTransferTimeoutMs,
-+      base::BindOnce(
-+          [](scoped_refptr<base::RefCountedData<bool>> alive, bool has_id,
-+             ReadCallback callback, mojom::UsbTransferStatus status,
-+             scoped_refptr<base::RefCountedBytes> bytes, size_t size) {
-+            if (!alive->data || status != mojom::UsbTransferStatus::COMPLETED ||
-+                !size || size > bytes->size()) {
-+              std::move(callback).Run(false, nullptr, 0);
-+              return;
-+            }
-+            if (!has_id) {
-+              auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
-+              framed->as_vector()[0] = 0;
-+              base::span(framed->as_vector()).subspan(1u).copy_from(
-+                  base::span(bytes->as_vector()).first(size));
-+              bytes = std::move(framed);
-+              ++size;
-+            }
-+            std::move(callback).Run(true, std::move(bytes), size);
-+          }, alive_, has_id, std::move(callback)));
-+}
-+}  // namespace device
-diff --git a/services/device/hid/hid_connection_ohos.h b/services/device/hid/hid_connection_ohos.h
-new file mode 100644
-index 0000000000..ef280aea7d
---- /dev/null
-+++ b/services/device/hid/hid_connection_ohos.h
-@@ -0,0 +1,45 @@
-+// Copyright 2026 The Chromium Authors
-+// Use of this source code is governed by a BSD-style license in LICENSE.
-+#ifndef SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
-+#define SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
-+
-+#include "base/memory/ref_counted.h"
-+#include "base/memory/weak_ptr.h"
-+#include "services/device/hid/hid_connection.h"
-+#include "services/device/usb/usb_device_handle.h"
-+
-+namespace device {
-+// Uses the USBManager-authorized usbfs handle. Chromium still enforces the
-+// origin grant, HID blocklist and protected report checks in HidConnection.
-+class HidConnectionOhos : public HidConnection {
-+ public:
-+  HidConnectionOhos(scoped_refptr<HidDeviceInfo> info,
-+                    scoped_refptr<UsbDeviceHandle> handle,
-+                    uint8_t interface_number,
-+                    bool allow_protected_reports,
-+                    bool allow_fido_reports);
-+
-+ private:
-+  ~HidConnectionOhos() override;
-+  void PlatformClose() override;
-+  void PlatformWrite(scoped_refptr<base::RefCountedBytes> buffer,
-+                     WriteCallback callback) override;
-+  void PlatformGetFeatureReport(uint8_t report_id,
-+                                ReadCallback callback) override;
-+  void PlatformSendFeatureReport(scoped_refptr<base::RefCountedBytes> buffer,
-+                                 WriteCallback callback) override;
-+  void ReadNext();
-+  void OnRead(mojom::UsbTransferStatus status,
-+              scoped_refptr<base::RefCountedBytes> buffer, size_t size);
-+  void SendReport(uint8_t type, scoped_refptr<base::RefCountedBytes> buffer,
-+                  WriteCallback callback);
-+
-+  scoped_refptr<UsbDeviceHandle> handle_;
-+  const uint8_t interface_number_;
-+  uint8_t in_endpoint_ = 0;
-+  uint8_t out_endpoint_ = 0;
-+  scoped_refptr<base::RefCountedData<bool>> alive_;
-+  base::WeakPtrFactory<HidConnectionOhos> weak_factory_{this};
-+};
-+}  // namespace device
-+#endif
-diff --git a/services/device/hid/ohos_tests/BUILD.gn b/services/device/hid/ohos_tests/BUILD.gn
-new file mode 100644
-index 0000000000..9d09f81d11
---- /dev/null
-+++ b/services/device/hid/ohos_tests/BUILD.gn
-@@ -0,0 +1,27 @@
-+# Host regression tests execute the actual OHOS HID framing implementation
-+# against a deterministic USB transport, without accessing physical devices.
-+executable("hid_transport_tests") {
-+  testonly = true
-+  sources = [
-+    "hid_transport_tests.cc",
-+    "../hid_connection_ohos.cc",
-+    "../hid_connection.cc",
-+    "../hid_device_info.cc",
-+    "../hid_collection.cc",
-+    "../hid_item_state_table.cc",
-+    "../hid_report_descriptor.cc",
-+    "../hid_report_descriptor_item.cc",
-+    "../hid_report_item.cc",
-+    "../../public/cpp/hid/hid_blocklist.cc",
-+    "../../public/cpp/hid/hid_report_utils.cc",
-+    "../../public/cpp/hid/hid_switches.cc",
-+    "../../usb/usb_device.cc",
-+    "../../usb/usb_device_handle.cc",
-+  ]
-+  deps = [
-+    "//base",
-+    "//components/device_event_log",
-+    "//services/device/public/mojom:ohos_hid_test_types",
-+    "//services/device/public/cpp:device_features",
-+  ]
-+}
-diff --git a/services/device/hid/ohos_tests/hid_transport_tests.cc b/services/device/hid/ohos_tests/hid_transport_tests.cc
-new file mode 100644
-index 0000000000..d6b775757a
---- /dev/null
-+++ b/services/device/hid/ohos_tests/hid_transport_tests.cc
-@@ -0,0 +1,196 @@
-+// Copyright 2026 The Chromium Authors. BSD-style license in LICENSE.
-+#include <cstdio>
-+#include <utility>
-+#include <vector>
-+#include "base/check.h"
-+#include "base/command_line.h"
-+#include "base/feature_list.h"
-+#include "base/functional/bind.h"
-+#include "base/memory/ref_counted_memory.h"
-+#include "base/run_loop.h"
-+#include "base/task/single_thread_task_executor.h"
-+#include "services/device/hid/hid_connection_ohos.h"
-+#include "services/device/usb/usb_device.h"
-+
-+namespace device {
-+using Bytes = base::RefCountedBytes;
-+using Status = mojom::UsbTransferStatus;
-+class TestDevice : public UsbDevice {
-+ public:
-+  explicit TestDevice(bool interrupt_out) : UsbDevice(Info(interrupt_out)) {}
-+  void Open(OpenCallback callback) override { std::move(callback).Run(nullptr); }
-+ private:
-+  ~TestDevice() override = default;
-+  static mojom::UsbDeviceInfoPtr Info(bool interrupt_out) {
-+    auto info = mojom::UsbDeviceInfo::New();
-+    info->active_configuration = 1;
-+    auto config = mojom::UsbConfigurationInfo::New();
-+    config->configuration_value = 1;
-+    auto interface = mojom::UsbInterfaceInfo::New();
-+    interface->interface_number = 2;
-+    auto alternate = mojom::UsbAlternateInterfaceInfo::New();
-+    alternate->class_code = 3;
-+    auto input = mojom::UsbEndpointInfo::New();
-+    input->type = mojom::UsbTransferType::INTERRUPT;
-+    input->direction = mojom::UsbTransferDirection::INBOUND;
-+    input->endpoint_number = 1;
-+    alternate->endpoints.push_back(std::move(input));
-+    if (interrupt_out) {
-+      auto output = mojom::UsbEndpointInfo::New();
-+      output->type = mojom::UsbTransferType::INTERRUPT;
-+      output->direction = mojom::UsbTransferDirection::OUTBOUND;
-+      output->endpoint_number = 2;
-+      alternate->endpoints.push_back(std::move(output));
-+    }
-+    interface->alternates.push_back(std::move(alternate));
-+    config->interfaces.push_back(std::move(interface));
-+    info->configurations.push_back(std::move(config));
-+    return info;
-+  }
-+};
-+class TestHandle : public UsbDeviceHandle {
-+ public:
-+  explicit TestHandle(bool interrupt_out)
-+      : device(base::MakeRefCounted<TestDevice>(interrupt_out)) {}
-+  scoped_refptr<UsbDevice> GetDevice() const override { return device; }
-+  void Close() override {
-+    device = nullptr;
-+    if (input) std::move(input).Run(Status::CANCELLED, nullptr, 0);
-+    if (write) std::move(write).Run(Status::CANCELLED, nullptr, 0);
-+  }
-+  void SetConfiguration(int, ResultCallback cb) override { std::move(cb).Run(false); }
-+  void ClaimInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
-+  void ReleaseInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
-+  void SetInterfaceAlternateSetting(int, int, ResultCallback cb) override { std::move(cb).Run(false); }
-+  void ResetDevice(ResultCallback cb) override { std::move(cb).Run(false); }
-+  void ClearHalt(mojom::UsbTransferDirection, uint8_t, ResultCallback cb) override { std::move(cb).Run(false); }
-+  void IsochronousTransferIn(uint8_t, const std::vector<uint32_t>&, unsigned int,
-+                            IsochronousTransferCallback) override { CHECK(false); }
-+  void IsochronousTransferOut(uint8_t, scoped_refptr<Bytes>, const std::vector<uint32_t>&,
-+                             unsigned int, IsochronousTransferCallback) override { CHECK(false); }
-+  const mojom::UsbInterfaceInfo* FindInterfaceByEndpoint(uint8_t) override { return nullptr; }
-+  void GenericTransfer(mojom::UsbTransferDirection direction, uint8_t endpoint,
-+                       scoped_refptr<Bytes> buffer, unsigned int,
-+                       TransferCallback cb) override {
-+    if (direction == mojom::UsbTransferDirection::INBOUND) {
-+      CHECK_EQ(endpoint, 1); input = std::move(cb);
-+    } else {
-+      CHECK_EQ(endpoint, 2); Output(buffer, std::move(cb));
-+    }
-+  }
-+  void ControlTransfer(mojom::UsbTransferDirection direction,
-+                       mojom::UsbControlTransferType type,
-+                       mojom::UsbControlTransferRecipient recipient,
-+                       uint8_t request, uint16_t value, uint16_t index,
-+                       scoped_refptr<Bytes> buffer, unsigned int,
-+                       TransferCallback cb) override {
-+    CHECK(type == mojom::UsbControlTransferType::CLASS);
-+    CHECK(recipient == mojom::UsbControlTransferRecipient::INTERFACE);
-+    CHECK_EQ(index, 2); last_value = value;
-+    if (direction == mojom::UsbTransferDirection::INBOUND) {
-+      CHECK_EQ(request, 1);
-+      buffer->as_vector() = feature;
-+      std::move(cb).Run(Status::COMPLETED, buffer, feature.size());
-+    } else {
-+      CHECK_EQ(request, 9); Output(buffer, std::move(cb));
-+    }
-+  }
-+  void Output(scoped_refptr<Bytes> buffer, TransferCallback cb) {
-+    ++writes; last = buffer->as_vector();
-+    if (delay_write) write = std::move(cb);
-+    else std::move(cb).Run(Status::COMPLETED, buffer, buffer->size());
-+  }
-+  void Emit(std::vector<uint8_t> bytes) {
-+    CHECK(input); auto buffer = base::MakeRefCounted<Bytes>();
-+    buffer->as_vector() = std::move(bytes);
-+    std::move(input).Run(Status::COMPLETED, buffer, buffer->size());
-+  }
-+  scoped_refptr<UsbDevice> device;
-+  TransferCallback input, write;
-+  std::vector<uint8_t> last, feature;
-+  int writes = 0;
-+  int last_value = 0;
-+  bool delay_write = false;
-+ private:
-+  ~TestHandle() override = default;
-+};
-+scoped_refptr<HidDeviceInfo> MakeInfo(uint8_t id, bool protected_keyboard = false) {
-+  std::vector<uint8_t> descriptor = {
-+    0x06,0x00,0xff, 0x09,0x01, 0xa1,0x01,
-+    0x75,0x08, 0x95,0x04, 0x09,0x01,0x81,0x02,
-+    0x09,0x02,0x91,0x02,0x09,0x03,0xb1,0x02,0xc0};
-+  if (protected_keyboard) { descriptor[1] = 1; descriptor[2] = 0; descriptor[4] = 6; }
-+  if (id) descriptor.insert(descriptor.begin() + 7, {0x85,id});
-+  return base::MakeRefCounted<HidDeviceInfo>("test-interface", "test-device",
-+      0x1234,0x5678,"Synthetic generic HID","",mojom::HidBusType::kHIDBusTypeUSB,
-+      descriptor);
-+}
-+scoped_refptr<Bytes> Framed(uint8_t id) {
-+  auto buffer = base::MakeRefCounted<Bytes>();
-+  buffer->as_vector() = {id,11,22,33,44}; return buffer;
-+}
-+void CheckWrite(bool* called, bool expected, bool ok) {
-+  CHECK_EQ(ok, expected);
-+  *called = true;
-+}
-+void CheckRead(bool* called, std::vector<uint8_t> expected, bool ok,
-+               scoped_refptr<Bytes> bytes, size_t size) {
-+  CHECK(ok);
-+  CHECK_EQ(size, expected.size());
-+  CHECK(bytes->as_vector() == expected);
-+  *called = true;
-+}
-+void RunCase(uint8_t id, bool interrupt_out) {
-+  auto info = MakeInfo(id); CHECK_EQ(info->max_input_report_size(), 4u);
-+  CHECK_EQ(info->max_feature_report_size(), 4u);
-+  auto handle = base::MakeRefCounted<TestHandle>(interrupt_out);
-+  auto connection = base::MakeRefCounted<HidConnectionOhos>(info,handle,2,false,false);
-+  base::RunLoop().RunUntilIdle();
-+  const auto framed = Framed(id)->as_vector();
-+  std::vector<uint8_t> wire = framed;
-+  if (!id) wire.erase(wire.begin());
-+  bool input = false;
-+  connection->Read(base::BindOnce(&CheckRead, &input, framed));
-+  handle->Emit(wire); CHECK(input);
-+  bool output = false;
-+  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &output, true));
-+  CHECK(output); CHECK(handle->last == wire);
-+  if (!interrupt_out) CHECK_EQ(handle->last_value, 0x0200 | id);
-+  handle->feature = wire;
-+  bool feature_read = false;
-+  connection->GetFeatureReport(id,base::BindOnce(&CheckRead, &feature_read, framed));
-+  CHECK(feature_read); CHECK_EQ(handle->last_value, 0x0300 | id);
-+  bool feature_write = false;
-+  connection->SendFeatureReport(Framed(id),base::BindOnce(&CheckWrite, &feature_write, true));
-+  CHECK(feature_write);CHECK(handle->last==wire);CHECK_EQ(handle->last_value,0x0300|id);
-+  bool invalid = false;
-+  auto bad = Framed(id ? 0 : 7);
-+  connection->Write(bad,base::BindOnce(&CheckWrite, &invalid, false));CHECK(invalid);
-+  bool oversized = false;
-+  auto large = Framed(id);large->as_vector().push_back(99);
-+  connection->Write(large,base::BindOnce(&CheckWrite, &oversized, false));CHECK(oversized);
-+  handle->delay_write = true;
-+  bool cancelled = false;
-+  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &cancelled, false));
-+  connection->Close(); CHECK(cancelled); CHECK(!handle->device);
-+  std::printf("PASS generic HID: reportId=%u interruptOut=%d\n",id,interrupt_out);
-+}
-+void ProtectedCase() {
-+  auto handle=base::MakeRefCounted<TestHandle>(true);
-+  auto connection=base::MakeRefCounted<HidConnectionOhos>(MakeInfo(0,true),handle,2,false,false);
-+  bool rejected=false;
-+  connection->Write(Framed(0),base::BindOnce(&CheckWrite, &rejected, false));
-+  CHECK(rejected);CHECK_EQ(handle->writes,0);connection->Close();
-+  base::RunLoop().RunUntilIdle();
-+  std::puts("PASS protected keyboard reports remain blocked");
-+}
-+}  // namespace device
-+int main(int argc, char** argv) {
-+  base::CommandLine::Init(argc,argv);
-+  base::FeatureList::InitInstance("","");
-+  base::SingleThreadTaskExecutor executor;
-+  for (uint8_t id : {0,7}) for (bool interrupt_out : {false,true})
-+    device::RunCase(id,interrupt_out);
-+  device::ProtectedCase();
-+  std::puts("PASS all OHOS HID transport host regressions");
-+}

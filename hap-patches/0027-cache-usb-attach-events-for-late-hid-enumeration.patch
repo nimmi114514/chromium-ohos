@@ -1,0 +1,320 @@
+diff --git a/web_engine/src/main/ets/adapter/DeviceAdapter.ets b/web_engine/src/main/ets/adapter/DeviceAdapter.ets
+index e5759c9..432a02b 100644
+--- a/web_engine/src/main/ets/adapter/DeviceAdapter.ets
++++ b/web_engine/src/main/ets/adapter/DeviceAdapter.ets
+@@ -27,139 +27,53 @@
+  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-import Base from '@ohos.base';
+-import CommonEventManager from '@ohos.commonEventManager';
+ import usb from '@ohos.usbManager';
+ import { injectable } from 'inversify';
+ import { BaseAdapter } from '../common/BaseAdapter';
+ import LogUtil from '../utils/LogUtil';
+ import LogMethod from '../common/LogDecorator';
+-
+-interface EventInfo {
+-  type: number,
+-  data: Array<usb.USBDevice>
+-};
+-
+-const EVENT_DEVICE_ATTATCHED: string = 'usual.event.hardware.usb.action.USB_DEVICE_ATTACHED';
+-const EVENT_DEVICE_DETATCHED: string = 'usual.event.hardware.usb.action.USB_DEVICE_DETACHED';
++import { UsbHotplugMonitor } from './UsbHotplugMonitor';
+ 
+ @injectable()
+ export class DeviceAdapter extends BaseAdapter {
+   private static TAG: string = 'DeviceAdapter';
+-  private subscribers: Map<number, CommonEventManager.CommonEventSubscriber> = new Map();
+-  private pendingSubscribers: Set<number> = new Set();
+-  private subscribeInfo: CommonEventManager.CommonEventSubscribeInfo = {
+-    events: [
+-      CommonEventManager.Support.COMMON_EVENT_USB_DEVICE_ATTACHED,
+-      CommonEventManager.Support.COMMON_EVENT_USB_DEVICE_DETACHED,
+-    ]
+-  };
+ 
+   @LogMethod
+   getDevices(get_devices_cb?: Function) : boolean {
+     let devices : Array<usb.USBDevice> = [];
++    let snapshotSucceeded: boolean = true;
+     try {
+       devices = usb.getDevices();
+-      if (get_devices_cb != undefined) {
+-        get_devices_cb(devices, devices.length);
+-      }
+     } catch (err) {
+       LogUtil.error(DeviceAdapter.TAG,
+         `Failed to obtain device information, code is ${err.code}, message is ${err.message}`);
+-      return false;
++      snapshotSucceeded = false;
+     }
+-    return true;
++    const knownNames = new Set<string>(devices.map((device: usb.USBDevice) => device.name));
++    for (const device of UsbHotplugMonitor.getCachedDevices()) {
++      if (!knownNames.has(device.name)) {
++        devices.push(device);
++        knownNames.add(device.name);
++      }
++    }
++    LogUtil.info(DeviceAdapter.TAG,
++      `USB enumeration snapshot=${snapshotSucceeded}, listed=${devices.length}, cached=${UsbHotplugMonitor.getCachedDevices().length}`);
++    if (get_devices_cb != undefined) {
++      get_devices_cb(devices, devices.length);
++    }
++    return snapshotSucceeded || devices.length > 0;
+   }
+ 
+   @LogMethod
+   registerHotplugCallback(id: number, hotplug_cb: Function): void {
+-    this.pendingSubscribers.add(id);
+-    try {
+-      CommonEventManager.createSubscriber(this.subscribeInfo, (err, subscriber) => {
+-        if (err) {
+-          this.pendingSubscribers.delete(id);
+-          LogUtil.error(DeviceAdapter.TAG, `CreateSubscriber failed: ${err.code}`);
+-          return;
+-        }
+-        if (!this.pendingSubscribers.delete(id)) {
+-          return;
+-        }
+-        this.subscribers.set(id, subscriber);
+-        CommonEventManager.subscribe(subscriber, (error, data) => {
+-          if (this.subscribers.get(id) !== subscriber) {
+-            return;
+-          }
+-          const eventInfo = this.parseEventData(error, data);
+-          if (eventInfo !== undefined) {
+-            hotplug_cb(eventInfo.type, eventInfo.data, eventInfo.data.length);
+-          }
+-        });
+-      });
+-    } catch (err) {
+-      this.pendingSubscribers.delete(id);
+-      LogUtil.error(DeviceAdapter.TAG, `CreateSubscriber failed: ${err.code}`);
+-    }
+-  }
+-
+-  private parseEventData(err: Base.BusinessError,
+-                         data: CommonEventManager.CommonEventData): EventInfo | undefined {
+-    if (err) {
+-      LogUtil.error(DeviceAdapter.TAG, `ParseEventData failed, code is ${err.code}, message is ${err.message}`);
+-      return undefined;
+-    }
+-
+-    let eventType: number = 0;
+-    if (data.event === EVENT_DEVICE_ATTATCHED) {
+-      eventType = 1;
+-    } else if (data.event === EVENT_DEVICE_DETATCHED) {
+-      eventType = 2;
+-    }
+-    let devices: Array<usb.USBDevice> = [];
+-    if (eventType !== 0 && data.data !== undefined) {
+-      let usbDevice: usb.USBDevice;
+-      try {
+-        usbDevice = JSON.parse(data.data) as usb.USBDevice;
+-        if (eventType === 1) {
+-          const current = usb.getDevices().find((device: usb.USBDevice) => device.name === usbDevice.name);
+-          if (current !== undefined) {
+-            usbDevice = current;
+-          }
+-        }
+-      } catch (error) {
+-        LogUtil.warn(DeviceAdapter.TAG, 'Invalid USB hotplug event payload');
+-        return undefined;
+-      }
+-      if (usbDevice === undefined) {
+-        LogUtil.warn(DeviceAdapter.TAG, 'Parse event data error.');
+-        return undefined;
+-      }
+-      devices.push(usbDevice);
+-      let eventInfo: EventInfo = {
+-        type: eventType,
+-        data: devices
+-      };
+-      return eventInfo;
+-    }
+-    return undefined;
++    UsbHotplugMonitor.register(id, hotplug_cb);
++    LogUtil.info(DeviceAdapter.TAG,
++      `USB hotplug callback registered: id=${id}, cached=${UsbHotplugMonitor.getCachedDevices().length}`);
+   }
+ 
+   @LogMethod
+   unregisterHotplugCallback(id: number): void {
+-    this.pendingSubscribers.delete(id);
+-    const subscriber = this.subscribers.get(id);
+-    this.subscribers.delete(id);
+-    if (subscriber === undefined) {
+-      return;
+-    }
+-    try {
+-      CommonEventManager.unsubscribe(subscriber, (err: Base.BusinessError) => {
+-        if (err) {
+-          LogUtil.error(DeviceAdapter.TAG, `Unsubscribe failed: ${err.code}`);
+-        }
+-      });
+-    } catch (err) {
+-      LogUtil.error(DeviceAdapter.TAG, `Unsubscribe failed: ${err.code}`);
+-    }
++    UsbHotplugMonitor.unregister(id);
+   }
+ 
+   @LogMethod
+diff --git a/web_engine/src/main/ets/adapter/UsbHotplugMonitor.ets b/web_engine/src/main/ets/adapter/UsbHotplugMonitor.ets
+new file mode 100644
+index 0000000..3a95107
+--- /dev/null
++++ b/web_engine/src/main/ets/adapter/UsbHotplugMonitor.ets
+@@ -0,0 +1,130 @@
++import Base from '@ohos.base';
++import CommonEventManager from '@ohos.commonEventManager';
++import usb from '@ohos.usbManager';
++import LogUtil from '../utils/LogUtil';
++
++const TAG: string = 'UsbHotplugMonitor';
++const EVENT_DEVICE_ATTACHED: string = 'usual.event.hardware.usb.action.USB_DEVICE_ATTACHED';
++const EVENT_DEVICE_DETACHED: string = 'usual.event.hardware.usb.action.USB_DEVICE_DETACHED';
++
++/**
++ * Keep the platform USB attach listener alive for the application lifetime.
++ * OHOS may return an empty usb.getDevices() snapshot to a regular app, so a
++ * HID service created after a device was plugged in must be able to replay the
++ * attach event that arrived earlier in this app session.
++ */
++export class UsbHotplugMonitor {
++  private static started: boolean = false;
++  private static subscriber: CommonEventManager.CommonEventSubscriber | undefined;
++  private static devices: Map<string, usb.USBDevice> = new Map();
++  private static callbacks: Map<number, Function> = new Map();
++
++  static start(): void {
++    if (UsbHotplugMonitor.started) {
++      LogUtil.info(TAG, 'USB hotplug monitor start skipped: already started');
++      return;
++    }
++    UsbHotplugMonitor.started = true;
++    LogUtil.info(TAG, 'Starting USB hotplug subscriber');
++    const subscribeInfo: CommonEventManager.CommonEventSubscribeInfo = {
++      events: [
++        CommonEventManager.Support.COMMON_EVENT_USB_DEVICE_ATTACHED,
++        CommonEventManager.Support.COMMON_EVENT_USB_DEVICE_DETACHED,
++      ]
++    };
++    try {
++      CommonEventManager.createSubscriber(subscribeInfo,
++        (err: Base.BusinessError, subscriber: CommonEventManager.CommonEventSubscriber) => {
++          if (err || subscriber === undefined) {
++            UsbHotplugMonitor.started = false;
++            LogUtil.error(TAG, `createSubscriber failed: ${err?.code ?? 'unknown'}`);
++            return;
++          }
++          UsbHotplugMonitor.subscriber = subscriber;
++          LogUtil.info(TAG, 'USB hotplug subscriber created; subscribing');
++          CommonEventManager.subscribe(subscriber,
++            (eventError: Base.BusinessError, data: CommonEventManager.CommonEventData) => {
++              UsbHotplugMonitor.onEvent(eventError, data);
++            });
++          LogUtil.info(TAG, 'Application USB hotplug listener subscribed');
++        });
++    } catch (err) {
++      UsbHotplugMonitor.started = false;
++      LogUtil.error(TAG, `createSubscriber threw: ${err.code ?? 'unknown'}`);
++    }
++  }
++
++  static register(id: number, callback: Function): void {
++    UsbHotplugMonitor.start();
++    UsbHotplugMonitor.callbacks.set(id, callback);
++    for (const device of UsbHotplugMonitor.devices.values()) {
++      callback(1, [device], 1);
++    }
++  }
++
++  static unregister(id: number): void {
++    UsbHotplugMonitor.callbacks.delete(id);
++  }
++
++  static getCachedDevices(): Array<usb.USBDevice> {
++    return Array.from(UsbHotplugMonitor.devices.values());
++  }
++
++  private static onEvent(err: Base.BusinessError,
++                         data: CommonEventManager.CommonEventData): void {
++    if (err) {
++      LogUtil.error(TAG, `USB event callback failed: ${err.code}, ${err.message}`);
++      return;
++    }
++    const eventName = data.event;
++    const eventType = eventName === EVENT_DEVICE_ATTACHED ? 1 :
++      eventName === EVENT_DEVICE_DETACHED ? 2 : 0;
++    if (eventType === 0) {
++      return;
++    }
++    LogUtil.info(TAG,
++      `USB event received: type=${eventType}, payloadLength=${data.data?.length ?? 0}`);
++    if (!data.data) {
++      LogUtil.error(TAG, `USB event has no device payload: ${eventName}`);
++      return;
++    }
++
++    let device: usb.USBDevice;
++    try {
++      device = JSON.parse(data.data) as usb.USBDevice;
++    } catch (parseError) {
++      LogUtil.error(TAG, `USB event payload is not a device object: ${eventName}`);
++      return;
++    }
++    if (!device?.name) {
++      LogUtil.error(TAG, `USB event device has no name: ${eventName}`);
++      return;
++    }
++
++    if (eventType === 1) {
++      // The event payload is authoritative for identity. The current device
++      // snapshot is only an optional enrichment because it can be unavailable
++      // to non-system applications on some HarmonyOS builds.
++      try {
++        const current = usb.getDevices().find(
++          (item: usb.USBDevice) => item.name === device.name);
++        if (current !== undefined) {
++          device = current;
++        }
++      } catch (snapshotError) {
++        LogUtil.warn(TAG, 'USB snapshot unavailable; retaining attach payload');
++      }
++      UsbHotplugMonitor.devices.set(device.name, device);
++      LogUtil.info(TAG,
++        `USB attach cached: name=${device.name}, vid=${device.vendorId}, pid=${device.productId}, configs=${device.configs?.length ?? 0}`);
++    } else {
++      UsbHotplugMonitor.devices.delete(device.name);
++      LogUtil.info(TAG, `USB detach removed from cache: name=${device.name}`);
++    }
++
++    const payload: Array<usb.USBDevice> = [device];
++    for (const callback of UsbHotplugMonitor.callbacks.values()) {
++      callback(eventType, payload, payload.length);
++    }
++  }
++}
+diff --git a/web_engine/src/main/ets/application/WebAbilityStage.ets b/web_engine/src/main/ets/application/WebAbilityStage.ets
+index 3233acc..c5b549b 100644
+--- a/web_engine/src/main/ets/application/WebAbilityStage.ets
++++ b/web_engine/src/main/ets/application/WebAbilityStage.ets
+@@ -10,6 +10,7 @@ import Want from '@ohos.app.ability.Want';
+ import { CommandType, ConfigData, ContextType } from '../common/Constants';
+ import { ConfigurationConstant, Configuration, AbilityConstant } from '@kit.AbilityKit';
+ import { NativeThemeAdapter } from '../adapter/NativeThemeAdapter'
++import { UsbHotplugMonitor } from '../adapter/UsbHotplugMonitor';
+ import lazy { CommonDependencyProvider } from '../common/CommonDependencyProvider';
+ import lazy { GlobalThisHelper } from '../utils/GlobalThisHelper';
+ import lazy { NativeContext, BrowserCloseResponse } from '../interface/CommonInterface';
+@@ -26,6 +27,7 @@ export class WebAbilityStage extends AbilityStage {
+ 
+   onCreate(): void {
+     LogUtil.info(TAG, '[ohoswindow] in WebAbilityStage onCreate.');
++    UsbHotplugMonitor.start();
+     this.runTaskAsync();
+   }
+ 

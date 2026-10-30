@@ -1,5 +1,16 @@
 # Chromium158 / OHOS API26
 
+## 当前交付：1.0.1 USB WebHID 部分适配
+
+- 新增 OHOS USB HID 枚举、系统授权、报告描述符解析及输入/输出和 Feature 报告通道。
+- 改进复合 USB 设备的接口处理、描述符读取、接口释放及插拔事件缓存。
+- 实机曾通过 VIA 读取键盘布局；DualSense 在部分 USB 连接组合下可被识别、连接并读取输入。
+- GameControllerKit 输入桥接及 DualSense USB 震动尝试代码已归档。震动尚未验证成功，
+  相关开发按用户要求暂停，不作为 1.0.1 已支持功能。
+- 蓝牙 WebHID 尚未支持；不承诺所有 HID 设备、线材组合或重复插拔场景可用。
+- 最近构建已通过原生编译、HAP 内容与签名校验并覆盖安装；上述功能未全面验收。
+  最新产物身份以 `artifacts/manifest.json` 为准，下方 SHA256 为历史记录。
+
 ## 当前交付：2026-10-28 原生历史/书签弹窗与 JIT 启动修复
 
 - 包名继续使用 `com.example.ohos.chromium`，覆盖安装保留原有 Profile，不覆盖132应用。

@@ -25,6 +25,8 @@ GROUPS = {
 
 
 def group(path):
+    if path == "BUILD.gn":
+        return 1
     if path == "build/build_config.h":
         return 3
     if path in ("build/config/rust.gni", "build/rust/known-target-triples.txt"):
