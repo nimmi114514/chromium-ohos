@@ -125851,7 +125851,7 @@ index 0000000000..da9012eea4
 +}
 diff --git a/device/device_watcher/device_watcher.cc b/device/device_watcher/device_watcher.cc
 new file mode 100644
-index 0000000000..bd7d8f433f
+index 0000000000..931b9b8308
 --- /dev/null
 +++ b/device/device_watcher/device_watcher.cc
 @@ -0,0 +1,106 @@
@@ -125932,7 +125932,9 @@ index 0000000000..bd7d8f433f
 +}
 +
 +DeviceWatcher::DeviceWatcher(Observer* observer, DeviceFilter filter)
-+    : observer_(observer), filter_(filter) {
++    : task_runner_(base::SequencedTaskRunner::GetCurrentDefault()),
++      observer_(observer), filter_(filter) {
++  event_target_ = weak_factory_.GetWeakPtr();
 +  device_adapter_ = std::make_unique<DeviceAdapter>();
 +  if (device_adapter_) {
 +    device_adapter_->RegisterHotplugCallback(this);
@@ -125940,33 +125942,31 @@ index 0000000000..bd7d8f433f
 +}
 +
 +void DeviceWatcher::OnDeviceAttatched(USBDevice& device) {
-+  if (!observer_) {
-+    LOG(WARNING) << "Please set observer first.";
-+    return;
-+  }
-+
-+  if (!filter_ || filter_(device)) {
-+    observer_->OnDeviceAdded(device);
-+  }
++  // USBManager events arrive on the ArkTS main thread. Observers and their
++  // device maps belong to the sequence which created this watcher.
++  task_runner_->PostTask(FROM_HERE,
++      base::BindOnce(&DeviceWatcher::NotifyAdded, event_target_, device));
 +}
-+
 +void DeviceWatcher::OnDeviceRemoved(USBDevice& device) {
-+  if (!observer_) {
-+    LOG(WARNING) << "Please set observer first.";
-+    return;
-+  }
-+
-+  if (!filter_ || filter_(device)) {
-+    observer_->OnDeviceRemoved(device);
-+  }
++  task_runner_->PostTask(FROM_HERE,
++      base::BindOnce(&DeviceWatcher::NotifyRemoved, event_target_, device));
++}
++void DeviceWatcher::NotifyAdded(USBDevice device) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (observer_ && (!filter_ || filter_(device))) observer_->OnDeviceAdded(device);
++}
++void DeviceWatcher::NotifyRemoved(USBDevice device) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  // Detach broadcasts may contain only the device name, without interfaces.
++  if (observer_) observer_->OnDeviceRemoved(device);
 +}
 +}  // namespace device
 diff --git a/device/device_watcher/device_watcher.h b/device/device_watcher/device_watcher.h
 new file mode 100644
-index 0000000000..ea8f8d9416
+index 0000000000..73ce9f54a6
 --- /dev/null
 +++ b/device/device_watcher/device_watcher.h
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,91 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -126004,6 +126004,8 @@ index 0000000000..ea8f8d9416
 +
 +#include "base/component_export.h"
 +#include "base/memory/raw_ptr.h"
++#include "base/memory/weak_ptr.h"
++#include "base/task/sequenced_task_runner.h"
 +#include "base/sequence_checker.h"
 +#include "ohos/adapter/device/device_adapter.h"
 +
@@ -126044,9 +126046,14 @@ index 0000000000..ea8f8d9416
 + private:
 +  explicit DeviceWatcher(Observer* observer, DeviceFilter filter);
 +
++  void NotifyAdded(USBDevice device);
++  void NotifyRemoved(USBDevice device);
++  const scoped_refptr<base::SequencedTaskRunner> task_runner_;
++  base::WeakPtr<DeviceWatcher> event_target_;
 +  raw_ptr<Observer> observer_;
 +  std::unique_ptr<DeviceAdapter> device_adapter_ = nullptr;
 +  DeviceFilter filter_ = nullptr;
++  base::WeakPtrFactory<DeviceWatcher> weak_factory_{this};
 +  SEQUENCE_CHECKER(sequence_checker_);
 +};
 +}  // namespace device
@@ -157235,19 +157242,21 @@ index 0000000000..53ce041664
 + 
 +#endif  // SERVICES_DEVICE_GEOLOCATION_LOCATION_PROVIDER_OHOS_H_
 diff --git a/services/device/hid/BUILD.gn b/services/device/hid/BUILD.gn
-index 1a016eb9a1..f10360692d 100644
+index 1a016eb9a1..d1009a6566 100644
 --- a/services/device/hid/BUILD.gn
 +++ b/services/device/hid/BUILD.gn
-@@ -57,6 +57,14 @@ source_set("hid") {
+@@ -57,6 +57,16 @@ source_set("hid") {
      deps += [ "//device/udev_linux" ]
    }
  
 +  if (is_ohos) {
 +    sources += [
++      "hid_connection_ohos.cc",
++      "hid_connection_ohos.h",
 +      "hid_service_ohos.cc",
 +      "hid_service_ohos.h",
 +    ]
-+    deps += [ "//device/device_watcher" ]
++    deps += [ "//device/device_watcher", "//services/device/usb" ]
 +  }
 +
    if (is_chromeos) {
@@ -157277,10 +157286,10 @@ index 7f37eeded0..4f3715598e 100644
  #endif
 diff --git a/services/device/hid/hid_service_ohos.cc b/services/device/hid/hid_service_ohos.cc
 new file mode 100644
-index 0000000000..14bd398f08
+index 0000000000..456474526b
 --- /dev/null
 +++ b/services/device/hid/hid_service_ohos.cc
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,341 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -157312,146 +157321,322 @@ index 0000000000..14bd398f08
 +
 +#include "services/device/hid/hid_service_ohos.h"
 +
-+#include "base/notimplemented.h"
++#include <memory>
++#include <set>
++#include <string>
++#include <vector>
 +
 +#include "base/functional/bind.h"
-+#include "base/functional/callback_helpers.h"
 +#include "base/location.h"
 +#include "base/logging.h"
-+#include "base/sequence_checker.h"
++#include "base/memory/ref_counted_memory.h"
 +#include "base/task/sequenced_task_runner.h"
 +#include "base/task/thread_pool.h"
-+#include "base/threading/scoped_blocking_call.h"
 +#include "device/device_watcher/device_watcher.h"
++#include "components/device_event_log/device_event_log.h"
++#include "services/device/hid/hid_connection_ohos.h"
++#include "services/device/usb/usb_device_ohos.h"
++#include "services/device/usb/usb_device_handle_usbfs.h"
 +
 +namespace device {
-+constexpr int32_t kHidInterfaceId = 0x03;
-+bool IsHidInterface(const USBInterface& interface) {
-+  if (interface.clazz == kHidInterfaceId) {
-+    return true;
-+  }
-+  return false;
++namespace {
++constexpr size_t kMaxDescriptorSize = 4096;
++bool FilterHidDevice(const USBDevice& device) {
++  bool eligible = false;
++  for (const auto& config : device.configs)
++    for (const auto& interface : config.interfaces)
++      if (interface.clazz == 3 && interface.subClass != 1) eligible = true;
++  HID_LOG(EVENT) << "OHOS HID USB candidate: " << device.productName
++                 << " vid=" << device.vendorId << " pid=" << device.productId
++                 << " non-boot HID=" << eligible;
++  return eligible;
 +}
++}  // namespace
 +
-+bool FilterHidDevice(USBDevice device) {
-+  if (device.clazz != 0 || device.subClass != 0 || device.protocol != 0 ||
-+      device.configs.empty()) {
-+    return false;
-+  }
-+  bool is_hid = false;
-+  for (auto iter_config = device.configs.begin();
-+       iter_config != device.configs.end();) {
-+    if (iter_config->interfaces.empty()) {
-+      device.configs.erase(iter_config);
-+      continue;
-+    }
-+
-+    for (auto iter_iface = iter_config->interfaces.begin();
-+         iter_iface != iter_config->interfaces.end();) {
-+      if (!IsHidInterface(*iter_iface)) {
-+        iter_config->interfaces.erase(iter_iface);
-+        continue;
-+      }
-+      is_hid = true;
-+      iter_iface++;
-+    }
-+    iter_config++;
-+  }
-+  return is_hid;
-+}
-+
-+class HidServiceOhos::BlockingTaskRunnerHelper
-+    : public DeviceWatcher::Observer {
++class HidServiceOhos::BlockingTaskRunnerHelper : public DeviceWatcher::Observer {
 + public:
 +  BlockingTaskRunnerHelper(base::WeakPtr<HidServiceOhos> service,
-+                           scoped_refptr<base::SequencedTaskRunner> task_runner)
++                          scoped_refptr<base::SequencedTaskRunner> task_runner)
 +      : service_(std::move(service)), task_runner_(std::move(task_runner)) {
++    HID_LOG(EVENT) << "OHOS HID enumeration started";
 +    watcher_ = DeviceWatcher::StartWatching(this, FilterHidDevice);
 +    watcher_->EnumerateExistingDevices();
-+    task_runner_->PostTask(
-+        FROM_HERE,
-+        base::BindOnce(&HidServiceOhos::FirstEnumerationComplete, service_));
++    enumeration_started_ = true;
++    MaybeCompleteEnumeration();
 +  }
-+
-+  BlockingTaskRunnerHelper(const BlockingTaskRunnerHelper&) = delete;
-+  BlockingTaskRunnerHelper& operator=(const BlockingTaskRunnerHelper&) = delete;
-+
 +  ~BlockingTaskRunnerHelper() override {
-+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++    weak_factory_.InvalidateWeakPtrs();
++    for (auto& [name, probe] : pending_) {
++      if (probe->handle) probe->handle->Close();
++    }
 +  }
 +
 + private:
++  struct Probe {
++    USBDevice physical;
++    scoped_refptr<UsbDeviceOhos> device;
++    scoped_refptr<UsbDeviceHandle> handle;
++    std::vector<uint8_t> interfaces;
++    size_t next = 0;
++  };
 +  void OnDeviceAdded(const USBDevice& device) override {
-+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-+    base::ScopedBlockingCall scoped_blocking_call(
-+        FROM_HERE, base::BlockingType::MAY_BLOCK);
-+    for (const auto& config : device.configs) {
-+      for (const auto& iface : config.interfaces) {
-+        auto hid_info = base::MakeRefCounted<HidDeviceInfo>(
-+            device.name, std::to_string(device.devAddress),
-+            static_cast<uint16_t>(device.vendorId),
-+            static_cast<uint16_t>(device.productId), device.productName,
-+            device.serial, static_cast<mojom::HidBusType>(0),
-+            std::vector<uint8_t>());
-+
-+        task_runner_->PostTask(
-+            FROM_HERE,
-+            base::BindOnce(&HidServiceOhos::AddDevice, service_, hid_info));
++    if (device.name.empty() || known_.contains(device.name)) return;
++    known_.insert(device.name);
++    HID_LOG(EVENT) << "OHOS HID opening USB device: " << device.productName;
++    auto probe = std::make_shared<Probe>();
++    probe->physical = device;
++    probe->device = UsbDeviceOhos::CreateForHid(device);
++    pending_[device.name] = probe;
++    probe->device->Open(base::BindOnce(
++        [](base::WeakPtr<BlockingTaskRunnerHelper> helper,
++           std::shared_ptr<Probe> probe, scoped_refptr<UsbDeviceHandle> handle) {
++          if (!helper || !helper->IsCurrent(probe)) {
++            if (handle) handle->Close();
++            return;
++          }
++          helper->Opened(std::move(probe), std::move(handle));
++        }, weak_factory_.GetWeakPtr(), probe));
++  }
++  bool IsCurrent(const std::shared_ptr<Probe>& probe) const {
++    auto it = pending_.find(probe->physical.name);
++    return it != pending_.end() && it->second == probe;
++  }
++  void Opened(std::shared_ptr<Probe> probe,
++              scoped_refptr<UsbDeviceHandle> handle) {
++    if (!handle) {
++      HID_LOG(ERROR) << "OHOS HID USB authorization/open failed";
++      Finish(probe);
++      return;
++    }
++    probe->handle = std::move(handle);
++    const auto* config = probe->device->GetActiveConfiguration();
++    if (config) {
++      for (const auto& interface : config->interfaces) {
++        for (const auto& alternate : interface->alternates) {
++          HID_LOG(EVENT) << "OHOS HID USB interface="
++                         << static_cast<int>(interface->interface_number)
++                         << " class=" << static_cast<int>(alternate->class_code)
++                         << " subclass=" << static_cast<int>(alternate->subclass_code)
++                         << " alternate=" << static_cast<int>(alternate->alternate_setting);
++          if (alternate->alternate_setting == 0 && alternate->class_code == 3 &&
++              alternate->subclass_code != 1) {
++            probe->interfaces.push_back(interface->interface_number);
++            break;
++          }
++        }
 +      }
 +    }
++    ReadDescriptor(probe);
 +  }
-+
++  void ReadDescriptor(std::shared_ptr<Probe> probe) {
++    if (probe->next == probe->interfaces.size()) {
++      Finish(probe);
++      return;
++    }
++    const uint8_t interface = probe->interfaces[probe->next++];
++    // usbfs requires ownership even for an interface-recipient descriptor
++    // request. A HID kernel driver may already own this interface. Claim the
++    // non-boot interface, read its descriptor, then restore it immediately.
++    static_cast<UsbDeviceHandleUsbfs*>(probe->handle.get())
++        ->ClaimInterfaceForHid(interface, base::BindOnce(
++            &BlockingTaskRunnerHelper::DescriptorInterfaceClaimed,
++            weak_factory_.GetWeakPtr(), probe, interface));
++  }
++  void DescriptorInterfaceClaimed(std::shared_ptr<Probe> probe,
++                                  uint8_t interface, bool success) {
++    if (!IsCurrent(probe)) return;
++    if (!success) {
++      HID_LOG(ERROR) << "OHOS HID descriptor interface claim failed: "
++                     << static_cast<int>(interface);
++      ReadDescriptor(std::move(probe));
++      return;
++    }
++    probe->handle->ControlTransfer(
++        mojom::UsbTransferDirection::INBOUND,
++        mojom::UsbControlTransferType::STANDARD,
++        mojom::UsbControlTransferRecipient::INTERFACE,
++        /*GET_DESCRIPTOR=*/6, /*HID report descriptor=*/0x2200, interface,
++        base::MakeRefCounted<base::RefCountedBytes>(kMaxDescriptorSize), 1000,
++        base::BindOnce(&BlockingTaskRunnerHelper::DescriptorRead,
++                       weak_factory_.GetWeakPtr(), probe, interface));
++  }
++  void DescriptorRead(std::shared_ptr<Probe> probe, uint8_t interface,
++                      mojom::UsbTransferStatus status,
++                      scoped_refptr<base::RefCountedBytes> bytes, size_t length) {
++    if (!IsCurrent(probe)) return;
++    scoped_refptr<HidDeviceInfo> ready_info;
++    if (status == mojom::UsbTransferStatus::COMPLETED && length &&
++        length <= bytes->size()) {
++      const auto& physical = probe->physical;
++      const std::string id = physical.name + ":hid:" + std::to_string(interface);
++      auto info = base::MakeRefCounted<HidDeviceInfo>(
++          id, physical.name, static_cast<uint16_t>(physical.vendorId),
++          static_cast<uint16_t>(physical.productId), physical.productName,
++          physical.serial, mojom::HidBusType::kHIDBusTypeUSB,
++          base::span(bytes->as_vector()).first(length));
++      if (!info->collections().empty() &&
++          info->max_input_report_size() <= 65535 &&
++          info->max_output_report_size() <= 65535 &&
++          info->max_feature_report_size() <= 65535) {
++        ready_info = std::move(info);
++      }
++    } else {
++      HID_LOG(ERROR) << "OHOS HID report descriptor unavailable, interface="
++                   << static_cast<int>(interface)
++                   << " status=" << static_cast<int>(status);
++    }
++    HID_LOG(EVENT) << "OHOS HID descriptor read: interface="
++                   << static_cast<int>(interface) << " bytes=" << length
++                   << " status=" << static_cast<int>(status);
++    probe->handle->ReleaseInterface(interface, base::BindOnce(
++        &BlockingTaskRunnerHelper::DescriptorInterfaceReleased,
++        weak_factory_.GetWeakPtr(), probe, interface, std::move(ready_info)));
++  }
++  void DescriptorInterfaceReleased(std::shared_ptr<Probe> probe,
++                                    uint8_t interface,
++                                    scoped_refptr<HidDeviceInfo> info,
++                                    bool success) {
++    if (!IsCurrent(probe)) return;
++    if (!success) {
++      HID_LOG(ERROR) << "OHOS HID descriptor interface release failed";
++      Finish(probe);
++      return;
++    }
++    // Publish only after releasing the probe claim and restoring the driver.
++    // A page can immediately open a device as soon as it appears in a chooser.
++    if (info) {
++      task_runner_->PostTask(FROM_HERE,
++          base::BindOnce(&HidServiceOhos::AddInterface, service_, probe->physical,
++                         interface, std::move(info)));
++    }
++    ReadDescriptor(std::move(probe));
++  }
++  void Finish(const std::shared_ptr<Probe>& probe) {
++    if (probe->handle) {
++      probe->handle->Close();
++      probe->handle = nullptr;
++    }
++    pending_.erase(probe->physical.name);
++    MaybeCompleteEnumeration();
++  }
++  void MaybeCompleteEnumeration() {
++    if (enumeration_started_ && pending_.empty() && !enumeration_complete_) {
++      enumeration_complete_ = true;
++      HID_LOG(EVENT) << "OHOS HID initial enumeration complete";
++      task_runner_->PostTask(FROM_HERE,
++          base::BindOnce(&HidServiceOhos::FirstEnumerationComplete, service_));
++    }
++  }
 +  void OnDeviceRemoved(const USBDevice& device) override {
-+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-+    base::ScopedBlockingCall scoped_blocking_call(
-+        FROM_HERE, base::BlockingType::MAY_BLOCK);
-+    for (const auto& config : device.configs) {
-+      for (const auto& iface : config.interfaces) {
-+        task_runner_->PostTask(
-+            FROM_HERE, base::BindOnce(&HidServiceOhos::RemoveDevice, service_,
-+                                      std::string(device.name)));
-+      }
++    known_.erase(device.name);
++    auto it = pending_.find(device.name);
++    if (it != pending_.end()) {
++      auto probe = it->second;
++      pending_.erase(it);
++      if (probe->handle) probe->handle->Close();
++      MaybeCompleteEnumeration();
 +    }
++    task_runner_->PostTask(FROM_HERE,
++        base::BindOnce(&HidServiceOhos::RemovePhysicalDevice, service_, device.name));
 +  }
-+
-+  void OnDeviceChanged(const USBDevice& device) override {}
-+
-+  SEQUENCE_CHECKER(sequence_checker_);
++  void OnDeviceChanged(const USBDevice&) override {}
 +  std::unique_ptr<DeviceWatcher> watcher_;
-+
-+  // This weak pointer is only valid when checked on this task runner.
 +  base::WeakPtr<HidServiceOhos> service_;
 +  scoped_refptr<base::SequencedTaskRunner> task_runner_;
++  std::set<std::string> known_;
++  std::map<std::string, std::shared_ptr<Probe>> pending_;
++  bool enumeration_started_ = false;
++  bool enumeration_complete_ = false;
++  base::WeakPtrFactory<BlockingTaskRunnerHelper> weak_factory_{this};
 +};
 +
 +HidServiceOhos::HidServiceOhos() {
 +  helper_ = base::SequenceBound<BlockingTaskRunnerHelper>(
-+      base::ThreadPool::CreateSequencedTaskRunner(kBlockingTaskTraits),
-+      weak_factory_.GetWeakPtr(),
-+      base::SequencedTaskRunner::GetCurrentDefault());
++      base::ThreadPool::CreateSingleThreadTaskRunner(kBlockingTaskTraits),
++      weak_factory_.GetWeakPtr(), base::SequencedTaskRunner::GetCurrentDefault());
 +}
-+
 +HidServiceOhos::~HidServiceOhos() = default;
 +
-+void HidServiceOhos::Connect(const std::string& device_guid,
-+                             bool allow_protected_reports,
-+                             bool allow_fido_reports,
-+                             ConnectCallback callback) {
++void HidServiceOhos::AddInterface(USBDevice physical, uint8_t interface,
++                                 scoped_refptr<HidDeviceInfo> info) {
 +  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-+
-+  NOTIMPLEMENTED();
++  const auto& id = info->platform_device_id_map().front().platform_device_id;
++  interfaces_[id] = InterfaceDevice{std::move(physical), interface};
++  HID_LOG(EVENT) << "OHOS HID registered interface="
++                 << static_cast<int>(interface)
++                 << " collections=" << info->collections().size();
++  AddDevice(std::move(info));
 +}
-+
++void HidServiceOhos::RemovePhysicalDevice(const std::string& name) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  for (auto it = interfaces_.begin(); it != interfaces_.end();) {
++    if (it->second.device.name == name) {
++      auto id = it->first;
++      it = interfaces_.erase(it);
++      RemoveDevice(id);
++    } else ++it;
++  }
++}
++void HidServiceOhos::Connect(const std::string& device_guid,
++                              bool allow_protected_reports,
++                              bool allow_fido_reports,
++                              ConnectCallback callback) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  auto found = devices().find(device_guid);
++  if (found == devices().end()) {
++    std::move(callback).Run(nullptr);
++    return;
++  }
++  auto info = found->second;
++  const auto& id = info->platform_device_id_map().front().platform_device_id;
++  auto entry = interfaces_.find(id);
++  if (entry == interfaces_.end()) {
++    std::move(callback).Run(nullptr);
++    return;
++  }
++  const auto interface = entry->second.interface_number;
++  auto usb = UsbDeviceOhos::CreateForHid(entry->second.device);
++  usb->Open(base::BindOnce(
++      [](base::WeakPtr<HidServiceOhos> service,
++         scoped_refptr<HidDeviceInfo> info, uint8_t interface,
++         bool allow_protected, bool allow_fido, ConnectCallback callback,
++         scoped_refptr<UsbDeviceHandle> handle) {
++        if (!service || !handle || !service->devices().contains(info->device_guid())) {
++          if (handle) handle->Close();
++          std::move(callback).Run(nullptr);
++          return;
++        }
++        // UsbDeviceOhos always creates the existing Chromium usbfs transport.
++        auto* usbfs = static_cast<UsbDeviceHandleUsbfs*>(handle.get());
++        usbfs->ClaimInterfaceForHid(interface, base::BindOnce(
++            [](base::WeakPtr<HidServiceOhos> service,
++               scoped_refptr<HidDeviceInfo> info,
++               scoped_refptr<UsbDeviceHandle> handle, uint8_t interface,
++               bool allow_protected, bool allow_fido, ConnectCallback callback,
++               bool success) {
++              if (!success || !service ||
++                  !service->devices().contains(info->device_guid())) {
++                handle->Close();
++                std::move(callback).Run(nullptr);
++                return;
++              }
++              std::move(callback).Run(base::MakeRefCounted<HidConnectionOhos>(
++                  info, handle, interface, allow_protected, allow_fido));
++            }, service, info, handle, interface, allow_protected, allow_fido,
++            std::move(callback)));
++      }, weak_factory_.GetWeakPtr(), info, interface, allow_protected_reports,
++      allow_fido_reports, std::move(callback)));
++}
 +base::WeakPtr<HidService> HidServiceOhos::GetWeakPtr() {
 +  return weak_factory_.GetWeakPtr();
 +}
 +}  // namespace device
 diff --git a/services/device/hid/hid_service_ohos.h b/services/device/hid/hid_service_ohos.h
 new file mode 100644
-index 0000000000..5b7b582d9a
+index 0000000000..20f17ab10d
 --- /dev/null
 +++ b/services/device/hid/hid_service_ohos.h
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,74 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -157484,6 +157669,9 @@ index 0000000000..5b7b582d9a
 +#define SERVICES_DEVICE_HID_HID_SERVICE_OHOS_H_
 +
 +#include <memory>
++#include <map>
++
++#include "ohos/adapter/device/device_adapter.h"
 +
 +#include "base/memory/weak_ptr.h"
 +#include "base/threading/sequence_bound.h"
@@ -157506,6 +157694,16 @@ index 0000000000..5b7b582d9a
 +
 + private:
 +  class BlockingTaskRunnerHelper;
++  struct InterfaceDevice {
++    ohos::adapter::device::USBDevice device;
++    uint8_t interface_number;
++  };
++  void AddInterface(ohos::adapter::device::USBDevice device,
++                    uint8_t interface_number,
++                    scoped_refptr<HidDeviceInfo> info);
++  void RemovePhysicalDevice(const std::string& name);
++  std::map<std::string, InterfaceDevice> interfaces_;
++
 +
 +  base::SequenceBound<BlockingTaskRunnerHelper> helper_;
 +  base::WeakPtrFactory<HidServiceOhos> weak_factory_{this};
@@ -157513,6 +157711,39 @@ index 0000000000..5b7b582d9a
 +
 +}  // namespace device
 +#endif  // SERVICES_DEVICE_HID_HID_SERVICE_OHOS_H_
+diff --git a/services/device/public/mojom/BUILD.gn b/services/device/public/mojom/BUILD.gn
+index 3e4da82946..161fab58a2 100644
+--- a/services/device/public/mojom/BUILD.gn
++++ b/services/device/public/mojom/BUILD.gn
+@@ -246,3 +246,28 @@ mojom("geolocation_internals") {
+     "//mojo/public/mojom/base",
+   ]
+ }
++
++# Keep OHOS HID transport host regressions independent of network services.
++source_set("ohos_hid_test_types") {
++  testonly = true
++  visibility = [ "//services/device/hid/ohos_tests:*" ]
++  sources = [
++    "$root_gen_dir/services/device/public/mojom/hid.mojom.cc",
++    "$root_gen_dir/services/device/public/mojom/hid.mojom-shared.cc",
++    "$root_gen_dir/services/device/public/mojom/usb_device.mojom.cc",
++    "$root_gen_dir/services/device/public/mojom/usb_device.mojom-shared.cc",
++  ]
++  deps = [
++    ":mojom__generator",
++    ":mojom_shared__generator",
++    ":mojom__generate_message_ids",
++    ":usb__generator",
++    ":usb_shared__generator",
++    ":usb__generate_message_ids",
++  ]
++  public_deps = [
++    "//mojo/public/cpp/bindings",
++    "//mojo/public/mojom/base",
++    "//url/mojom:url_mojom_gurl",
++  ]
++}
 diff --git a/services/device/serial/serial_device_enumerator_ohos.cc b/services/device/serial/serial_device_enumerator_ohos.cc
 new file mode 100644
 index 0000000000..a76f069eb7
@@ -157796,10 +158027,18 @@ index 0000000000..9a7c1751a8
 +}  // namespace device
 \ No newline at end of file
 diff --git a/services/device/usb/BUILD.gn b/services/device/usb/BUILD.gn
-index 4e8a030cab..cc6872d02f 100644
+index 4e8a030cab..5888eb335e 100644
 --- a/services/device/usb/BUILD.gn
 +++ b/services/device/usb/BUILD.gn
-@@ -119,6 +119,19 @@ static_library("usb") {
+@@ -18,6 +18,7 @@ static_library("usb") {
+     ":*",
+     "//services/device:*",
+     "//services/device/serial:*",
++    "//services/device/hid:*",
+     "//services/device/usb/mojo:*",
+   ]
+ 
+@@ -119,6 +120,19 @@ static_library("usb") {
      ]
    }
  
@@ -157819,7 +158058,7 @@ index 4e8a030cab..cc6872d02f 100644
    if (use_udev) {
      if (is_linux || is_chromeos) {
        sources += [
-@@ -129,7 +142,7 @@ static_library("usb") {
+@@ -129,7 +143,7 @@ static_library("usb") {
      deps += [ "//device/udev_linux" ]
    }
  
@@ -157840,12 +158079,156 @@ index 9c45eb5b32..bf73a29919 100644
  
    void OnDisconnect();
    void HandleClosed(UsbDeviceHandle* handle);
+diff --git a/services/device/usb/usb_device_handle_usbfs.cc b/services/device/usb/usb_device_handle_usbfs.cc
+index 01fff361f0..91a4a0d92c 100644
+--- a/services/device/usb/usb_device_handle_usbfs.cc
++++ b/services/device/usb/usb_device_handle_usbfs.cc
+@@ -247,6 +247,19 @@ void UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::Initialize(
+ 
+ UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::~BlockingTaskRunnerHelper() {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++#if BUILDFLAG(IS_OHOS)
++  // Restore only the HID interfaces detached by this handle. The ordinary
++  // keyboard/mouse interfaces on a composite device are never claimed here.
++  for (int interface_number : detached_hid_interfaces_) {
++    if (fd_.is_valid()) {
++      HANDLE_EINTR(ioctl(fd_.get(), USBDEVFS_RELEASEINTERFACE, &interface_number));
++      usbdevfs_ioctl request = {};
++      request.ifno = interface_number;
++      request.ioctl_code = USBDEVFS_CONNECT;
++      HANDLE_EINTR(ioctl(fd_.get(), USBDEVFS_IOCTL, &request));
++    }
++  }
++#endif
+ }
+ 
+ void UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::ReleaseFileDescriptor() {
+@@ -628,6 +641,71 @@ void UsbDeviceHandleUsbfs::SetConfiguration(int configuration_value,
+                            this, configuration_value, std::move(callback)));
+ }
+ 
++#if BUILDFLAG(IS_OHOS)
++void UsbDeviceHandleUsbfs::ClaimInterfaceForHid(
++    int interface_number, ResultCallback callback) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (!device_ || IsInterfaceClaimedByAny(interface_number)) {
++    std::move(callback).Run(false);
++    return;
++  }
++  const auto* config = device_->GetActiveConfiguration();
++  auto interface = config ? FindInterfaceInfoFromConfig(
++      config, interface_number, /*alternate_setting=*/0) : CombinedInterfaceInfo();
++  // Never detach boot keyboard/mouse input interfaces for WebHID.
++  if (!interface.IsValid() || interface.alternate->class_code != 3 ||
++      interface.alternate->subclass_code == 1) {
++    std::move(callback).Run(false);
++    return;
++  }
++  helper_.AsyncCall(&BlockingTaskRunnerHelper::DetachHidInterface)
++      .WithArgs(interface_number)
++      .Then(base::BindOnce(&UsbDeviceHandleUsbfs::DetachInterfaceComplete,
++                          this, interface_number, std::move(callback)));
++}
++
++bool UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::DetachHidInterface(
++    int interface_number) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  usbdevfs_getdriver driver = {};
++  driver.interface = interface_number;
++  if (HANDLE_EINTR(ioctl(fd_.get(), USBDEVFS_GETDRIVER, &driver)) < 0) {
++    return errno == ENODATA;
++  }
++  usbdevfs_ioctl request = {};
++  request.ifno = interface_number;
++  request.ioctl_code = USBDEVFS_DISCONNECT;
++  if (HANDLE_EINTR(ioctl(fd_.get(), USBDEVFS_IOCTL, &request)) < 0) {
++    return errno == ENODATA;
++  }
++  detached_hid_interfaces_.insert(interface_number);
++  return true;
++}
++
++bool UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper::ReattachHidInterface(
++    int interface_number) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  if (!detached_hid_interfaces_.contains(interface_number)) {
++    return true;
++  }
++  usbdevfs_ioctl request = {};
++  request.ifno = interface_number;
++  request.ioctl_code = USBDEVFS_CONNECT;
++  const int result = HANDLE_EINTR(ioctl(fd_.get(), USBDEVFS_IOCTL, &request));
++  if (result < 0) {
++    USB_PLOG(ERROR) << "OHOS HID driver restore failed, interface="
++                    << interface_number;
++    return false;
++  }
++  // USBDEVFS_CONNECT may return a positive number when a driver was bound.
++  // Match the existing Linux/Android ReattachInterface contract (rc >= 0).
++  detached_hid_interfaces_.erase(interface_number);
++  USB_LOG(EVENT) << "OHOS HID driver restored, interface=" << interface_number
++                 << " result=" << result;
++  return true;
++}
++#endif
++
+ void UsbDeviceHandleUsbfs::ClaimInterface(int interface_number,
+                                           ResultCallback callback) {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+@@ -1009,6 +1087,11 @@ void UsbDeviceHandleUsbfs::ReleaseInterfaceComplete(int interface_number,
+     RefreshEndpointInfo();
+   }
+ 
++#if BUILDFLAG(IS_OHOS)
++  helper_.AsyncCall(&BlockingTaskRunnerHelper::ReattachHidInterface)
++      .WithArgs(interface_number).Then(std::move(callback));
++  return;
++#endif
+ #if BUILDFLAG(IS_CHROMEOS)
+   if (client_id_.has_value()) {
+     chromeos::PermissionBrokerClient::Get()->ReattachInterface(
+diff --git a/services/device/usb/usb_device_handle_usbfs.h b/services/device/usb/usb_device_handle_usbfs.h
+index 9d4febb303..37bd6bf01f 100644
+--- a/services/device/usb/usb_device_handle_usbfs.h
++++ b/services/device/usb/usb_device_handle_usbfs.h
+@@ -63,6 +63,10 @@ class UsbDeviceHandleUsbfs : public UsbDeviceHandle {
+   void Close() override;
+   void SetConfiguration(int configuration_value,
+                         ResultCallback callback) override;
++#if BUILDFLAG(IS_OHOS)
++  // WebHID has already checked the origin grant and protected collections.
++  void ClaimInterfaceForHid(int interface_number, ResultCallback callback);
++#endif
+   void ClaimInterface(int interface_number, ResultCallback callback) override;
+   void ReleaseInterface(int interface_number, ResultCallback callback) override;
+   void SetInterfaceAlternateSetting(int interface_number,
+@@ -207,6 +211,10 @@ class UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper {
+                           base::WeakPtr<UsbDeviceHandleUsbfs> device_handle,
+                           scoped_refptr<base::SequencedTaskRunner> task_runner);
+ 
++#if BUILDFLAG(IS_OHOS)
++  bool DetachHidInterface(int interface_number);
++  bool ReattachHidInterface(int interface_number);
++#endif
+   void ReleaseFileDescriptor();
+ 
+   bool SetConfiguration(int configuration_value);
+@@ -235,6 +243,9 @@ class UsbDeviceHandleUsbfs::BlockingTaskRunnerHelper {
+   std::string GetKernelDriver(int interface_number) const;
+ #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
+ 
++#if BUILDFLAG(IS_OHOS)
++  base::flat_set<int> detached_hid_interfaces_;
++#endif
+   base::ScopedFD fd_;
+   base::ScopedFD lifeline_fd_;
+   base::WeakPtr<UsbDeviceHandleUsbfs> device_handle_;
 diff --git a/services/device/usb/usb_device_ohos.cc b/services/device/usb/usb_device_ohos.cc
 new file mode 100644
-index 0000000000..bbc4b79a6b
+index 0000000000..4f0f431567
 --- /dev/null
 +++ b/services/device/usb/usb_device_ohos.cc
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,192 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -157877,11 +158260,19 @@ index 0000000000..bbc4b79a6b
 +
 +#include "services/device/usb/usb_device_ohos.h"
 +
++#include <fcntl.h>
++#include <linux/usb/ch9.h>
++#include <linux/usbdevice_fs.h>
++#include <sys/ioctl.h>
++
 +#include "base/files/file_util.h"
 +#include "base/functional/bind.h"
 +#include "base/functional/callback_helpers.h"
 +#include "base/logging.h"
-+#include "base/task/single_thread_task_runner.h"
++#include "base/posix/eintr_wrapper.h"
++#include "base/strings/utf_string_conversions.h"
++#include "base/task/sequenced_task_runner.h"
++#include "components/device_event_log/device_event_log.h"
 +#include "ohos/adapter/device/device_adapter.h"
 +#include "services/device/public/mojom/usb_device.mojom.h"
 +#include "services/device/usb/usb_descriptors.h"
@@ -157894,54 +158285,87 @@ index 0000000000..bbc4b79a6b
 +
 +UsbDeviceOhos::UsbDeviceOhos(const USBDevice& usb_device_info,
 +                             mojom::UsbDeviceInfoPtr device_info)
-+    : UsbDevice(std::move(device_info)), usb_device_info_(usb_device_info) {
-+  is_has_right_ = DeviceAdapter::HasRight(device_id());
-+}
++    : UsbDevice(std::move(device_info)), usb_device_info_(usb_device_info) {}
 +
-+UsbDeviceOhos::~UsbDeviceOhos() {
-+  if (is_has_right_) {
-+    DeviceAdapter::RemoveRight(device_id());
-+    is_has_right_ = false;
-+  }
++UsbDeviceOhos::~UsbDeviceOhos() = default;
++
++scoped_refptr<UsbDeviceOhos> UsbDeviceOhos::CreateForHid(const USBDevice& device) {
++  auto info = mojom::UsbDeviceInfo::New();
++  info->vendor_id = device.vendorId;
++  info->product_id = device.productId;
++  info->manufacturer_name = base::UTF8ToUTF16(device.manufacturerName);
++  info->product_name = base::UTF8ToUTF16(device.productName);
++  info->serial_number = base::UTF8ToUTF16(device.serial);
++  info->bus_number = device.busNum;
++  info->port_number = device.devAddress;
++  return base::WrapRefCounted(new UsbDeviceOhos(device, std::move(info)));
 +}
 +
 +void UsbDeviceOhos::Open(OpenCallback callback) {
-+  if (!is_has_right_) {
-+    is_has_right_ = DeviceAdapter::RequestRight(device_id());
-+  }
-+  if (is_has_right_) {
-+    scoped_refptr<base::SequencedTaskRunner> blocking_task_runner =
-+        UsbService::CreateBlockingTaskRunner();
-+    blocking_task_runner->PostTask(
-+        FROM_HERE,
-+        base::BindOnce(&UsbDeviceOhos::OpenOnBlockingThread, this,
-+                       std::move(callback),
-+                       base::SingleThreadTaskRunner::GetCurrentDefault(),
-+                       blocking_task_runner));
-+  } else {
-+    std::move(callback).Run(nullptr);
-+  }
++  auto blocking_task_runner = UsbService::CreateBlockingTaskRunner();
++  blocking_task_runner->PostTask(
++      FROM_HERE,
++      base::BindOnce(&UsbDeviceOhos::OpenOnBlockingThread, this,
++                     std::move(callback),
++                     base::SequencedTaskRunner::GetCurrentDefault(),
++                     blocking_task_runner));
 +}
 +
 +void UsbDeviceOhos::OpenOnBlockingThread(
 +    OpenCallback callback,
 +    scoped_refptr<base::SequencedTaskRunner> task_runner,
 +    scoped_refptr<base::SequencedTaskRunner> blocking_task_runner) {
++  auto fail = [&] {
++    task_runner->PostTask(FROM_HERE,
++                         base::BindOnce(std::move(callback), nullptr));
++  };
++  USB_LOG(EVENT) << "OHOS USB open: checking access, device=" << device_id();
++  const bool has_right = DeviceAdapter::HasRight(device_id());
++  USB_LOG(EVENT) << "OHOS USB access cached=" << has_right;
++  if (!has_right) {
++    USB_LOG(EVENT) << "OHOS USB requesting system authorization";
++    const bool granted = DeviceAdapter::RequestRight(device_id());
++    USB_LOG(EVENT) << "OHOS USB authorization result=" << granted;
++    if (!granted) {
++      fail();
++      return;
++    }
++  }
++  USB_LOG(EVENT) << "OHOS USB connecting system device pipe";
 +  ohos::adapter::device::USBDevicePipe pipe;
-+  DeviceAdapter::OpenDevice(usb_device_info_, pipe);
++  if (!DeviceAdapter::OpenDevice(usb_device_info_, pipe)) {
++    fail();
++    return;
++  }
++  USB_LOG(EVENT) << "OHOS USB device pipe connected";
++  // USBManager owns the original descriptor. Duplicate before closing its pipe.
++  const int borrowed_fd = DeviceAdapter::GetFileDescriptor(pipe);
++  USB_LOG(EVENT) << "OHOS USB system descriptor valid=" << (borrowed_fd >= 0);
++  base::ScopedFD fd(borrowed_fd < 0 ? -1 :
++      HANDLE_EINTR(fcntl(borrowed_fd, F_DUPFD_CLOEXEC, 0)));
 +  std::vector<uint8_t> descriptor_vector =
 +      DeviceAdapter::GetRawDescriptor(pipe);
++  USB_LOG(EVENT) << "OHOS USB raw descriptor bytes=" << descriptor_vector.size();
++  DeviceAdapter::ClosePipe(pipe);
++  USB_LOG(EVENT) << "OHOS USB system pipe closed, private descriptor retained";
++  if (!fd.is_valid()) {
++    fail();
++    return;
++  }
 +  std::unique_ptr<UsbDeviceDescriptor> descriptor =
 +      std::make_unique<UsbDeviceDescriptor>();
-+  if (!descriptor->Parse(base::span(descriptor_vector.begin(),
-+                                         descriptor_vector.end()))) {
-+    std::move(callback).Run(nullptr);
++  if (descriptor_vector.size() < USB_DT_DEVICE_SIZE ||
++      descriptor_vector[1] != USB_DT_DEVICE ||
++      !descriptor->Parse(base::span(descriptor_vector)) ||
++      descriptor->device_info->configurations.empty()) {
++    USB_LOG(ERROR) << "OHOS USB raw descriptor parse failed";
++    fail();
 +    return;
 +  }
 +
 +  if (descriptor->device_info->class_code == K_DEVICE_CLASS_HUB) {
 +    // Don't try to enumerate hubs. We never want to connect to a hub.
-+    std::move(callback).Run(nullptr);
++    fail();
 +    return;
 +  }
 +
@@ -157950,19 +158374,27 @@ index 0000000000..bbc4b79a6b
 +  descriptor->device_info->serial_number = device_info_->serial_number;
 +  descriptor->device_info->bus_number = device_info_->bus_number;
 +  descriptor->device_info->port_number = device_info_->port_number;
-+  device_info_ = std::move(descriptor->device_info);
-+
-+  int32_t file_descriptor = DeviceAdapter::GetFileDescriptor(pipe);
-+  if (usb_device_info_.configs.size() > 0 &&
-+      usb_device_info_.configs[0].interfaces.size() > 0) {
-+    DeviceAdapter::ReleaseInterface(pipe,
-+                                    usb_device_info_.configs[0].interfaces[0]);
++  uint8_t active_configuration = 0;
++  usbdevfs_ctrltransfer request = {};
++  request.bRequestType = USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
++  request.bRequest = USB_REQ_GET_CONFIGURATION;
++  request.wLength = 1;
++  request.timeout = 1000;
++  request.data = &active_configuration;
++  USB_LOG(EVENT) << "OHOS USB reading active configuration";
++  if (HANDLE_EINTR(ioctl(fd.get(), USBDEVFS_CONTROL, &request)) != 1) {
++    USB_PLOG(ERROR) << "Unable to read active USB configuration";
++    fail();
++    return;
 +  }
-+  base::ScopedFD fd(HANDLE_EINTR(file_descriptor));
++  USB_LOG(EVENT) << "OHOS USB active configuration="
++                 << static_cast<int>(active_configuration);
++  descriptor->device_info->active_configuration = active_configuration;
 +  std::string empty_client_id = "";
 +  if (fd.is_valid()) {
 +    task_runner->PostTask(
-+        FROM_HERE, base::BindOnce(&UsbDeviceOhos::Opened, this, std::move(fd),
++        FROM_HERE, base::BindOnce(&UsbDeviceOhos::Opened, this,
++                                  std::move(descriptor->device_info), std::move(fd),
 +                                  base::ScopedFD(), empty_client_id,
 +                                  std::move(callback), blocking_task_runner));
 +  } else {
@@ -157973,11 +158405,14 @@ index 0000000000..bbc4b79a6b
 +}
 +
 +void UsbDeviceOhos::Opened(
++    mojom::UsbDeviceInfoPtr device_info,
 +    base::ScopedFD fd,
 +    base::ScopedFD lifeline_fd,
 +    const std::string& client_id,
 +    OpenCallback callback,
 +    scoped_refptr<base::SequencedTaskRunner> blocking_task_runner) {
++  USB_LOG(EVENT) << "OHOS USB constructing usbfs handle";
++  device_info_ = std::move(device_info);
 +  scoped_refptr<UsbDeviceHandle> device_handle =
 +      new UsbDeviceHandleUsbfs(this, std::move(fd), std::move(lifeline_fd),
 +                               client_id, blocking_task_runner);
@@ -157988,10 +158423,10 @@ index 0000000000..bbc4b79a6b
 +}  // namespace device
 diff --git a/services/device/usb/usb_device_ohos.h b/services/device/usb/usb_device_ohos.h
 new file mode 100644
-index 0000000000..929226bc3e
+index 0000000000..a435e1cd2d
 --- /dev/null
 +++ b/services/device/usb/usb_device_ohos.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,78 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -158039,6 +158474,8 @@ index 0000000000..929226bc3e
 +  UsbDeviceOhos(const UsbDeviceOhos&) = delete;
 +  UsbDeviceOhos& operator=(const UsbDeviceOhos&) = delete;
 +
++  static scoped_refptr<UsbDeviceOhos> CreateForHid(const USBDevice& device);
++
 +  void Open(OpenCallback callback) override;
 +  const std::string& device_id() const { return usb_device_info_.name; }
 +
@@ -158055,14 +158492,14 @@ index 0000000000..929226bc3e
 +      scoped_refptr<base::SequencedTaskRunner> task_runner,
 +      scoped_refptr<base::SequencedTaskRunner> blocking_task_runner);
 +
-+  void Opened(base::ScopedFD fd,
++  void Opened(mojom::UsbDeviceInfoPtr device_info,
++              base::ScopedFD fd,
 +              base::ScopedFD lifeline_fd,
 +              const std::string& client_id,
 +              OpenCallback callback,
 +              scoped_refptr<base::SequencedTaskRunner> blocking_task_runner);
 +
 +  USBDevice usb_device_info_;
-+  bool is_has_right_;
 +};
 +
 +}  // namespace device
@@ -159389,3 +159826,471 @@ index 25a00c2dbf..67b99ae9ce 100644
  </enum>
  
  <enum name="VideoCaptureError">
+diff --git a/services/device/hid/hid_connection_ohos.cc b/services/device/hid/hid_connection_ohos.cc
+new file mode 100644
+index 0000000000..0f135059c6
+--- /dev/null
++++ b/services/device/hid/hid_connection_ohos.cc
+@@ -0,0 +1,176 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license in LICENSE.
++#include "services/device/hid/hid_connection_ohos.h"
++
++#include "base/containers/span.h"
++#include "base/functional/bind.h"
++#include "base/memory/ref_counted_memory.h"
++#include "base/task/sequenced_task_runner.h"
++#include "base/time/time.h"
++#include "components/device_event_log/device_event_log.h"
++#include "services/device/usb/usb_device.h"
++
++namespace device {
++namespace {
++constexpr unsigned int kTransferTimeoutMs = 1000;
++constexpr uint8_t kGetReport = 1;
++constexpr uint8_t kSetReport = 9;
++constexpr uint8_t kOutputReport = 2;
++constexpr uint8_t kFeatureReport = 3;
++}  // namespace
++
++HidConnectionOhos::HidConnectionOhos(
++    scoped_refptr<HidDeviceInfo> info, scoped_refptr<UsbDeviceHandle> handle,
++    uint8_t interface_number, bool allow_protected_reports,
++    bool allow_fido_reports)
++    : HidConnection(std::move(info), allow_protected_reports, allow_fido_reports),
++      handle_(std::move(handle)), interface_number_(interface_number),
++      alive_(base::MakeRefCounted<base::RefCountedData<bool>>(true)) {
++  const auto* config = handle_->GetDevice()->GetActiveConfiguration();
++  if (config) {
++    for (const auto& interface : config->interfaces) {
++      if (interface->interface_number != interface_number_) continue;
++      for (const auto& alternate : interface->alternates) {
++        if (alternate->alternate_setting != 0) continue;
++        for (const auto& endpoint : alternate->endpoints) {
++          if (endpoint->type != mojom::UsbTransferType::INTERRUPT) continue;
++          if (endpoint->direction == mojom::UsbTransferDirection::INBOUND)
++            in_endpoint_ = endpoint->endpoint_number;
++          else
++            out_endpoint_ = endpoint->endpoint_number;
++        }
++      }
++    }
++  }
++  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
++      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
++                               weak_factory_.GetWeakPtr()));
++}
++
++HidConnectionOhos::~HidConnectionOhos() = default;
++
++void HidConnectionOhos::PlatformClose() {
++  alive_->data = false;
++  weak_factory_.InvalidateWeakPtrs();
++  if (handle_) {
++    handle_->Close();
++    handle_ = nullptr;
++  }
++}
++
++void HidConnectionOhos::ReadNext() {
++  if (!handle_ || !in_endpoint_ || !device_info()->max_input_report_size()) return;
++  size_t size = device_info()->max_input_report_size() +
++                (device_info()->has_report_id() ? 1 : 0);
++  handle_->GenericTransfer(
++      mojom::UsbTransferDirection::INBOUND, in_endpoint_,
++      base::MakeRefCounted<base::RefCountedBytes>(size), kTransferTimeoutMs,
++      base::BindOnce(&HidConnectionOhos::OnRead, weak_factory_.GetWeakPtr()));
++}
++
++void HidConnectionOhos::OnRead(mojom::UsbTransferStatus status,
++                              scoped_refptr<base::RefCountedBytes> buffer,
++                              size_t size) {
++  if (!handle_) return;
++  if (status == mojom::UsbTransferStatus::COMPLETED && size &&
++      size <= buffer->size()) {
++    if (!device_info()->has_report_id()) {
++      auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
++      framed->as_vector()[0] = 0;
++      base::span(framed->as_vector()).subspan(1u).copy_from(
++          base::span(buffer->as_vector()).first(size));
++      buffer = std::move(framed);
++      ++size;
++    }
++    ProcessInputReport(std::move(buffer), size);
++  } else if (status != mojom::UsbTransferStatus::TIMEOUT &&
++             status != mojom::UsbTransferStatus::COMPLETED) {
++    HID_LOG(EVENT) << "OHOS HID input stopped: " << static_cast<int>(status);
++    return;
++  }
++  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
++      FROM_HERE, base::BindOnce(&HidConnectionOhos::ReadNext,
++                               weak_factory_.GetWeakPtr()), base::Milliseconds(1));
++}
++
++void HidConnectionOhos::SendReport(
++    uint8_t type, scoped_refptr<base::RefCountedBytes> framed,
++    WriteCallback callback) {
++  if (!handle_ || !framed->size()) {
++    std::move(callback).Run(false);
++    return;
++  }
++  const uint8_t id = framed->as_vector()[0];
++  if (!device_info()->has_report_id() && id != 0) {
++    std::move(callback).Run(false);
++    return;
++  }
++  auto payload = base::MakeRefCounted<base::RefCountedBytes>();
++  const auto bytes = base::span(framed->as_vector()).subspan(
++      device_info()->has_report_id() ? 0u : 1u);
++  payload->as_vector().assign(bytes.begin(), bytes.end());
++  auto complete = base::BindOnce(
++      [](scoped_refptr<base::RefCountedData<bool>> alive, size_t expected,
++         WriteCallback callback, mojom::UsbTransferStatus status,
++         scoped_refptr<base::RefCountedBytes>, size_t size) {
++        std::move(callback).Run(alive->data &&
++            status == mojom::UsbTransferStatus::COMPLETED && size == expected);
++      }, alive_, payload->size(), std::move(callback));
++  if (type == kOutputReport && out_endpoint_) {
++    handle_->GenericTransfer(mojom::UsbTransferDirection::OUTBOUND,
++                             out_endpoint_, payload, kTransferTimeoutMs,
++                             std::move(complete));
++  } else {
++    handle_->ControlTransfer(
++        mojom::UsbTransferDirection::OUTBOUND,
++        mojom::UsbControlTransferType::CLASS,
++        mojom::UsbControlTransferRecipient::INTERFACE, kSetReport,
++        (static_cast<uint16_t>(type) << 8) | id, interface_number_, payload,
++        kTransferTimeoutMs, std::move(complete));
++  }
++}
++
++void HidConnectionOhos::PlatformWrite(
++    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
++  SendReport(kOutputReport, std::move(buffer), std::move(callback));
++}
++void HidConnectionOhos::PlatformSendFeatureReport(
++    scoped_refptr<base::RefCountedBytes> buffer, WriteCallback callback) {
++  SendReport(kFeatureReport, std::move(buffer), std::move(callback));
++}
++void HidConnectionOhos::PlatformGetFeatureReport(
++    uint8_t report_id, ReadCallback callback) {
++  if (!handle_) {
++    std::move(callback).Run(false, nullptr, 0);
++    return;
++  }
++  const bool has_id = device_info()->has_report_id();
++  auto buffer = base::MakeRefCounted<base::RefCountedBytes>(
++      device_info()->max_feature_report_size() + (has_id ? 1 : 0));
++  handle_->ControlTransfer(
++      mojom::UsbTransferDirection::INBOUND,
++      mojom::UsbControlTransferType::CLASS,
++      mojom::UsbControlTransferRecipient::INTERFACE, kGetReport,
++      (static_cast<uint16_t>(kFeatureReport) << 8) | report_id,
++      interface_number_, buffer, kTransferTimeoutMs,
++      base::BindOnce(
++          [](scoped_refptr<base::RefCountedData<bool>> alive, bool has_id,
++             ReadCallback callback, mojom::UsbTransferStatus status,
++             scoped_refptr<base::RefCountedBytes> bytes, size_t size) {
++            if (!alive->data || status != mojom::UsbTransferStatus::COMPLETED ||
++                !size || size > bytes->size()) {
++              std::move(callback).Run(false, nullptr, 0);
++              return;
++            }
++            if (!has_id) {
++              auto framed = base::MakeRefCounted<base::RefCountedBytes>(size + 1);
++              framed->as_vector()[0] = 0;
++              base::span(framed->as_vector()).subspan(1u).copy_from(
++                  base::span(bytes->as_vector()).first(size));
++              bytes = std::move(framed);
++              ++size;
++            }
++            std::move(callback).Run(true, std::move(bytes), size);
++          }, alive_, has_id, std::move(callback)));
++}
++}  // namespace device
+diff --git a/services/device/hid/hid_connection_ohos.h b/services/device/hid/hid_connection_ohos.h
+new file mode 100644
+index 0000000000..ef280aea7d
+--- /dev/null
++++ b/services/device/hid/hid_connection_ohos.h
+@@ -0,0 +1,45 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license in LICENSE.
++#ifndef SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
++#define SERVICES_DEVICE_HID_HID_CONNECTION_OHOS_H_
++
++#include "base/memory/ref_counted.h"
++#include "base/memory/weak_ptr.h"
++#include "services/device/hid/hid_connection.h"
++#include "services/device/usb/usb_device_handle.h"
++
++namespace device {
++// Uses the USBManager-authorized usbfs handle. Chromium still enforces the
++// origin grant, HID blocklist and protected report checks in HidConnection.
++class HidConnectionOhos : public HidConnection {
++ public:
++  HidConnectionOhos(scoped_refptr<HidDeviceInfo> info,
++                    scoped_refptr<UsbDeviceHandle> handle,
++                    uint8_t interface_number,
++                    bool allow_protected_reports,
++                    bool allow_fido_reports);
++
++ private:
++  ~HidConnectionOhos() override;
++  void PlatformClose() override;
++  void PlatformWrite(scoped_refptr<base::RefCountedBytes> buffer,
++                     WriteCallback callback) override;
++  void PlatformGetFeatureReport(uint8_t report_id,
++                                ReadCallback callback) override;
++  void PlatformSendFeatureReport(scoped_refptr<base::RefCountedBytes> buffer,
++                                 WriteCallback callback) override;
++  void ReadNext();
++  void OnRead(mojom::UsbTransferStatus status,
++              scoped_refptr<base::RefCountedBytes> buffer, size_t size);
++  void SendReport(uint8_t type, scoped_refptr<base::RefCountedBytes> buffer,
++                  WriteCallback callback);
++
++  scoped_refptr<UsbDeviceHandle> handle_;
++  const uint8_t interface_number_;
++  uint8_t in_endpoint_ = 0;
++  uint8_t out_endpoint_ = 0;
++  scoped_refptr<base::RefCountedData<bool>> alive_;
++  base::WeakPtrFactory<HidConnectionOhos> weak_factory_{this};
++};
++}  // namespace device
++#endif
+diff --git a/services/device/hid/ohos_tests/BUILD.gn b/services/device/hid/ohos_tests/BUILD.gn
+new file mode 100644
+index 0000000000..9d09f81d11
+--- /dev/null
++++ b/services/device/hid/ohos_tests/BUILD.gn
+@@ -0,0 +1,27 @@
++# Host regression tests execute the actual OHOS HID framing implementation
++# against a deterministic USB transport, without accessing physical devices.
++executable("hid_transport_tests") {
++  testonly = true
++  sources = [
++    "hid_transport_tests.cc",
++    "../hid_connection_ohos.cc",
++    "../hid_connection.cc",
++    "../hid_device_info.cc",
++    "../hid_collection.cc",
++    "../hid_item_state_table.cc",
++    "../hid_report_descriptor.cc",
++    "../hid_report_descriptor_item.cc",
++    "../hid_report_item.cc",
++    "../../public/cpp/hid/hid_blocklist.cc",
++    "../../public/cpp/hid/hid_report_utils.cc",
++    "../../public/cpp/hid/hid_switches.cc",
++    "../../usb/usb_device.cc",
++    "../../usb/usb_device_handle.cc",
++  ]
++  deps = [
++    "//base",
++    "//components/device_event_log",
++    "//services/device/public/mojom:ohos_hid_test_types",
++    "//services/device/public/cpp:device_features",
++  ]
++}
+diff --git a/services/device/hid/ohos_tests/hid_transport_tests.cc b/services/device/hid/ohos_tests/hid_transport_tests.cc
+new file mode 100644
+index 0000000000..d6b775757a
+--- /dev/null
++++ b/services/device/hid/ohos_tests/hid_transport_tests.cc
+@@ -0,0 +1,196 @@
++// Copyright 2026 The Chromium Authors. BSD-style license in LICENSE.
++#include <cstdio>
++#include <utility>
++#include <vector>
++#include "base/check.h"
++#include "base/command_line.h"
++#include "base/feature_list.h"
++#include "base/functional/bind.h"
++#include "base/memory/ref_counted_memory.h"
++#include "base/run_loop.h"
++#include "base/task/single_thread_task_executor.h"
++#include "services/device/hid/hid_connection_ohos.h"
++#include "services/device/usb/usb_device.h"
++
++namespace device {
++using Bytes = base::RefCountedBytes;
++using Status = mojom::UsbTransferStatus;
++class TestDevice : public UsbDevice {
++ public:
++  explicit TestDevice(bool interrupt_out) : UsbDevice(Info(interrupt_out)) {}
++  void Open(OpenCallback callback) override { std::move(callback).Run(nullptr); }
++ private:
++  ~TestDevice() override = default;
++  static mojom::UsbDeviceInfoPtr Info(bool interrupt_out) {
++    auto info = mojom::UsbDeviceInfo::New();
++    info->active_configuration = 1;
++    auto config = mojom::UsbConfigurationInfo::New();
++    config->configuration_value = 1;
++    auto interface = mojom::UsbInterfaceInfo::New();
++    interface->interface_number = 2;
++    auto alternate = mojom::UsbAlternateInterfaceInfo::New();
++    alternate->class_code = 3;
++    auto input = mojom::UsbEndpointInfo::New();
++    input->type = mojom::UsbTransferType::INTERRUPT;
++    input->direction = mojom::UsbTransferDirection::INBOUND;
++    input->endpoint_number = 1;
++    alternate->endpoints.push_back(std::move(input));
++    if (interrupt_out) {
++      auto output = mojom::UsbEndpointInfo::New();
++      output->type = mojom::UsbTransferType::INTERRUPT;
++      output->direction = mojom::UsbTransferDirection::OUTBOUND;
++      output->endpoint_number = 2;
++      alternate->endpoints.push_back(std::move(output));
++    }
++    interface->alternates.push_back(std::move(alternate));
++    config->interfaces.push_back(std::move(interface));
++    info->configurations.push_back(std::move(config));
++    return info;
++  }
++};
++class TestHandle : public UsbDeviceHandle {
++ public:
++  explicit TestHandle(bool interrupt_out)
++      : device(base::MakeRefCounted<TestDevice>(interrupt_out)) {}
++  scoped_refptr<UsbDevice> GetDevice() const override { return device; }
++  void Close() override {
++    device = nullptr;
++    if (input) std::move(input).Run(Status::CANCELLED, nullptr, 0);
++    if (write) std::move(write).Run(Status::CANCELLED, nullptr, 0);
++  }
++  void SetConfiguration(int, ResultCallback cb) override { std::move(cb).Run(false); }
++  void ClaimInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
++  void ReleaseInterface(int, ResultCallback cb) override { std::move(cb).Run(true); }
++  void SetInterfaceAlternateSetting(int, int, ResultCallback cb) override { std::move(cb).Run(false); }
++  void ResetDevice(ResultCallback cb) override { std::move(cb).Run(false); }
++  void ClearHalt(mojom::UsbTransferDirection, uint8_t, ResultCallback cb) override { std::move(cb).Run(false); }
++  void IsochronousTransferIn(uint8_t, const std::vector<uint32_t>&, unsigned int,
++                            IsochronousTransferCallback) override { CHECK(false); }
++  void IsochronousTransferOut(uint8_t, scoped_refptr<Bytes>, const std::vector<uint32_t>&,
++                             unsigned int, IsochronousTransferCallback) override { CHECK(false); }
++  const mojom::UsbInterfaceInfo* FindInterfaceByEndpoint(uint8_t) override { return nullptr; }
++  void GenericTransfer(mojom::UsbTransferDirection direction, uint8_t endpoint,
++                       scoped_refptr<Bytes> buffer, unsigned int,
++                       TransferCallback cb) override {
++    if (direction == mojom::UsbTransferDirection::INBOUND) {
++      CHECK_EQ(endpoint, 1); input = std::move(cb);
++    } else {
++      CHECK_EQ(endpoint, 2); Output(buffer, std::move(cb));
++    }
++  }
++  void ControlTransfer(mojom::UsbTransferDirection direction,
++                       mojom::UsbControlTransferType type,
++                       mojom::UsbControlTransferRecipient recipient,
++                       uint8_t request, uint16_t value, uint16_t index,
++                       scoped_refptr<Bytes> buffer, unsigned int,
++                       TransferCallback cb) override {
++    CHECK(type == mojom::UsbControlTransferType::CLASS);
++    CHECK(recipient == mojom::UsbControlTransferRecipient::INTERFACE);
++    CHECK_EQ(index, 2); last_value = value;
++    if (direction == mojom::UsbTransferDirection::INBOUND) {
++      CHECK_EQ(request, 1);
++      buffer->as_vector() = feature;
++      std::move(cb).Run(Status::COMPLETED, buffer, feature.size());
++    } else {
++      CHECK_EQ(request, 9); Output(buffer, std::move(cb));
++    }
++  }
++  void Output(scoped_refptr<Bytes> buffer, TransferCallback cb) {
++    ++writes; last = buffer->as_vector();
++    if (delay_write) write = std::move(cb);
++    else std::move(cb).Run(Status::COMPLETED, buffer, buffer->size());
++  }
++  void Emit(std::vector<uint8_t> bytes) {
++    CHECK(input); auto buffer = base::MakeRefCounted<Bytes>();
++    buffer->as_vector() = std::move(bytes);
++    std::move(input).Run(Status::COMPLETED, buffer, buffer->size());
++  }
++  scoped_refptr<UsbDevice> device;
++  TransferCallback input, write;
++  std::vector<uint8_t> last, feature;
++  int writes = 0;
++  int last_value = 0;
++  bool delay_write = false;
++ private:
++  ~TestHandle() override = default;
++};
++scoped_refptr<HidDeviceInfo> MakeInfo(uint8_t id, bool protected_keyboard = false) {
++  std::vector<uint8_t> descriptor = {
++    0x06,0x00,0xff, 0x09,0x01, 0xa1,0x01,
++    0x75,0x08, 0x95,0x04, 0x09,0x01,0x81,0x02,
++    0x09,0x02,0x91,0x02,0x09,0x03,0xb1,0x02,0xc0};
++  if (protected_keyboard) { descriptor[1] = 1; descriptor[2] = 0; descriptor[4] = 6; }
++  if (id) descriptor.insert(descriptor.begin() + 7, {0x85,id});
++  return base::MakeRefCounted<HidDeviceInfo>("test-interface", "test-device",
++      0x1234,0x5678,"Synthetic generic HID","",mojom::HidBusType::kHIDBusTypeUSB,
++      descriptor);
++}
++scoped_refptr<Bytes> Framed(uint8_t id) {
++  auto buffer = base::MakeRefCounted<Bytes>();
++  buffer->as_vector() = {id,11,22,33,44}; return buffer;
++}
++void CheckWrite(bool* called, bool expected, bool ok) {
++  CHECK_EQ(ok, expected);
++  *called = true;
++}
++void CheckRead(bool* called, std::vector<uint8_t> expected, bool ok,
++               scoped_refptr<Bytes> bytes, size_t size) {
++  CHECK(ok);
++  CHECK_EQ(size, expected.size());
++  CHECK(bytes->as_vector() == expected);
++  *called = true;
++}
++void RunCase(uint8_t id, bool interrupt_out) {
++  auto info = MakeInfo(id); CHECK_EQ(info->max_input_report_size(), 4u);
++  CHECK_EQ(info->max_feature_report_size(), 4u);
++  auto handle = base::MakeRefCounted<TestHandle>(interrupt_out);
++  auto connection = base::MakeRefCounted<HidConnectionOhos>(info,handle,2,false,false);
++  base::RunLoop().RunUntilIdle();
++  const auto framed = Framed(id)->as_vector();
++  std::vector<uint8_t> wire = framed;
++  if (!id) wire.erase(wire.begin());
++  bool input = false;
++  connection->Read(base::BindOnce(&CheckRead, &input, framed));
++  handle->Emit(wire); CHECK(input);
++  bool output = false;
++  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &output, true));
++  CHECK(output); CHECK(handle->last == wire);
++  if (!interrupt_out) CHECK_EQ(handle->last_value, 0x0200 | id);
++  handle->feature = wire;
++  bool feature_read = false;
++  connection->GetFeatureReport(id,base::BindOnce(&CheckRead, &feature_read, framed));
++  CHECK(feature_read); CHECK_EQ(handle->last_value, 0x0300 | id);
++  bool feature_write = false;
++  connection->SendFeatureReport(Framed(id),base::BindOnce(&CheckWrite, &feature_write, true));
++  CHECK(feature_write);CHECK(handle->last==wire);CHECK_EQ(handle->last_value,0x0300|id);
++  bool invalid = false;
++  auto bad = Framed(id ? 0 : 7);
++  connection->Write(bad,base::BindOnce(&CheckWrite, &invalid, false));CHECK(invalid);
++  bool oversized = false;
++  auto large = Framed(id);large->as_vector().push_back(99);
++  connection->Write(large,base::BindOnce(&CheckWrite, &oversized, false));CHECK(oversized);
++  handle->delay_write = true;
++  bool cancelled = false;
++  connection->Write(Framed(id),base::BindOnce(&CheckWrite, &cancelled, false));
++  connection->Close(); CHECK(cancelled); CHECK(!handle->device);
++  std::printf("PASS generic HID: reportId=%u interruptOut=%d\n",id,interrupt_out);
++}
++void ProtectedCase() {
++  auto handle=base::MakeRefCounted<TestHandle>(true);
++  auto connection=base::MakeRefCounted<HidConnectionOhos>(MakeInfo(0,true),handle,2,false,false);
++  bool rejected=false;
++  connection->Write(Framed(0),base::BindOnce(&CheckWrite, &rejected, false));
++  CHECK(rejected);CHECK_EQ(handle->writes,0);connection->Close();
++  base::RunLoop().RunUntilIdle();
++  std::puts("PASS protected keyboard reports remain blocked");
++}
++}  // namespace device
++int main(int argc, char** argv) {
++  base::CommandLine::Init(argc,argv);
++  base::FeatureList::InitInstance("","");
++  base::SingleThreadTaskExecutor executor;
++  for (uint8_t id : {0,7}) for (bool interrupt_out : {false,true})
++    device::RunCase(id,interrupt_out);
++  device::ProtectedCase();
++  std::puts("PASS all OHOS HID transport host regressions");
++}

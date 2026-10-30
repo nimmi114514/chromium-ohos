@@ -5889,10 +5889,10 @@ index 0000000000..c1af02aa73
 +}
 diff --git a/ohos/adapter/device/device_adapter.cc b/ohos/adapter/device/device_adapter.cc
 new file mode 100644
-index 0000000000..1e20063f32
+index 0000000000..e799eb3f2e
 --- /dev/null
 +++ b/ohos/adapter/device/device_adapter.cc
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,362 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -5923,6 +5923,8 @@ index 0000000000..1e20063f32
 + */
 +
 +#include "ohos/adapter/device/device_adapter.h"
++#include <atomic>
++#include <mutex>
 +#include <functional>
 +#include <string>
 +#include <vector>
@@ -5931,6 +5933,15 @@ index 0000000000..1e20063f32
 +#include "ohos/adapter/common/util.h"
 +
 +namespace ohos::adapter::device {
++struct DeviceAdapter::HotplugState {
++  std::mutex mutex;
++  HotplugCallback* callback = nullptr;
++};
++DeviceAdapter::DeviceAdapter() : hotplug_state_(std::make_shared<HotplugState>()) {
++  static std::atomic<int32_t> next_id{1};
++  watcher_id_ = next_id.fetch_add(1);
++}
++
 +void ConvertEndpoint(aki::Value endpoints,
 +                     std::vector<USBEndpoint>& ohos_endpoints) {
 +  if (endpoints.IsNull() || endpoints.IsUndefined()) {
@@ -6082,17 +6093,24 @@ index 0000000000..1e20063f32
 +    return;
 +  }
 +
++  {
++    std::lock_guard<std::mutex> lock(hotplug_state_->mutex);
++    hotplug_state_->callback = hotplug_cb;
++  }
 +  std::function<void(int32_t, aki::Value, int32_t)> get_hotplug_cb =
-+      [=](int32_t event_type, aki::Value event_data, int32_t len) {
-+        if (hotplug_cb) {
-+          hotplug_cb->ParseEvent(event_type, event_data, len);
-+        }
++      [state = hotplug_state_](int32_t event_type, aki::Value event_data, int32_t len) {
++        std::lock_guard<std::mutex> lock(state->mutex);
++        if (state->callback) state->callback->ParseEvent(event_type, event_data, len);
 +      };
-+
-+  device_update_func->Invoke<void>(get_hotplug_cb);
++  device_update_func->Invoke<void>(watcher_id_, get_hotplug_cb);
 +}
 +
 +void DeviceAdapter::UnregisterHotplugCallback() const {
++  {
++    std::lock_guard<std::mutex> lock(hotplug_state_->mutex);
++    hotplug_state_->callback = nullptr;
++  }
++
 +  auto unregister_hotplug_func =
 +      ohos::adapter::GetJSFunction("DeviceAdapter.UnregisterHotplugCallback");
 +  if (!unregister_hotplug_func) {
@@ -6101,7 +6119,7 @@ index 0000000000..1e20063f32
 +        "undefined.");
 +    return;
 +  }
-+  unregister_hotplug_func->Invoke<void>();
++  unregister_hotplug_func->Invoke<void>(watcher_id_);
 +}
 +
 +// static
@@ -6125,9 +6143,11 @@ index 0000000000..1e20063f32
 +          aki::JSBind::GetJSFunction("DeviceAdapter.GetRawDescriptor")) {
 +    std::function<void(std::vector<uint8_t>, int32_t)> callback =
 +        [&](std::vector<uint8_t> result, int32_t length) {
-+          if (result.size() > 0 && length > 0) {
-+            raw_descriptor = result;
-+            raw_descriptor.resize(length);
++          if (length > 0 && result.size() == static_cast<size_t>(length)) {
++            raw_descriptor = std::move(result);
++          } else {
++            LOGE("USB raw descriptor bridge length mismatch: decoded=%{public}zu declared=%{public}d",
++                 result.size(), length);
 +          }
 +        };
 +    get_raw_descriptor_func->Invoke<void>(pipe, callback);
@@ -6237,10 +6257,10 @@ index 0000000000..1e20063f32
 +}  // namespace ohos::adapter::device
 diff --git a/ohos/adapter/device/device_adapter.h b/ohos/adapter/device/device_adapter.h
 new file mode 100644
-index 0000000000..f1a15e3788
+index 0000000000..f8a3ece89e
 --- /dev/null
 +++ b/ohos/adapter/device/device_adapter.h
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,146 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -6359,7 +6379,7 @@ index 0000000000..f1a15e3788
 +
 +class ADAPTER_EXPORT_API DeviceAdapter {
 + public:
-+  DeviceAdapter() = default;
++  DeviceAdapter();
 +  virtual ~DeviceAdapter() = default;
 +
 +  bool GetDevices(std::vector<USBDevice>& device_list) const;
@@ -6374,6 +6394,11 @@ index 0000000000..f1a15e3788
 +                                  const USBInterface& iface);
 +  static int32_t ClosePipe(const USBDevicePipe& pipe);
 +  static bool RequestRight(const std::string& device_name);
++ private:
++  struct HotplugState;
++  std::shared_ptr<HotplugState> hotplug_state_;
++  int32_t watcher_id_;
++
 +};
 +
 +}  // namespace ohos::adapter::device

@@ -1,7 +1,7 @@
 {
   "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
-  "tracked_files": 1906,
-  "added_files": 0,
+  "tracked_files": 1909,
+  "added_files": 4,
   "replay_matches_worktree": true,
   "patches": [
     {
@@ -32,7 +32,7 @@
     {
       "name": "0006-ohos-native-adapter.patch",
       "files": 406,
-      "sha256": "5f56841166a39802448954227895360e5b24c5c5ced2a29e1e894f10c2dd2e88"
+      "sha256": "c08318f450c57c6102fb3b9425446d91ab2f445aa6b645d2f2fb08ce94ee435f"
     },
     {
       "name": "0007-ohos-ui-and-ozone.patch",
@@ -51,8 +51,8 @@
     },
     {
       "name": "0010-ohos-shared-components.patch",
-      "files": 676,
-      "sha256": "feb4a9cc4e0785538436c43c1cac92f4c8796a46a945843394d9a8e6dd78b08b"
+      "files": 683,
+      "sha256": "d4409951b8739b76c29074133f714bb2784875ea1d72c3ba731ecc920059ee6b"
     }
   ]
 }
