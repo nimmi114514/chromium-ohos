@@ -1,0 +1,152 @@
+diff --git a/build-profile.json5 b/build-profile.json5
+index f412245..c41bc5f 100644
+--- a/build-profile.json5
++++ b/build-profile.json5
+@@ -21,7 +21,8 @@
+       {
+         "name": "release"
+       }
+-    ]
++    ],
++    "signingConfigs": []
+   },
+   "modules": [
+     {
+diff --git a/web_engine/src/main/ets/ability/WebAbility.ets b/web_engine/src/main/ets/ability/WebAbility.ets
+index acdaf57..73ce84e 100644
+--- a/web_engine/src/main/ets/ability/WebAbility.ets
++++ b/web_engine/src/main/ets/ability/WebAbility.ets
+@@ -189,7 +189,8 @@ export class WebAbility extends WebBaseAbility {
+           const prop = data.getWindowProperties();
+           const rect = option.rect;
+           let statusBarHeight = 0;
+-          if (this.deviceInfoAdapter?.isNormalWindowMode()) {
++          if (this.deviceInfoAdapter?.isNormalWindowMode() &&
++            data.getWindowStatus() === window.WindowStatusType.FULL_SCREEN) {
+             statusBarHeight = data.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height;
+             //The current system has a timing issue where the drawableRect lags in updating during mode switching.
+             //Here, when switching to normal mode, the drawableRect is set to 0 
+@@ -244,8 +245,16 @@ export class WebAbility extends WebBaseAbility {
+                       exception: ${JSON.stringify(exception)}`);
+       }
+ 
++      const currentStatus = data.getWindowStatus();
++      // A saved desktop maximize state must not override a system-assigned
++      // split or tablet floating window during launch.
++      const isTabletSystemWindow = deviceInfo.deviceType === 'tablet' &&
++        settings.getValueSync(this.context, 'isSystemModePc', '', settings.domainName.USER_PROPERTY) !== 'true' &&
++        currentStatus === window.WindowStatusType.FLOATING;
+       if (this.initStatus === WindowStatus.MAXIMIZE &&
+-        data.getWindowStatus() !== window.WindowStatusType.MAXIMIZE) {
++        currentStatus !== window.WindowStatusType.MAXIMIZE &&
++        currentStatus !== window.WindowStatusType.SPLIT_SCREEN &&
++        !isTabletSystemWindow) {
+         data.maximize(window.MaximizePresentation.EXIT_IMMERSIVE).then(() => {
+           LogUtil.warn(TAG,
+             `[ohoswindow] Window starts maximized.`);
+@@ -499,7 +508,8 @@ export class WebAbility extends WebBaseAbility {
+         this.nativeContext.OnAvoidAreaChangeCallback(statusBarHeight);
+       }
+ 
+-      if(!this.deviceInfoAdapter?.isNormalWindowMode()) {
++      if (!this.deviceInfoAdapter?.isNormalWindowMode() ||
++        windowClass.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN) {
+         return;
+       }
+ 
+diff --git a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+index 0bf7f81..cf61316 100644
+--- a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
++++ b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+@@ -222,11 +222,13 @@ export class AppWindowAdapter extends BaseAdapter {
+ 
+     try {
+       if (windowClass.getWindowStatus() !== window.WindowStatusType.MAXIMIZE &&
+-        windowClass.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN) {
++        windowClass.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN &&
++        windowClass.getWindowStatus() !== window.WindowStatusType.SPLIT_SCREEN) {
+         windowClass.moveWindowToAsync(bounds.left, bounds.top)
+           .then(() => {
+             if (windowClass?.getWindowStatus() !== window.WindowStatusType.MAXIMIZE &&
+-              windowClass?.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN) {
++              windowClass?.getWindowStatus() !== window.WindowStatusType.FULL_SCREEN &&
++              windowClass?.getWindowStatus() !== window.WindowStatusType.SPLIT_SCREEN) {
+               windowClass?.resizeAsync(bounds.width, bounds.height)
+                 .catch((err: BusinessError) => {
+                   LogUtil.error(TAG,
+diff --git a/web_engine/src/main/module.json5 b/web_engine/src/main/module.json5
+index e252a20..7cba840 100644
+--- a/web_engine/src/main/module.json5
++++ b/web_engine/src/main/module.json5
+@@ -17,20 +17,20 @@
+         "name": "ohos.permission.LOCATION",
+         "reason": "$string:reason",
+         "usedScene": {
++          "when": "always",
+           "abilities": [
+             "EntryAbility"
+-          ],
+-          "when":"always"
++          ]
+         }
+       },
+       {
+         "name": "ohos.permission.APPROXIMATELY_LOCATION",
+         "reason": "$string:reason",
+         "usedScene": {
++          "when": "always",
+           "abilities": [
+             "EntryAbility"
+-          ],
+-          "when":"always"
++          ]
+         }
+       },
+       {
+@@ -38,18 +38,15 @@
+       },
+       {
+         "name": "ohos.permission.MICROPHONE",
+-        "reason": "$string:microphone",
++        "reason": "$string:microphone"
+       },
+       {
+         "name": "ohos.permission.CAMERA",
+-        "reason": "$string:camera",
++        "reason": "$string:camera"
+       },
+-//      {
+-//        "name": "ohos.permission.PRINT"
+-//      },
+       {
+         "name": "ohos.permission.READ_PASTEBOARD",
+-        "reason": "$string:access_pasteboard",
++        "reason": "$string:access_pasteboard"
+       },
+       {
+         "name": "ohos.permission.ACCESS_BIOMETRIC"
+@@ -61,12 +58,12 @@
+         "name": "ohos.permission.ACCESS_BLUETOOTH",
+         "reason": "$string:access_bluetooth",
+         "usedScene": {
++          "when": "always",
+           "abilities": [
+             "EntryAbility"
+-          ],
+-          "when":"always"
++          ]
+         }
+-      },      
++      },
+       {
+         "name": "ohos.permission.FILE_ACCESS_PERSIST"
+       },
+@@ -102,7 +99,7 @@
+     "definePermissions": [
+       {
+         "name": "ohos.permission.LOCK_WINDOW_CURSOR"
+-      },      
++      }
+     ]
+   }
+ }

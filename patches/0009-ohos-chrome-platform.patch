@@ -7951,6 +7951,74 @@ index d2264ce903..72c6fed4c3 100644
    registry->RegisterDictionaryPref(prefs::kHttpsUpgradeFallbacks);
    registry->RegisterDictionaryPref(prefs::kHttpsUpgradeNavigations);
    registry->RegisterBooleanPref(prefs::kHttpsOnlyModeAutoEnabled, false);
+diff --git a/chrome/browser/ui/browser_window/internal/BUILD.gn b/chrome/browser/ui/browser_window/internal/BUILD.gn
+index 99c287c65b..262bfac7a2 100644
+--- a/chrome/browser/ui/browser_window/internal/BUILD.gn
++++ b/chrome/browser/ui/browser_window/internal/BUILD.gn
+@@ -190,6 +190,10 @@ source_set("internal") {
+       }
+     }
+ 
++    if (is_ohos) {
++      deps += [ "//chrome/browser/ui/views/profiles:profile_customization_bubble_sync_controller" ]
++    }
++
+     if (is_win || is_mac || is_linux) {
+       deps += [
+         "//chrome/browser/download/bubble",
+diff --git a/chrome/browser/ui/browser_window/internal/browser_window_features.cc b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
+index 6209c98a29..96ade790f4 100644
+--- a/chrome/browser/ui/browser_window/internal/browser_window_features.cc
++++ b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
+@@ -485,11 +485,15 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
+                                                                  browser);
+ #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+ 
+-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
++    BUILDFLAG(IS_OHOS)
+   profile_customization_bubble_sync_controller_ =
+       GetUserDataFactory()
+           .CreateInstance<ProfileCustomizationBubbleSyncController>(
+               *browser, browser, profile);
++#endif
++
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+   session_restore_infobar_controller_ =
+       GetUserDataFactory()
+           .CreateInstance<
+diff --git a/chrome/browser/ui/browser_window/public/browser_window_features.h b/chrome/browser/ui/browser_window/public/browser_window_features.h
+index 9f50aa28fb..b3509d5e61 100644
+--- a/chrome/browser/ui/browser_window/public/browser_window_features.h
++++ b/chrome/browser/ui/browser_window/public/browser_window_features.h
+@@ -128,9 +128,10 @@ class ZoomBubbleManager;
+ class WindowsTaskbarIconUpdater;
+ #endif
+ 
+-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
++    BUILDFLAG(IS_OHOS)
+ class ProfileCustomizationBubbleSyncController;
+-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
++#endif
+ 
+ #if !BUILDFLAG(IS_CHROMEOS)
+ class DownloadToolbarUIController;
+@@ -524,9 +525,13 @@ class BrowserWindowFeatures {
+       pin_infobar_controller_;
+ #endif
+ 
+-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
++    BUILDFLAG(IS_OHOS)
+   std::unique_ptr<ProfileCustomizationBubbleSyncController>
+       profile_customization_bubble_sync_controller_;
++#endif
++
++#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+   std::unique_ptr<session_restore_infobar::SessionRestoreInfobarController>
+       session_restore_infobar_controller_;
+ #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 diff --git a/chrome/browser/ui/commerce/BUILD.gn b/chrome/browser/ui/commerce/BUILD.gn
 index c5332d5d11..61865c5ad5 100644
 --- a/chrome/browser/ui/commerce/BUILD.gn
@@ -12103,7 +12171,7 @@ index 2c74a6f210..56f3b805fd 100644
      "//components/password_manager/content/common",
      "//components/performance_manager",
 diff --git a/chrome/browser/ui/views/toolbar/app_menu.cc b/chrome/browser/ui/views/toolbar/app_menu.cc
-index 929df972ee..442f5727bf 100644
+index 929df972ee..70b0b36d0b 100644
 --- a/chrome/browser/ui/views/toolbar/app_menu.cc
 +++ b/chrome/browser/ui/views/toolbar/app_menu.cc
 @@ -124,6 +124,10 @@
@@ -12139,47 +12207,53 @@ index 929df972ee..442f5727bf 100644
      // The max width for `zoom_label_` should not be valid until the calls into
      // UpdateZoomControls().
      CHECK(!zoom_label_max_width_.has_value(), base::NotFatalUntil::M162);
-@@ -819,8 +831,19 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
+@@ -819,8 +831,13 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
      // The increment/decrement button are forced to the same width.
      int button_width = std::max(increment_button_->GetPreferredSize().width(),
                                  decrement_button_->GetPreferredSize().width());
 -    int fullscreen_width =
+-        fullscreen_button_->GetPreferredSize().width() + kFullscreenPadding;
 +    int fullscreen_width = 0;
 + 
-+#if BUILDFLAG(IS_OHOS)
-+    if (ohos::adapter::ContextAdapter::GetInstance().IsPcMode()) {
-+#endif
-+ 
-+    fullscreen_width =
-         fullscreen_button_->GetPreferredSize().width() + kFullscreenPadding;
-+ 
-+#if BUILDFLAG(IS_OHOS)
++    if (fullscreen_button_) {
++      fullscreen_width =
++          fullscreen_button_->GetPreferredSize().width() + kFullscreenPadding;
 +    }
-+#endif
 +
      // Returned height doesn't matter as MenuItemView forces everything to the
      // height of the menuitemview. Note that we have overridden the height when
      // constructing the menu.
-@@ -847,11 +870,19 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
+@@ -847,11 +864,13 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
      bounds.set_width(button_width);
      increment_button_->SetBoundsRect(bounds);
  
-+#if BUILDFLAG(IS_OHOS)
-+    if (ohos::adapter::ContextAdapter::GetInstance().IsPcMode()) {
-+#endif
-+    
-     x += bounds.width();
-     bounds.set_x(x);
-     bounds.set_width(fullscreen_button_->GetPreferredSize().width() +
-                      kFullscreenPadding);
-     fullscreen_button_->SetBoundsRect(bounds);
-+
-+#if BUILDFLAG(IS_OHOS)
+-    x += bounds.width();
+-    bounds.set_x(x);
+-    bounds.set_width(fullscreen_button_->GetPreferredSize().width() +
+-                     kFullscreenPadding);
+-    fullscreen_button_->SetBoundsRect(bounds);
++    if (fullscreen_button_) {
++      x += bounds.width();
++      bounds.set_x(x);
++      bounds.set_width(fullscreen_button_->GetPreferredSize().width() +
++                       kFullscreenPadding);
++      fullscreen_button_->SetBoundsRect(bounds);
 +    }
-+#endif
    }
  
    // views::WidgetObserver
+@@ -900,6 +919,11 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
+   }
+ 
+   void UpdateFullScreenButton() {
++    // OHOS omits this control in tablet mode. Use the actual child lifetime
++    // here and in layout: the system mode can also change while a menu exists.
++    if (!fullscreen_button_) {
++      return;
++    }
+     const bool is_fullscreen = menu()->browser_->GetWindow() &&
+                                menu()->browser_->GetWindow()->IsFullscreen();
+     const bool can_fullscreen = ExclusiveAccessManager::From(menu()->browser_)
 diff --git a/chrome/browser/ui/views/toolbar/history_bookmarks_bubble_view.cc b/chrome/browser/ui/views/toolbar/history_bookmarks_bubble_view.cc
 new file mode 100644
 index 0000000000..b204223fc9

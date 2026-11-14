@@ -125,6 +125,10 @@ def main():
             "bundleName", "compileSdkVersion", "minAPIVersion",
             "targetAPIVersion", "versionName", "debug")}
         metadata["deviceTypes"] = module["module"]["deviceTypes"]
+        if not args.unsigned_only and (len(metadata["deviceTypes"]) != 2 or
+                set(metadata["deviceTypes"]) != {"tablet", "2in1"}):
+            raise SystemExit("Release HAP must declare exactly tablet and 2in1; "
+                             f"received {metadata['deviceTypes']}")
         if (not app["compileSdkVersion"].startswith("26.") or app["debug"] or
                 any(app[key] % 1000000 != 26 for key in
                     ("minAPIVersion", "targetAPIVersion"))):
