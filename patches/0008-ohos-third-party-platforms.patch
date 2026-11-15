@@ -295,6 +295,48 @@ index 0000000000..2af353b470
 +}  // namespace blink
 +
 +#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
+diff --git a/third_party/blink/renderer/modules/webgpu/external_image_utils.cc b/third_party/blink/renderer/modules/webgpu/external_image_utils.cc
+index d0830dba5b..acf0175d53 100644
+--- a/third_party/blink/renderer/modules/webgpu/external_image_utils.cc
++++ b/third_party/blink/renderer/modules/webgpu/external_image_utils.cc
+@@ -481,8 +481,22 @@ bool CopyStaticImageBitmapToWGPUTexture(
+     if (image->IsTextureBacked()) {
+       auto* accelerated_image =
+           static_cast<AcceleratedStaticBitmapImage*>(image);
+-      if (accelerated_image->GetSharedImage()->usage().Has(
+-              gpu::SHARED_IMAGE_USAGE_WEBGPU_READ)) {
++      bool can_import_existing =
++          accelerated_image->GetSharedImage()->usage().Has(
++              gpu::SHARED_IMAGE_USAGE_WEBGPU_READ);
++#if BUILDFLAG(IS_OHOS)
++      // Ordinary Canvas/WebGL images may only advertise potential WebGPU
++      // access. Use the existing GPU CopySharedImage lease path below unless
++      // this is already an RGBA WebGPU presentation/import buffer. This keeps
++      // browser/UI raster storage unchanged and avoids CPU staging in Dawn.
++      can_import_existing &=
++          image->GetSharedImageFormat() == viz::SinglePlaneFormat::kRGBA_8888 &&
++          (accelerated_image->GetSharedImage()->usage().Has(
++               gpu::SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) ||
++           accelerated_image->GetSharedImage()->debug_label() ==
++               "WebGpuSharedImageCache");
++#endif
++      if (can_import_existing) {
+         wgpu::TextureDescriptor texture_desc = {
+             .usage = wgpu::TextureUsage::CopySrc |
+                      wgpu::TextureUsage::TextureBinding,
+diff --git a/third_party/blink/renderer/modules/webgpu/gpu.cc b/third_party/blink/renderer/modules/webgpu/gpu.cc
+index 74daeb175a..b795fde03e 100644
+--- a/third_party/blink/renderer/modules/webgpu/gpu.cc
++++ b/third_party/blink/renderer/modules/webgpu/gpu.cc
+@@ -401,7 +401,7 @@ V8GPUTextureFormat GPU::getPreferredCanvasFormat() {
+ }
+ 
+ wgpu::TextureFormat GPU::GetPreferredCanvasFormat() {
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+   // Interop of vulkan and GL has mesa driver bugs for BGRA format
+   // See anglebug.com/40644739
+   return wgpu::TextureFormat::RGBA8Unorm;
 diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
 index da36201679..4d1c3a05b9 100644
 --- a/third_party/blink/renderer/platform/BUILD.gn
@@ -711,6 +753,29 @@ index 1d9e9a46ee..2dbc34be84 100644
    sk_sp<SkFontConfigInterface> fci(SkFontConfigInterface::RefGlobal());
    SkFontConfigInterface::FontIdentity font_identity;
    font_identity.fID = config_id;
+diff --git a/third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_cache.cc b/third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_cache.cc
+index 91aeebfea8..db58a1cebd 100644
+--- a/third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_cache.cc
++++ b/third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_cache.cc
+@@ -122,6 +122,18 @@ WebGpuSharedImageCache::LeaseSharedImage(viz::SharedImageFormat format,
+                                          SkAlphaType alpha_type) {
+   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+ 
++#if BUILDFLAG(IS_OHOS)
++  // Normalize before the cache lookup as well as allocation. Video and image
++  // imports are drawn/copied by the raster GPU into this intermediate image;
++  // sharing RGBA with Dawn avoids a CPU readback of the original BGRA image.
++  if (format == viz::SinglePlaneFormat::kRGBA_8888 ||
++      format == viz::SinglePlaneFormat::kBGRA_8888 ||
++      format == viz::SinglePlaneFormat::kRGBX_8888 ||
++      format == viz::SinglePlaneFormat::kBGRX_8888) {
++    format = viz::SinglePlaneFormat::kRGBA_8888;
++  }
++#endif
++
+   std::optional<Resource> resource =
+       AcquireCachedResource(size, format, alpha_type, color_space);
+   if (!resource) {
 diff --git a/third_party/blink/renderer/platform/wtf/stack_util.cc b/third_party/blink/renderer/platform/wtf/stack_util.cc
 index 1d298b09c5..4e969b18f3 100644
 --- a/third_party/blink/renderer/platform/wtf/stack_util.cc

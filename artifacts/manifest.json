@@ -1176,7 +1176,7 @@
     "compileSdkVersion": "26.0.1.120",
     "minAPIVersion": 260000026,
     "targetAPIVersion": 260000026,
-    "versionName": "1.0.2",
+    "versionName": "1.0.3",
     "debug": false,
     "deviceTypes": [
       "2in1",
