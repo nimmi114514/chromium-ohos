@@ -295,6 +295,19 @@ index 0000000000..2af353b470
 +}  // namespace blink
 +
 +#endif  // THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_LAYOUT_THEME_OHOS_H_
+diff --git a/third_party/blink/renderer/modules/webgpu/gpu.cc b/third_party/blink/renderer/modules/webgpu/gpu.cc
+index 74daeb175a..b795fde03e 100644
+--- a/third_party/blink/renderer/modules/webgpu/gpu.cc
++++ b/third_party/blink/renderer/modules/webgpu/gpu.cc
+@@ -401,7 +401,7 @@ V8GPUTextureFormat GPU::getPreferredCanvasFormat() {
+ }
+ 
+ wgpu::TextureFormat GPU::GetPreferredCanvasFormat() {
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+   // Interop of vulkan and GL has mesa driver bugs for BGRA format
+   // See anglebug.com/40644739
+   return wgpu::TextureFormat::RGBA8Unorm;
 diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/renderer/platform/BUILD.gn
 index da36201679..4d1c3a05b9 100644
 --- a/third_party/blink/renderer/platform/BUILD.gn

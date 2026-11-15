@@ -8048,6 +8048,46 @@ index 95b638a16d..f7df23fdb3 100644
  // Sets the device scale factor for FontRenderParams to decide
  // if it should enable subpixel positioning.
  COMPONENT_EXPORT(GFX)
+diff --git a/ui/gfx/gpu_fence.cc b/ui/gfx/gpu_fence.cc
+index d4bdac3034..7d7c4fa36b 100644
+--- a/ui/gfx/gpu_fence.cc
++++ b/ui/gfx/gpu_fence.cc
+@@ -10,7 +10,7 @@
+ #include "build/build_config.h"
+ #include "build/chromeos_buildflags.h"
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ #include <sync/sync.h>
+ #endif
+ 
+@@ -43,7 +43,7 @@ void GpuFence::Wait() {
+     return;
+   }
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   static const int kInfiniteSyncWaitTimeout = -1;
+   DCHECK_GE(fence_handle_.Peek(), 0);
+   if (sync_wait(fence_handle_.Peek(), kInfiniteSyncWaitTimeout) < 0) {
+@@ -58,7 +58,7 @@ void GpuFence::Wait() {
+ GpuFence::FenceStatus GpuFence::GetStatusChangeTime(int fd,
+                                                     base::TimeTicks* time) {
+   DCHECK_NE(fd, -1);
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ #if BUILDFLAG(IS_CHROMEOS_DEVICE)
+   auto info =
+       std::unique_ptr<sync_fence_info_data, void (*)(sync_fence_info_data*)>{
+@@ -114,7 +114,7 @@ GpuFence::FenceStatus GpuFence::GetStatusChangeTime(int fd,
+ }
+ 
+ base::TimeTicks GpuFence::GetMaxTimestamp() const {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+   base::TimeTicks timestamp;
+   FenceStatus status = GetStatusChangeTime(fence_handle_.Peek(), &timestamp);
+   DCHECK_EQ(status, FenceStatus::kSignaled);
 diff --git a/ui/gfx/native_pixmap_handle.cc b/ui/gfx/native_pixmap_handle.cc
 index 283d48686a..861fe0fa6c 100644
 --- a/ui/gfx/native_pixmap_handle.cc
@@ -8300,10 +8340,10 @@ index 7eaceadc0b..57e99740f8 100644
  #else
    EXPECT_EQ(11U, render_text->cursor_position());
 diff --git a/ui/gl/BUILD.gn b/ui/gl/BUILD.gn
-index d66189f72b..ec1c8db990 100644
+index d66189f72b..07cae53a28 100644
 --- a/ui/gl/BUILD.gn
 +++ b/ui/gl/BUILD.gn
-@@ -403,6 +403,14 @@ component("gl") {
+@@ -403,6 +403,15 @@ component("gl") {
      defines += [ "GL_SILENCE_DEPRECATION" ]
    }
  
@@ -8312,12 +8352,22 @@ index d66189f72b..ec1c8db990 100644
 +      "ohos/ohos_native_image.cc",
 +      "ohos/ohos_native_image.h",
 +    ]
-+    libs = ["native_image"]
++    sources += [ "android/egl_fence_utils.cc", "android/egl_fence_utils.h" ]
++    libs = [ "native_image", "native_buffer", "native_window" ]
 +  }
 +
    if (is_android) {
      sources += [
        "android/egl_fence_utils.cc",
+@@ -433,7 +442,7 @@ component("gl") {
+     ]
+   }
+ 
+-  if (is_android || is_chromeos || is_linux) {
++  if (is_android || is_chromeos || is_linux || is_ohos) {
+     # Windows doesn't support base::FileDescriptor.
+     # libsync isn't supported or needed on MacOSX.
+     # Fuchsia is excluded due to a libsync dependency and because it's
 diff --git a/ui/gl/features.gni b/ui/gl/features.gni
 index 7a788bdb77..e63fa6b9d3 100644
 --- a/ui/gl/features.gni
@@ -8362,6 +8412,19 @@ index dd50ad07e1..62719755f5 100644
  #endif  // BUILDFLAG(ENABLE_VALIDATING_COMMAND_DECODER)
  
  
+diff --git a/ui/gl/gl_fence.cc b/ui/gl/gl_fence.cc
+index 35e5256454..4fdc963eed 100644
+--- a/ui/gl/gl_fence.cc
++++ b/ui/gl/gl_fence.cc
+@@ -18,7 +18,7 @@
+ #include "ui/gl/gl_surface_egl.h"
+ #include "ui/gl/gl_version_info.h"
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_OHOS)
+ #define USE_GL_FENCE_ANDROID_NATIVE_FENCE_SYNC
+ #include "ui/gl/gl_fence_android_native_fence_sync.h"
+ #endif
 diff --git a/ui/gl/gl_surface.cc b/ui/gl/gl_surface.cc
 index 01ee0a986e..9c344d0ef2 100644
 --- a/ui/gl/gl_surface.cc
@@ -8540,27 +8603,86 @@ index fbf5f84989..c0d31195aa 100644
  GL_EXPORT bool IsDefaultANGLEVulkan();
  GL_EXPORT bool IsUsingVulkan();
  GL_EXPORT bool CheckVulkanCompatibilities(
+diff --git a/ui/gl/gl_utils.cc b/ui/gl/gl_utils.cc
+index 6e5aca03b0..9c1ec881f5 100644
+--- a/ui/gl/gl_utils.cc
++++ b/ui/gl/gl_utils.cc
+@@ -16,7 +16,7 @@
+ #include "ui/gl/gl_switches.h"
+ #include "ui/gl/gl_surface_egl.h"
+ 
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ #include <sync/sync.h>  // nogncheck
+ 
+ #include "base/posix/eintr_wrapper.h"
+@@ -71,7 +71,7 @@ void Hang() {
+   }
+ }
+ 
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ base::ScopedFD MergeFDs(base::ScopedFD a, base::ScopedFD b) {
+   if (!a.is_valid())
+     return b;
+@@ -84,6 +84,9 @@ base::ScopedFD MergeFDs(base::ScopedFD a, base::ScopedFD b) {
+   return merged;
+ }
+ 
++#endif
++
++#if BUILDFLAG(IS_ANDROID)
+ void DisableANGLE() {
+   DCHECK_NE(GetGLImplementation(), kGLImplementationEGLANGLE);
+   g_is_angle_enabled = false;
+diff --git a/ui/gl/gl_utils.h b/ui/gl/gl_utils.h
+index 1d70eecdde..994f1fa89c 100644
+--- a/ui/gl/gl_utils.h
++++ b/ui/gl/gl_utils.h
+@@ -19,7 +19,7 @@
+ #include <dxgi1_6.h>
+ #endif
+ 
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ #include "base/files/scoped_file.h"
+ #endif
+ 
+@@ -31,9 +31,12 @@ class GLDisplay;
+ GL_EXPORT void Crash();
+ GL_EXPORT void Hang();
+ 
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+ GL_EXPORT base::ScopedFD MergeFDs(base::ScopedFD a, base::ScopedFD b);
+ 
++#endif
++
++#if BUILDFLAG(IS_ANDROID)
+ // Disable ANGLE and force to use native or other GL implementation.
+ GL_EXPORT void DisableANGLE();
+ #endif
 diff --git a/ui/gl/ohos/ohos_native_image.cc b/ui/gl/ohos/ohos_native_image.cc
 new file mode 100644
-index 0000000000..2f4b61c4f4
+index 0000000000..7260a02251
 --- /dev/null
 +++ b/ui/gl/ohos/ohos_native_image.cc
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,170 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
 + *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
++ * 1. Redistributions of source code must retain the above copyright notice,
++ * this list of conditions and the following disclaimer.
 + *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
++ * 2. Redistributions in binary form must reproduce the above copyright notice,
++ * this list of conditions and the following disclaimer in the documentation
++ * and/or other materials provided with the distribution.
 + *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
++ * 3. Neither the name of the copyright holder nor the names of its contributors
++ * may be used to endorse or promote products derived from this software without
++ * specific prior written permission.
 + *
 + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
@@ -8581,6 +8703,7 @@ index 0000000000..2f4b61c4f4
 +
 +#include "base/check.h"
 +#include "base/debug/crash_logging.h"
++#include "native_window/external_window.h"
 +#include "ui/gl/gl_bindings.h"
 +
 +namespace gl {
@@ -8631,7 +8754,6 @@ index 0000000000..2f4b61c4f4
 +    LOG(ERROR) << "OH_NativeImage_UpdateSurfaceImage is failed! ret:" << ret;
 +    return;
 +  }
-+
 +}
 +
 +void OhosNativeImage::GetTransformMatrix(float mtx[16]) {
@@ -8669,28 +8791,74 @@ index 0000000000..2f4b61c4f4
 +  }
 +  native_image->frame_available_cb_.Run();
 +}
++// Public-NDK equivalent of ArkWeb's context-independent consumer surface.
++scoped_refptr<OhosNativeImage> OhosNativeImage::Create() {
++  auto* image = OH_ConsumerSurface_Create();
++  if (!image) {
++    return nullptr;
++  }
++  OH_ConsumerSurface_SetDefaultUsage(image, NATIVEBUFFER_USAGE_HW_TEXTURE);
++  return new OhosNativeImage(image);
++}
++int32_t OhosNativeImage::AcquireNativeWindowBuffer(void** buffer,
++                                                   int* fence_fd) {
++  base::AutoLock lock(buffer_lock_);
++  OHNativeWindowBuffer* window_buffer = nullptr;
++  int32_t result = OH_NativeImage_AcquireNativeWindowBuffer(
++      native_image_, &window_buffer, fence_fd);
++  if (result == 0 && window_buffer) {
++    OH_NativeWindow_NativeObjectReference(window_buffer);
++    *buffer = window_buffer;
++  }
++  return result;
++}
++int32_t OhosNativeImage::ReleaseNativeWindowBuffer(void* buffer, int fence_fd) {
++  base::AutoLock lock(buffer_lock_);
++  auto* window_buffer = static_cast<OHNativeWindowBuffer*>(buffer);
++  int32_t result = OH_NativeImage_ReleaseNativeWindowBuffer(
++      native_image_, window_buffer, fence_fd);
++  OH_NativeWindow_NativeObjectUnreference(window_buffer);
++  return result;
++}
++int32_t OhosNativeImage::GetNativeBuffer(void* buffer,
++                                         OH_NativeBuffer** native_buffer) {
++  return OH_NativeBuffer_FromNativeWindowBuffer(
++      static_cast<OHNativeWindowBuffer*>(buffer), native_buffer);
++}
++void OhosNativeImage::GetNativeWindowBufferSize(void* buffer,
++                                                uint32_t* width,
++                                                uint32_t* height) {
++  OH_NativeBuffer* native_buffer = nullptr;
++  if (GetNativeBuffer(buffer, &native_buffer) != 0 || !native_buffer) {
++    return;
++  }
++  OH_NativeBuffer_Config config{};
++  OH_NativeBuffer_GetConfig(native_buffer, &config);
++  *width = config.width;
++  *height = config.height;
++}
 +}  // namespace gl
 diff --git a/ui/gl/ohos/ohos_native_image.h b/ui/gl/ohos/ohos_native_image.h
 new file mode 100644
-index 0000000000..941ab58864
+index 0000000000..7e77ef866d
 --- /dev/null
 +++ b/ui/gl/ohos/ohos_native_image.h
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,81 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
-+ * Redistribution and use in source and binary forms, with or without modification,
-+ * are permitted provided that the following conditions are met:
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
 + *
-+ * 1. Redistributions of source code must retain the above copyright notice, this list of
-+ *    conditions and the following disclaimer.
++ * 1. Redistributions of source code must retain the above copyright notice,
++ * this list of conditions and the following disclaimer.
 + *
-+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
-+ *    of conditions and the following disclaimer in the documentation and/or other materials
-+ *    provided with the distribution.
++ * 2. Redistributions in binary form must reproduce the above copyright notice,
++ * this list of conditions and the following disclaimer in the documentation
++ * and/or other materials provided with the distribution.
 + *
-+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
-+ *    to endorse or promote products derived from this software without specific prior written
-+ *    permission.
++ * 3. Neither the name of the copyright holder nor the names of its contributors
++ * may be used to endorse or promote products derived from this software without
++ * specific prior written permission.
 + *
 + * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 + * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
@@ -8712,8 +8880,10 @@ index 0000000000..941ab58864
 +
 +#include "base/functional/callback.h"
 +#include "base/memory/ref_counted.h"
-+#include "ui/gl/gl_export.h"
++#include "base/synchronization/lock.h"
++#include "native_buffer/native_buffer.h"
 +#include "native_image/native_image.h"
++#include "ui/gl/gl_export.h"
 +
 +namespace gl {
 +
@@ -8721,6 +8891,13 @@ index 0000000000..941ab58864
 +    : public base::RefCountedThreadSafe<OhosNativeImage> {
 + public:
 +  static scoped_refptr<OhosNativeImage> Create(int texture_id);
++  static scoped_refptr<OhosNativeImage> Create();
++  int32_t AcquireNativeWindowBuffer(void** buffer, int* fence_fd);
++  int32_t ReleaseNativeWindowBuffer(void* buffer, int fence_fd);
++  int32_t GetNativeBuffer(void* buffer, OH_NativeBuffer** native_buffer);
++  void GetNativeWindowBufferSize(void* buffer,
++                                 uint32_t* width,
++                                 uint32_t* height);
 +
 +  OhosNativeImage(const OhosNativeImage&) = delete;
 +  OhosNativeImage& operator=(const OhosNativeImage&) = delete;
@@ -8740,13 +8917,14 @@ index 0000000000..941ab58864
 +  friend class base::RefCountedThreadSafe<OhosNativeImage>;
 +  virtual ~OhosNativeImage();
 +
++  base::Lock buffer_lock_;
 +  OH_NativeImage* native_image_;
 +  base::RepeatingClosure frame_available_cb_;
 +};
 +
 +}  // namespace gl
 +
-+#endif // UI_GL_OHOS_NATIVE_IMAGE_H_
++#endif  // UI_GL_OHOS_NATIVE_IMAGE_H_
 diff --git a/ui/gl/test/gl_surface_test_support.cc b/ui/gl/test/gl_surface_test_support.cc
 index 11e00da8da..ecd9056648 100644
 --- a/ui/gl/test/gl_surface_test_support.cc

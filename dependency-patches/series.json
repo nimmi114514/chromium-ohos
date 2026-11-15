@@ -19,12 +19,23 @@
     "revision": "48bfcb1d70378119bfa6bff34ea5b2eb0c3ea217",
     "patch": "dawn-ohos.patch",
     "files": [
+      "include/dawn/native/DawnNative.h",
+      "include/dawn/native/VulkanBackend.h",
       "scripts/dawn_features.gni",
       "src/dawn/common/BUILD.gn",
       "src/dawn/native/BUILD.gn",
-      "src/dawn/native/vulkan/BackendVk.cpp"
+      "src/dawn/native/vulkan/BackendVk.cpp",
+      "src/dawn/native/vulkan/DeviceVk.cpp",
+      "src/dawn/native/vulkan/VulkanBackend.cpp",
+      "src/dawn/native/vulkan/VulkanExtensions.cpp",
+      "src/dawn/native/vulkan/VulkanExtensions.h",
+      "src/dawn/native/vulkan/external_memory/MemoryImportParams.h",
+      "src/dawn/native/vulkan/external_memory/MemoryService.cpp",
+      "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp",
+      "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp",
+      "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h"
     ],
-    "sha256": "ea1a34033a8ffa7e3827379e5b5234eb4e070681858cbd5c2489f25f69694c4d",
+    "sha256": "81cfcd20d7a02d21b3af29cb3324e5e46148c6ec47bacf222cf8386200f78373",
     "replay_matches_worktree": true
   },
   {
