@@ -8,7 +8,7 @@
  
  const TAG = 'CmdArgsHelper';
  const SDK_VERSION_19 = 19;
-@@ -53,15 +54,13 @@
+@@ -53,15 +54,12 @@
    private static readonly DEFAULT_ARGS: string[] = [
      "chrome",
      "--use-gl=egl",
@@ -18,7 +18,7 @@
      "--enable-logging",
      "--no-zygote",
      "--disable-gpu-watchdog",
-     "--ohos-refresh-rate=144",
+-    "--ohos-refresh-rate=144",
      `--user-agent=${DESKTOP_USER_AGENT}`,
 -    `--oauth2-client-id=${GOOGLE_OAUTH_CLIENT_ID}`,
 -    `--oauth2-client-secret=${GOOGLE_OAUTH_CLIENT_SECRET}`,
