@@ -1,5 +1,5 @@
 {
-  "created": "2026-11-15T11:48:56.141416+00:00",
+  "created": "2026-11-15T13:22:33.928963+00:00",
   "chromiumVersion": "158.0.8116.0",
   "chromiumRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
   "api": 26,
@@ -10,13 +10,13 @@
   "runtimeValidation": "pending",
   "hap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
-    "size": 201025079,
-    "sha256": "f0bd741c7b0cdb250a97f0b01dbd3586fe907fd7cd176c9f4287c59832fe6833"
+    "size": 201025074,
+    "sha256": "468cc63576c80a029273085789325f26d7183202748b9874b134281b3831c96c"
   },
   "unsignedHap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-unsigned.hap",
-    "size": 200961249,
-    "sha256": "bdf8bd9e861f81ce5d0526c1f1cec1fd7121c04859386756a2538f88284a5275"
+    "size": 200961150,
+    "sha256": "6261c0565d4702c672d66f31ce68c321135fdc1ef54bf443c7c45d0d27b484a0"
   },
   "nativeLibraries": [
     {
@@ -31,10 +31,10 @@
     },
     {
       "path": "libs/arm64-v8a/libchrome_main_web.so",
-      "sha256": "3723e7dc8c475890a1b43789c35ffeac6c3cfa04e116dd50a8ddc257deb0bd6b",
+      "sha256": "cf3a89c2eed37153a711245ee10eaec1f57630e742676acb3c50beadc263e052",
       "sizeBytes": 254041096,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "d2d4193ad99153f69f463574525269a771ce2d81532a60c9a3d302bb4a0fd237",
+      "buildSourceSha256": "d9f16dc756b440866c5fc4917bcd062557aa45aec14433df822c12a30d50615f",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 27,
       "symbolsStripped": true
@@ -42,7 +42,7 @@
   ],
   "nativeBuildIds": {
     "libadapter.so": "851516de8b74dcac973c2629815ac1a8953d67c7",
-    "libchrome_main_web.so": "74722b8c37656ad4de984b5e257ce23f184d01ea"
+    "libchrome_main_web.so": "fca748c501c2f9a545b91ca9d9152810b5b9f645"
   },
   "resources": [
     {
@@ -1216,7 +1216,7 @@
     "compileSdkVersion": "26.0.0.105",
     "minAPIVersion": 260000026,
     "targetAPIVersion": 260000026,
-    "versionName": "1.0.2",
+    "versionName": "1.0.3",
     "debug": false,
     "deviceTypes": [
       "2in1",

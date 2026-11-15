@@ -129692,7 +129692,7 @@ index 86cecc7176..d3cc3db05a 100644
                                    CreateLabelForSharedImageUsage(usage()) + ")";
  
 diff --git a/gpu/command_buffer/service/shared_image/egl_image_backing.cc b/gpu/command_buffer/service/shared_image/egl_image_backing.cc
-index 60737400f0..a728f6ef44 100644
+index 60737400f0..7b5540cadf 100644
 --- a/gpu/command_buffer/service/shared_image/egl_image_backing.cc
 +++ b/gpu/command_buffer/service/shared_image/egl_image_backing.cc
 @@ -23,6 +23,17 @@
@@ -129766,17 +129766,21 @@ index 60737400f0..a728f6ef44 100644
    return nullptr;
  }
  
-@@ -418,6 +459,57 @@ gl::ScopedEGLImage EGLImageBacking::GenEGLImageSibling(
+@@ -418,6 +459,61 @@ gl::ScopedEGLImage EGLImageBacking::GenEGLImageSibling(
  
    gfx::Size plane_size = format().GetPlaneSize(plane, size());
    const auto& format_info = format_info_[plane];
 +#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
-+  // Only WebGPU presentation buffers opt in. Raster images may advertise
++  // Only WebGPU presentation/import buffers opt in. Raster images may advertise
 +  // WEBGPU_READ preemptively (favicons, profile avatars, image caches), but
 +  // must retain their established GL storage, upload and alpha semantics.
 +  const bool webgpu_present =
 +      usage().Has(SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE);
-+  if (webgpu_present && pixel_data.empty() && plane == 0 &&
++  const bool webgpu_import =
++      usage() == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                  SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                  SHARED_IMAGE_USAGE_RASTER_WRITE);
++  if ((webgpu_present || webgpu_import) && pixel_data.empty() && plane == 0 &&
 +      format() == viz::SinglePlaneFormat::kRGBA_8888) {
 +    OH_NativeBuffer_Config config = {};
 +    config.width = size().width();
@@ -129874,7 +129878,7 @@ index 0072950244..7d340bbdfe 100644
  
    if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE &&
 diff --git a/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc b/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
-index 6803b04246..b9169cfa76 100644
+index 6803b04246..bef48bb3ef 100644
 --- a/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
 +++ b/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
 @@ -17,6 +17,9 @@
@@ -129887,7 +129891,7 @@ index 6803b04246..b9169cfa76 100644
  #include "ui/gl/progress_reporter.h"
  
  namespace gpu {
-@@ -156,9 +159,26 @@ bool GLTextureImageBackingFactory::IsSupported(
+@@ -156,9 +159,31 @@ bool GLTextureImageBackingFactory::IsSupported(
      }
    }
  
@@ -129900,8 +129904,13 @@ index 6803b04246..b9169cfa76 100644
 +    // raster/image uploads keep GLTexture storage even if WEBGPU_READ is in
 +    // their potential usages; advertising an API does not imply using it.
 +    auto* display = gl::GetDefaultDisplayEGL();
++    const bool webgpu_import =
++        usage == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                  SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                  SHARED_IMAGE_USAGE_RASTER_WRITE);
 +    if (format == viz::SinglePlaneFormat::kRGBA_8888 &&
-+        usage.Has(SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) &&
++        (usage.Has(SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) ||
++         webgpu_import) &&
 +        display && display->ext->b_EGL_KHR_image_base &&
 +        display->ext->b_EGL_KHR_gl_texture_2D_image &&
 +        display->ext->b_EGL_KHR_fence_sync &&
@@ -130071,7 +130080,7 @@ index 99495a97d7..a5c197308a 100644
    // the stream texture. See SetStreamTextureServiceId() for the details of
    // how |service_id| is used.
 diff --git a/gpu/command_buffer/service/webgpu_decoder_impl.cc b/gpu/command_buffer/service/webgpu_decoder_impl.cc
-index 6030a9f57c..e1bd96a50c 100644
+index 6030a9f57c..6ef84d2518 100644
 --- a/gpu/command_buffer/service/webgpu_decoder_impl.cc
 +++ b/gpu/command_buffer/service/webgpu_decoder_impl.cc
 @@ -29,6 +29,9 @@
@@ -130152,7 +130161,7 @@ index 6030a9f57c..e1bd96a50c 100644
    return SharedImageRepresentationAndAccessSkiaFallback::Create(
        shared_context_state_, std::move(shared_image), dawn_instance_->Get(),
        device, usage, internal_usage, std::move(view_formats));
-@@ -2246,7 +2265,32 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
+@@ -2246,7 +2265,37 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
    std::unique_ptr<SharedImageRepresentationAndAccess> representation_and_access;
    auto it = known_device_metadata_.find(device);
    CHECK(it != known_device_metadata_.end());
@@ -130173,13 +130182,18 @@ index 6030a9f57c..e1bd96a50c 100644
 +    shared_context_state_->set_need_context_state_reset(true);
 +    auto skia = shared_image_representation_factory_->ProduceSkia(
 +        mailbox, shared_context_state_);
-+    // Only RGBA presentation buffers opt into direct Vulkan imports. Ordinary
-+    // images and video keep the existing Skia compatibility path, even if they
-+    // advertise potential WebGPU access.
++    // RGBA WebGPU presentation and dedicated import-cache buffers opt into
++    // direct Vulkan imports. Ordinary raster images retain their established
++    // storage; Blink first copies them into the import cache on the GPU.
++    const bool webgpu_import =
++        skia && skia->usage() == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                                 SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                                 SHARED_IMAGE_USAGE_RASTER_WRITE);
 +    use_skia_fallback |= !it->second.supports_ohos_native_buffer || !skia ||
 +                        skia->format() != viz::SinglePlaneFormat::kRGBA_8888 ||
-+                        !skia->usage().Has(
-+                            SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE);
++                        (!skia->usage().Has(
++                             SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) &&
++                         !webgpu_import);
 +  }
 +#endif
 +  if (use_skia_fallback) {
@@ -163001,10 +163015,10 @@ index 0000000000..29a0b23092
 +#endif
 diff --git a/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc
 new file mode 100644
-index 0000000000..04f5fbeb23
+index 0000000000..3d29ade653
 --- /dev/null
 +++ b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,114 @@
 +// Copyright 2026 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -163048,7 +163062,8 @@ index 0000000000..04f5fbeb23
 +wgpu::Texture DawnOHOSNativeBufferImageRepresentation::BeginAccess(
 +    wgpu::TextureUsage usage,
 +    wgpu::TextureUsage internal_usage) {
-+  TRACE_EVENT0("gpu", "OHOSWebGPU.NativeBuffer.BeginAccess");
++  TRACE_EVENT1("gpu", "OHOSWebGPU.NativeBuffer.BeginAccess", "resource",
++               debug_label());
 +  if (!context_state_ || !context_state_->MakeCurrent(nullptr, true) ||
 +      !egl_backing_->BeginWrite()) {
 +    return nullptr;
