@@ -1,0 +1,97 @@
+diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcomponent/xcomponent_manager.cc
+--- a/ohos/adapter/xcomponent/xcomponent_manager.cc
++++ b/ohos/adapter/xcomponent/xcomponent_manager.cc
+@@ -51,6 +51,15 @@
+ namespace ohos::adapter::xcomponent {
+ 
+ namespace {
++
++// The XComponent surface must keep an opaque black background, otherwise
++// RenderService disables hardware composition (HWC) for it. See
++// RSUniHwcVisitor::ProcessSolidLayerDisabled(): a self drawing node of type
++// XCOM is force disabled unless the background is either fully opaque black or
++// transparent with the hardware enable hint. Both transparent (0x00FFFFFF) and
++// opaque non-black backgrounds fall into the disabled branch.
++constexpr uint32_t kXComponentBackgroundColor = 0xFF000000;
++
+ NewWindowParam ConvertWindowInitParamsToNewParams(
+     const WindowInitParameter& param) {
+   NewWindowParam newParam;
+@@ -436,7 +445,8 @@
+   if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
+     std::string create_id = param.window_id;
+     creating_window_ = create_id;
+-    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow);
++    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow,
++                                  kXComponentBackgroundColor);
+     WaitForXComponentCreated(create_id);
+     creating_window_.clear();
+     return create_id;
+@@ -455,7 +465,8 @@
+ 
+ void XComponentManager::CreateXComponentViaNodeHandle(
+     const std::string& create_id,
+-    XComponentType type) {
++    XComponentType type,
++    uint32_t background_color) {
+   {
+     std::lock_guard<std::mutex> lock_protect(window_status_mutex_);
+     window_status_[create_id] = std::promise<bool>();
+@@ -463,7 +474,7 @@
+  
+   // Create XComponent via NodeHandle
+   XComponentAttribute attribute = XComponentAttribute{
+-      create_id, type, true, true, 0x00FFFFFF, ARKUI_RENDER_FIT_TOP_LEFT};
++      create_id, type, true, true, background_color, ARKUI_RENDER_FIT_TOP_LEFT};
+   taskRunner::MainThreadTaskRunner::GetInstance().PostTask(
+       std::bind(FindOrCreateNodeHandleXComponent, std::move(attribute)));
+ }
+@@ -500,8 +511,9 @@
+          reuse_window_id.c_str());
+  
+     if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
+-      CreateXComponentViaNodeHandle(reuse_window_id,
+-                                    XComponentType::kSubWindow);
++      CreateXComponentViaNodeHandle(
++          reuse_window_id, XComponentType::kSubWindow,
++          kXComponentBackgroundColor);
+       WaitForXComponentCreated(reuse_window_id);
+     }
+     return reuse_window_id;
+@@ -531,7 +543,8 @@
+ std::string XComponentManager::CreateSubWindowViaNodeHandle(
+     const NewWindowParam& param) {
+   std::string create_id = param.window_id;
+-  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow);
++  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow,
++                                kXComponentBackgroundColor);
+   AddCreatingAbility(create_id);
+   CreateAbility(param);
+   WaitForAbilityCreated(create_id);
+diff --git a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -353,6 +353,7 @@
+ #include "ui/views/accessibility/view_accessibility.h"
+ #include "ui/views/accessibility/view_accessibility_utils.h"
+ #include "ui/views/animation/compositor_animation_runner.h"
++#include "ui/views/background.h"
+ #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+ #include "ui/views/controls/button/menu_button.h"
+ #include "ui/views/controls/textfield/textfield.h"
+@@ -5011,6 +5012,15 @@
+   }
+ 
+   views::ClientView::AddedToWidget();
++
++#if BUILDFLAG(IS_OHOS)
++  // Several client areas (the tab strip region in particular) do not paint a
++  // background of their own. ArkUI hosts an opaque XComponent behind the window
++  // surface, so anything left unpainted shows that color through. Fill the
++  // client area with the frame color, which is what the tab strip background is
++  // supposed to look like, instead of the toolbar color.
++  SetBackground(views::CreateSolidBackground(ui::kColorFrameActive));
++#endif
+ 
+ #if BUILDFLAG(IS_WIN)
+   // Register for screen capture exclusion updates. This is specific to
