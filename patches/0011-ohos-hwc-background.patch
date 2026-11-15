@@ -1,33 +1,164 @@
+diff --git a/ohos/adapter/window/window_common.h b/ohos/adapter/window/window_common.h
+--- a/ohos/adapter/window/window_common.h
++++ b/ohos/adapter/window/window_common.h
+@@ -82,6 +82,9 @@
+   std::string window_id;
+   WindowRect bounds;
+   std::string init_color_argb;
++  // |init_color_argb| as an opaque ARGB value. The string form above drops the
++  // alpha channel, which is fine for ArkUI but not for a surface background.
++  uint32_t init_color_argb_value = 0xFFFFFFFF;
+   bool hide_title_bar;
+   bool use_dark_mode;
+   bool caption_button_visible;
+@@ -132,6 +135,8 @@
+   std::string parent_id = "";
+   // Tells the back ground color of a window.
+   std::string background_color;
++  // |background_color| as an opaque ARGB value.
++  uint32_t background_color_argb = 0xFFFFFFFF;
+   // Whether to hide the system title bar.
+   bool hide_title_bar = true;
+   // Specify whether the window is a floating window.
+diff --git a/ohos/adapter/window/window_common.cc b/ohos/adapter/window/window_common.cc
+--- a/ohos/adapter/window/window_common.cc
++++ b/ohos/adapter/window/window_common.cc
+@@ -61,6 +61,7 @@
+ 
+ void WindowInitParameter::SetBackground(uint32_t color_argb) {
+   background_color = GetRGB(color_argb);
++  background_color_argb = color_argb | 0xFF000000;
+ }
+ 
+ JSBIND_CLASS(WindowLimits) {
+diff --git a/ohos/adapter/xcomponent/xcomponent_manager.h b/ohos/adapter/xcomponent/xcomponent_manager.h
+--- a/ohos/adapter/xcomponent/xcomponent_manager.h
++++ b/ohos/adapter/xcomponent/xcomponent_manager.h
+@@ -96,6 +96,19 @@
+                                                       const std::string& id,
+                                                       XComponentType type);
+   std::shared_ptr<NodeHandleXComponentImpl> GetNodeHandleXComponent(const std::string& id);
++
++  // Sets the ArkUI background color of the NodeHandle XComponent |id|.
++  //
++  // RenderService only keeps hardware composition (HWC) enabled for an
++  // XComponent whose background is fully opaque black, see
++  // RSUniHwcVisitor::ProcessSolidLayerDisabled(). The background is what the
++  // window shows until the first Chromium frame covers the surface, so callers
++  // set the window background color of the current theme first and switch to
++  // opaque black once content has been drawn.
++  //
++  // Must be called on the ArkUI main thread.
++  void SetNodeHandleXComponentBackgroundColor(const std::string& id,
++                                             uint32_t argb);
+   void RegisterNodeHandleInputEventCallBack(int32_t widget_id,
+                                             std::shared_ptr<NodeHandleInputEventCallBack> callback);
+   bool BindNativeXComponentNode(const std::string& id, ArkUI_NodeContentHandle node_content_handle);
+@@ -118,7 +131,8 @@
+   std::string CreateMainWindowViaNodeHandle(const NewWindowParam& param);
+   std::string CreateSubWindowViaNodeHandle(const NewWindowParam& param);
+   void CreateXComponentViaNodeHandle(const std::string& create_id,
+-                                     XComponentType type);
++                                     XComponentType type,
++                                     uint32_t background_color);
+   void CreateAbility(const NewWindowParam& param);
+   void WaitForXComponentCreated(std::string& create_id);
+   void WaitForAbilityCreated(std::string& create_id);
 diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcomponent/xcomponent_manager.cc
 --- a/ohos/adapter/xcomponent/xcomponent_manager.cc
 +++ b/ohos/adapter/xcomponent/xcomponent_manager.cc
-@@ -51,6 +51,15 @@
+@@ -51,6 +51,24 @@
  namespace ohos::adapter::xcomponent {
  
  namespace {
 +
-+// The XComponent surface must keep an opaque black background, otherwise
-+// RenderService disables hardware composition (HWC) for it. See
-+// RSUniHwcVisitor::ProcessSolidLayerDisabled(): a self drawing node of type
-+// XCOM is force disabled unless the background is either fully opaque black or
-+// transparent with the hardware enable hint. Both transparent (0x00FFFFFF) and
-+// opaque non-black backgrounds fall into the disabled branch.
-+constexpr uint32_t kXComponentBackgroundColor = 0xFF000000;
++// RenderService only keeps hardware composition (HWC) enabled for an XComponent
++// (XCOM) surface whose background is fully opaque black, see
++// RSUniHwcVisitor::ProcessSolidLayerDisabled(): a transparent background and an
++// opaque non black background are both rejected.
++//
++// The background is visible until the first Chromium frame covers the surface,
++// so a window starts with the window background color of the current theme
++// (opaque white for the light theme, the dark theme color for the dark theme,
++// both taken from the ColorProvider) and switches to this color once content
++// has been drawn.
++//
++// Surface backgrounds must be opaque, a translucent value makes the system
++// treat the XComponent as transparent and disables hardware composition for it.
++uint32_t OpaqueWindowColor(uint32_t argb) {
++  return argb | 0xFF000000;
++}
 +
  NewWindowParam ConvertWindowInitParamsToNewParams(
      const WindowInitParameter& param) {
    NewWindowParam newParam;
-@@ -436,7 +445,8 @@
+@@ -58,6 +76,7 @@
+   newParam.window_id = param.window_id;
+   newParam.bounds = param.bounds;
+   newParam.init_color_argb = param.background_color;
++  newParam.init_color_argb_value = param.background_color_argb;
+   newParam.hide_title_bar = param.hide_title_bar;
+   newParam.use_dark_mode = param.use_dark_mode;
+   newParam.caption_button_visible = param.caption_button_visible;
+@@ -125,6 +144,30 @@
+   return true;
+ }
+  
++// Applies |argb| as the ArkUI background color of |node_handle|. Must run on
++// the ArkUI main thread.
++bool SetNodeHandleBackgroundColor(ArkUI_NodeHandle node_handle,
++                                  const std::string& xcomponent_id,
++                                  uint32_t argb) {
++  ArkUI_NativeNodeAPI_1* node_api = GetNativeNodeAPI();
++  if (node_handle == nullptr || node_api == nullptr) {
++    LOGE("[XComponentManager] %{public}s has no node, skip background",
++         xcomponent_id.c_str());
++    return false;
++  }
++  ArkUI_NumberValue color_value[] = {{.u32 = argb}};
++  ArkUI_AttributeItem color_item = {color_value, 1};
++  auto result =
++      node_api->setAttribute(node_handle, NODE_BACKGROUND_COLOR, &color_item);
++  if (result != ARKUI_ERROR_CODE_NO_ERROR) {
++    LOGE("[XComponentManager] %{public}s set BACKGROUND_COLOR failed, "
++         "res %{public}d",
++         xcomponent_id.c_str(), result);
++    return false;
++  }
++  return true;
++}
++
+ __attribute__((no_sanitize("cfi", "cfi-icall")))
+ bool CreateAndBindNodeHandle(
+     std::shared_ptr<NodeHandleXComponentImpl> render,
+@@ -204,8 +247,14 @@
+ void FindOrCreateNodeHandleXComponent(XComponentAttribute attribute) {
+   std::string xcomponent_id = attribute.xcomponent_id;
+ 
+-  if (XComponentManager::GetInstance()->GetNodeHandleXComponent(
+-          xcomponent_id)) {
++  auto existing =
++      XComponentManager::GetInstance()->GetNodeHandleXComponent(xcomponent_id);
++  if (existing) {
++    // The XComponent is reused by a new window. Reset the background to the
++    // window color requested for it: the surface still shows the opaque black
++    // left by the previous window until the first frame of this one is drawn.
++    SetNodeHandleBackgroundColor(existing->GetNodeHandle(), xcomponent_id,
++                                 OpaqueWindowColor(attribute.background_color));
+     XComponentManager::GetInstance()->OnXcomponentAvailable(xcomponent_id);
+     return;
+   }
+@@ -436,7 +485,8 @@
    if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
      std::string create_id = param.window_id;
      creating_window_ = create_id;
 -    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow);
 +    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow,
-+                                  kXComponentBackgroundColor);
++                                  param.init_color_argb_value);
      WaitForXComponentCreated(create_id);
      creating_window_.clear();
      return create_id;
-@@ -455,7 +465,8 @@
+@@ -455,7 +505,8 @@
  
  void XComponentManager::CreateXComponentViaNodeHandle(
      const std::string& create_id,
@@ -37,16 +168,33 @@ diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcompo
    {
      std::lock_guard<std::mutex> lock_protect(window_status_mutex_);
      window_status_[create_id] = std::promise<bool>();
-@@ -463,7 +474,7 @@
+@@ -463,11 +514,24 @@
   
    // Create XComponent via NodeHandle
    XComponentAttribute attribute = XComponentAttribute{
 -      create_id, type, true, true, 0x00FFFFFF, ARKUI_RENDER_FIT_TOP_LEFT};
-+      create_id, type, true, true, background_color, ARKUI_RENDER_FIT_TOP_LEFT};
++      create_id, type, true, true, OpaqueWindowColor(background_color),
++      ARKUI_RENDER_FIT_TOP_LEFT};
    taskRunner::MainThreadTaskRunner::GetInstance().PostTask(
        std::bind(FindOrCreateNodeHandleXComponent, std::move(attribute)));
  }
-@@ -500,8 +511,9 @@
+ 
++void XComponentManager::SetNodeHandleXComponentBackgroundColor(
++    const std::string& id,
++    uint32_t argb) {
++  auto it = node_handle_render_map_.find(id);
++  if (it == node_handle_render_map_.end() || !it->second) {
++    LOGW("[XComponentManager] %{public}s is gone, skip background update",
++         id.c_str());
++    return;
++  }
++  SetNodeHandleBackgroundColor(it->second->GetNodeHandle(), id, argb);
++}
++
+ void XComponentManager::AddCreatingAbility(const std::string& create_id) {
+   std::lock_guard<std::mutex> lock_protect(ability_status_mutex_);
+   ability_status_.insert({create_id, std::promise<bool>()});
+@@ -500,8 +564,9 @@
           reuse_window_id.c_str());
   
      if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
@@ -54,44 +202,237 @@ diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcompo
 -                                    XComponentType::kSubWindow);
 +      CreateXComponentViaNodeHandle(
 +          reuse_window_id, XComponentType::kSubWindow,
-+          kXComponentBackgroundColor);
++          param.init_color_argb_value);
        WaitForXComponentCreated(reuse_window_id);
      }
      return reuse_window_id;
-@@ -531,7 +543,8 @@
+@@ -531,7 +596,8 @@
  std::string XComponentManager::CreateSubWindowViaNodeHandle(
      const NewWindowParam& param) {
    std::string create_id = param.window_id;
 -  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow);
 +  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow,
-+                                kXComponentBackgroundColor);
++                                param.init_color_argb_value);
    AddCreatingAbility(create_id);
    CreateAbility(param);
    WaitForAbilityCreated(create_id);
-diff --git a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
---- a/chrome/browser/ui/views/frame/browser_view.cc
-+++ b/chrome/browser/ui/views/frame/browser_view.cc
-@@ -353,6 +353,7 @@
- #include "ui/views/accessibility/view_accessibility.h"
- #include "ui/views/accessibility/view_accessibility_utils.h"
- #include "ui/views/animation/compositor_animation_runner.h"
-+#include "ui/views/background.h"
- #include "ui/views/bubble/bubble_dialog_delegate_view.h"
- #include "ui/views/controls/button/menu_button.h"
- #include "ui/views/controls/textfield/textfield.h"
-@@ -5011,6 +5012,15 @@
-   }
+diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
+--- a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
++++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
+@@ -30,6 +30,11 @@
+ #ifndef UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_OHOS_H_
+ #define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_OHOS_H_
  
-   views::ClientView::AddedToWidget();
++#include <string>
 +
-+#if BUILDFLAG(IS_OHOS)
-+  // Several client areas (the tab strip region in particular) do not paint a
-+  // background of their own. ArkUI hosts an opaque XComponent behind the window
-+  // surface, so anything left unpainted shows that color through. Fill the
-+  // client area with the frame color, which is what the tab strip background is
-+  // supposed to look like, instead of the toolbar color.
-+  SetBackground(views::CreateSolidBackground(ui::kColorFrameActive));
-+#endif
++#include "base/memory/raw_ptr.h"
++#include "base/timer/timer.h"
++#include "ui/compositor/compositor_observer.h"
+ #include "ui/views/views_export.h"
+ #include "ui/views/widget/desktop_aura/desktop_window_tree_host_platform.h"
  
- #if BUILDFLAG(IS_WIN)
-   // Register for screen capture exclusion updates. This is specific to
+@@ -58,6 +63,10 @@
+  protected:
+   // Overridden from DesktopWindowTreeHost:
+   void OnNativeWidgetCreated(const Widget::InitParams& params) override;
++  void OnWidgetInitDone() override;
++
++  // ui::CompositorObserver:
++  void OnCompositingDidCommit(ui::Compositor* compositor) override;
+   Widget::MoveLoopResult RunMoveLoop(
+     const gfx::Vector2d& drag_offset,
+     Widget::MoveLoopSource source,
+@@ -75,6 +84,18 @@
+  private:
+   void CreateNonClientEventFilter();
+   void DestroyNonClientEventFilter();
++  // Starts observing the compositor of this window, which is what tells when
++  // Chromium content starts covering the XComponent surface.
++  void ObserveCompositor();
++  // Switches the XComponent background to the opaque black that RenderService
++  // requires to keep hardware composition enabled.
++  void ApplyFinalSurfaceState();
++  // The id of the XComponent that hosts the surface of this window.
++  std::string GetWindowId() const;
++
++  bool surface_finalized_ = false;
++  raw_ptr<ui::Compositor> observed_compositor_ = nullptr;
++  base::OneShotTimer surface_finalize_timer_;
+ 
+   // A handler for events intended for non client area.
+   // A posthandler for events intended for non client area. Handles events if no
+diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
+--- a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
++++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
+@@ -32,8 +32,13 @@
+ #include "base/logging.h"
+ #include "ohos/adapter/cursor/cursor.h"
+ #include "ohos/adapter/xcomponent/adapter/window_adapter.h"
++#include "ohos/adapter/task_runner/main_thread_task_runner.h"
++#include "ohos/adapter/xcomponent/xcomponent_manager.h"
+ #include "ui/aura/window_delegate.h"
++#include "ui/compositor/compositor.h"
++#include "ui/color/color_id.h"
+ #include "ui/display/screen_ohos.h"
++#include "ui/gfx/color_utils.h"
+ #include "ui/platform_window/platform_window.h"
+ #include "ui/platform_window/platform_window_init_properties.h"
+ #include "ui/platform_window/wm/wm_move_resize_handler.h"
+@@ -44,13 +49,31 @@
+ 
+ namespace views {
+ 
++namespace {
++
++// How long the window background color is kept on the XComponent after the
++// first frame has been committed. The first commit can still be an empty
++// window, so this gives the content a chance to reach the surface; afterwards
++// the color is not visible any more because Chromium covers the whole surface.
++constexpr base::TimeDelta kSurfaceFinalizeDelay = base::Milliseconds(150);
++
++// RenderService only keeps hardware composition (HWC) enabled for an XComponent
++// whose background is fully opaque black.
++constexpr uint32_t kSurfaceOpaqueBlack = 0xFF000000;
++
++}  // namespace
++
+ DesktopWindowTreeHostOhos::DesktopWindowTreeHostOhos(
+     internal::NativeWidgetDelegate* native_widget_delegate,
+     DesktopNativeWidgetAura* desktop_native_widget_aura)
+     : DesktopWindowTreeHostPlatform(native_widget_delegate,
+                                     desktop_native_widget_aura) {}
+ 
+-DesktopWindowTreeHostOhos::~DesktopWindowTreeHostOhos() = default;
++DesktopWindowTreeHostOhos::~DesktopWindowTreeHostOhos() {
++  if (observed_compositor_) {
++    observed_compositor_->RemoveObserver(this);
++  }
++}
+ 
+ void DesktopWindowTreeHostOhos::OnNativeWidgetCreated(
+     const Widget::InitParams& params) {
+@@ -58,6 +81,72 @@
+             << "type is " << params.type;
+   CreateNonClientEventFilter();
+   DesktopWindowTreeHostPlatform::OnNativeWidgetCreated(params);
++
++  // The XComponent already shows the window background color of the current
++  // theme, passed down when it was created, see AddAdditionalInitProperties().
++  // Watch this window's compositor to switch that color to the opaque black
++  // required by hardware composition once content covers the surface.
++  ObserveCompositor();
++}
++
++void DesktopWindowTreeHostOhos::OnWidgetInitDone() {
++  DesktopWindowTreeHostPlatform::OnWidgetInitDone();
++  ObserveCompositor();
++}
++
++void DesktopWindowTreeHostOhos::ObserveCompositor() {
++  if (observed_compositor_) {
++    return;
++  }
++  ui::Compositor* compositor = this->compositor();
++  if (!compositor) {
++    LOG(WARNING) << "[ohoswindow] window " << GetWindowId()
++                 << " has no compositor yet, hardware composition stays off";
++    return;
++  }
++  observed_compositor_ = compositor;
++  compositor->AddObserver(this);
++}
++
++void DesktopWindowTreeHostOhos::OnCompositingDidCommit(
++    ui::Compositor* compositor) {
++  if (surface_finalized_ || surface_finalize_timer_.IsRunning()) {
++    return;
++  }
++  // Chromium content covers the XComponent from this commit on, so the window
++  // background color is no longer needed.
++  if (observed_compositor_) {
++    observed_compositor_->RemoveObserver(this);
++    observed_compositor_ = nullptr;
++  }
++  surface_finalize_timer_.Start(
++      FROM_HERE, kSurfaceFinalizeDelay, this,
++      &DesktopWindowTreeHostOhos::ApplyFinalSurfaceState);
++}
++
++void DesktopWindowTreeHostOhos::ApplyFinalSurfaceState() {
++  if (surface_finalized_) {
++    return;
++  }
++  surface_finalized_ = true;
++  surface_finalize_timer_.Stop();
++  const std::string window_id = GetWindowId();
++  if (window_id.empty()) {
++    LOG(WARNING) << "[ohoswindow] no window id, cannot enable hardware "
++                    "composition for this surface";
++    return;
++  }
++  ohos::adapter::taskRunner::MainThreadTaskRunner::GetInstance().PostTask(
++      [window_id]() {
++        ohos::adapter::xcomponent::XComponentManager::GetInstance()
++            ->SetNodeHandleXComponentBackgroundColor(window_id,
++                                                     kSurfaceOpaqueBlack);
++      });
++}
++
++std::string DesktopWindowTreeHostOhos::GetWindowId() const {
++  const ui::PlatformWindow* window = platform_window();
++  return window ? window->GetWindowUniqueId() : std::string();
+ }
+ 
+ void DesktopWindowTreeHostOhos::OnClosed() {
+@@ -84,8 +173,15 @@
+       target_color = ui::kColorWindowBackground;
+       break;
+   }
+-  properties->background_color =
++  const SkColor window_color =
+       GetWidget()->GetColorProvider()->GetColor(target_color);
++  // RenderService only keeps hardware composition enabled for an XComponent
++  // whose background is fully opaque black. A dark window color is therefore
++  // replaced by opaque black right away, which is indistinguishable from the
++  // dark window background, while the light theme keeps its window background
++  // color until Chromium content covers the surface.
++  properties->background_color =
++      color_utils::IsDark(window_color) ? SK_ColorBLACK : window_color;
+   properties->app_id = params.app_id;
+   properties->using_system_floating_window = params.using_system_floating_window;
+   properties->use_dark_mode = params.use_dark_mode;
+diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.h b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
+--- a/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
++++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
+@@ -172,6 +172,10 @@
+   // So we set this flag to true to represent split screen state.
+   bool is_split_screen_ = false;
+   bool use_dark_mode_ = false;
++  // Background color requested by Chromium for this window. It is handed to the
++  // ArkUI window and to the XComponent hosted in it, so the surface shows the
++  // color of the current theme until the first frame is painted.
++  uint32_t init_color_arbg_ = 0xFF000000;
+   bool caption_button_visible_ = true;
+   AbilityType ability_type_ = AbilityType::kEntryAbility;
+   std::string app_id_;
+diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
+--- a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
++++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
+@@ -223,6 +223,9 @@
+   caption_button_visible_ = properties.caption_button_visible;
+   ability_type_ = properties.ability_type;
+   app_id_ = properties.app_id;
++  if (properties.background_color.has_value()) {
++    init_color_arbg_ = properties.background_color.value();
++  }
+ }
+ 
+ bool OhosToplevelWindow::OnCreateWindow(WindowInitParameter param) {
+@@ -392,6 +395,7 @@
+                   bounds_in_pixels_.height()};
+   // Calculate initial bounds.
+   parameter.bounds = rect;
++  parameter.SetBackground(init_color_arbg_);
+   parameter.hide_title_bar = hide_title_bar_;
+   parameter.use_floating_window = use_floating_window_;
+   parameter.window_id = GetWindowUniqueId();

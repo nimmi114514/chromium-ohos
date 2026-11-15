@@ -1,5 +1,5 @@
 {
-  "created": "2026-11-14T16:57:52.113449+00:00",
+  "created": "2026-11-15T14:02:37.164040+00:00",
   "chromiumVersion": "158.0.8116.0",
   "chromiumRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
   "api": 26,
@@ -10,39 +10,39 @@
   "runtimeValidation": "pending",
   "hap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
-    "size": 201008693,
-    "sha256": "7e2c4dbdc2d7de6fc125b123ff4ed85aa62209cae29b8bbfed13de11b44d4355"
+    "size": 198697383,
+    "sha256": "8bdc9dcc2f4ae9df04df045397ef4bef7ef5a2d1b7ca0d13b2a9c921e811b73e"
   },
   "unsignedHap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-unsigned.hap",
-    "size": 200942030,
-    "sha256": "666d241a02c86d9610e8dae4c2fdcc7d153f71079473e4ec4c5d0a2adf51b5e9"
+    "size": 198543948,
+    "sha256": "d5a741027565a96d534422168e9741b87bbd2e746e96944daec3cd0c227c851a"
   },
   "nativeLibraries": [
     {
       "path": "libs/arm64-v8a/libadapter.so",
-      "sha256": "cc67f8f3b673f0662e8329a5f7b5bac19d6285dd55f824035dc8b62bfe430d50",
-      "sizeBytes": 1439448,
+      "sha256": "854ea162661e34e26418bced376dd7120dd3c45385fe4a21ae03e8584bd553e2",
+      "sizeBytes": 1440472,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "f761eba002688cb292004f6d0c77cf5a5734cde3a5ed9249e0898ca9fdf2d717",
+      "buildSourceSha256": "b1ff8161575ba40a3fe691e3540e523277bd87c122c0428951f6e21e4472843d",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 25,
       "symbolsStripped": true
     },
     {
       "path": "libs/arm64-v8a/libchrome_main_web.so",
-      "sha256": "1caac7f4dccc903c6a7d0211958a47d9a8a1c89f26ff6cb7f96f14f9acab8b32",
+      "sha256": "302ac5449a6241330d1fc73dc61ba5cfb47d89b58892f216272efabdb2cd4d1a",
       "sizeBytes": 253975560,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "e918977f3020f4408b94ff773b55e4072ad133554acc439742939788af6f8342",
+      "buildSourceSha256": "4cd1fcdd7dd879cf003b1327a2dd1f1d4a98e7ba8f1c571e21bffd7ac204c3ef",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 27,
       "symbolsStripped": true
     }
   ],
   "nativeBuildIds": {
-    "libadapter.so": "851516de8b74dcac973c2629815ac1a8953d67c7",
-    "libchrome_main_web.so": "a98b195a8b015eae283ee93157d04f100ce37d79"
+    "libadapter.so": "a0aa84547c44d5f1b061f42006fb074ae1389d30",
+    "libchrome_main_web.so": "2891f4560ce0dc47f1d6fb872f38fdde98ebd9b1"
   },
   "resources": [
     {
@@ -107,26 +107,6 @@
     },
     {
       "path": "resources/resfile/locales/am_NEUTER.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/ar-XB.pak",
-      "sha256": "8f143c60ee07f648e66c0526ccfc912d44a424e9bdb388a2761ddf2150a84f94",
-      "sizeBytes": 1069123
-    },
-    {
-      "path": "resources/resfile/locales/ar-XB_FEMININE.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/ar-XB_MASCULINE.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/ar-XB_NEUTER.pak",
       "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
       "sizeBytes": 18
     },
@@ -327,26 +307,6 @@
     },
     {
       "path": "resources/resfile/locales/en-US_NEUTER.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/en-XA.pak",
-      "sha256": "a49b30f6d9495a67dc718957f07438709534d41315a2e04e5ca3d7b3fe7d492a",
-      "sizeBytes": 1335695
-    },
-    {
-      "path": "resources/resfile/locales/en-XA_FEMININE.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/en-XA_MASCULINE.pak",
-      "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
-      "sizeBytes": 18
-    },
-    {
-      "path": "resources/resfile/locales/en-XA_NEUTER.pak",
       "sha256": "ca73097bd968b363b7145e86b64f3c595e533808b0763dc8863a27fc363cfa51",
       "sizeBytes": 18
     },
@@ -1213,7 +1173,7 @@
   ],
   "moduleMetadata": {
     "bundleName": "com.example.ohos.chromium",
-    "compileSdkVersion": "26.0.0.105",
+    "compileSdkVersion": "26.0.1.120",
     "minAPIVersion": 260000026,
     "targetAPIVersion": 260000026,
     "versionName": "1.0.2",
@@ -1225,7 +1185,7 @@
   },
   "runtimeResourceFilesVerified": true,
   "allLocalePaksPreserved": true,
-  "localePakCount": 228,
+  "localePakCount": 220,
   "compressNativeLibs": true,
   "identityReport": "reports/api26-latest-signed-hap-identity.json"
 }
