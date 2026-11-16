@@ -46,8 +46,8 @@
     },
     {
       "name": "0009-ohos-chrome-platform.patch",
-      "files": 431,
-      "sha256": "c84b2e109e199b2d404f5662c885423856b7255dc10e5271ce8dfaf7d6f38d7c"
+      "files": 433,
+      "sha256": "c8802b276b86cfa659c245fbc78bbc25dd99b6af3e70ef03c71c5b49b4a9f464"
     },
     {
       "name": "0010-ohos-shared-components.patch",
