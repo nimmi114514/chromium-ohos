@@ -76,7 +76,9 @@ window.runWebGPUVerification=async()=>{
    for(let layer=0;layer<3;layer++){const pixel=Array.from(bytes.slice(layer*4096+8*256+8*4,layer*4096+8*256+8*4+4));check(near(pixel,[40+50*layer,10+20*layer,220-30*layer,255],0),'Array layer copy mismatch: '+layer+' '+pixel);pixels.push(pixel);}read.destroy();texture.destroy();return {pixels};
   });
   await step('hardware-video-external-texture',async()=>{
-   const video=document.createElement('video');video.muted=true;video.loop=true;video.src='/video.mp4';document.body.append(video);video.style.display='none';
+   // Keep the decoder fixture visible: display:none makes Chromium's normal
+   // power policy pause video-only playback, independently of GPU correctness.
+   const video=document.createElement('video');video.muted=true;video.loop=true;video.playsInline=true;video.src='/video.mp4';video.style.cssText='position:fixed;right:8px;bottom:8px;width:160px;height:90px;z-index:1000';document.body.append(video);
    try{
     await Promise.race([video.play(),new Promise((_,j)=>setTimeout(()=>j(Error('Video play timeout')),8000))]);
     await Promise.race([new Promise(r=>video.requestVideoFrameCallback(r)),new Promise((_,j)=>setTimeout(()=>j(Error('Video frame timeout')),8000))]);video.pause();

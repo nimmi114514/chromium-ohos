@@ -1,3 +1,43 @@
+diff --git a/include/dawn/native/DawnNative.h b/include/dawn/native/DawnNative.h
+index 3b12d481a..9610ead11 100644
+--- a/include/dawn/native/DawnNative.h
++++ b/include/dawn/native/DawnNative.h
+@@ -250,7 +250,8 @@ enum ExternalImageType : uint16_t {
+     EGLImage,
+     GLTexture,
+     AHardwareBuffer,
+-    Last = AHardwareBuffer,
++    OHOSNativeBuffer,
++    Last = OHOSNativeBuffer,
+ };
+ 
+ // Common properties of external images
+diff --git a/include/dawn/native/VulkanBackend.h b/include/dawn/native/VulkanBackend.h
+index d21766e67..d2aff511b 100644
+--- a/include/dawn/native/VulkanBackend.h
++++ b/include/dawn/native/VulkanBackend.h
+@@ -177,6 +177,21 @@ struct DAWN_NATIVE_EXPORT ExternalImageExportInfoAHardwareBuffer : ExternalImage
+ 
+ #endif  // defined(__linux__) || defined(__Fuchsia__)
+ 
++#if defined(__OHOS__)
++DAWN_NATIVE_EXPORT bool SupportsOHOSNativeBuffer(WGPUDevice device);
++
++// NativeBuffer imports share the original allocation with EGL. These are
++// native-only descriptors, never exposed to WebGPU content or Dawn wire.
++struct DAWN_NATIVE_EXPORT ExternalImageDescriptorOHOSNativeBuffer : ExternalImageDescriptorVk {
++    ExternalImageDescriptorOHOSNativeBuffer();
++    void* handle = nullptr;
++    std::vector<int> waitFDs;
++};
++struct DAWN_NATIVE_EXPORT ExternalImageExportInfoOHOSNativeBuffer : ExternalImageExportInfoFD {
++    ExternalImageExportInfoOHOSNativeBuffer();
++};
++#endif
++
+ // Imports external memory into a Vulkan image. Internally, this uses external memory /
+ // semaphore extensions to import the image and wait on the provided synchronizaton
+ // primitives before the texture can be used.
 diff --git a/scripts/dawn_features.gni b/scripts/dawn_features.gni
 index 9605846a7..b0db4d7d4 100644
 --- a/scripts/dawn_features.gni
@@ -34,10 +74,10 @@ index 6669c9ea2..b872bba53 100644
      sources = [
        "Algebra.h",
 diff --git a/src/dawn/native/BUILD.gn b/src/dawn/native/BUILD.gn
-index 2cfaa98d3..4ee645339 100644
+index 2cfaa98d3..c519ff080 100644
 --- a/src/dawn/native/BUILD.gn
 +++ b/src/dawn/native/BUILD.gn
-@@ -1007,7 +1007,7 @@ source_set("sources") {
+@@ -1007,18 +1007,24 @@ source_set("sources") {
        "vulkan/external_semaphore/SemaphoreServiceImplementation.h",
      ]
  
@@ -46,7 +86,16 @@ index 2cfaa98d3..4ee645339 100644
        sources += [
          "vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp",
          "vulkan/external_semaphore/SemaphoreServiceImplementationFD.h",
-@@ -1018,7 +1018,7 @@ source_set("sources") {
+       ]
++      if (is_ohos) {
++        sources += [
++          "vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp",
++          "vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h",
++        ]
++      }
+       if (is_android) {
+         libs += [ "android" ]
+         sources += [
            "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.cpp",
            "vulkan/external_memory/MemoryServiceImplementationAHardwareBuffer.h",
          ]
@@ -68,3 +117,397 @@ index f55dc878f..88fd0b353 100644
  constexpr char kVulkanLibName[] = "libvulkan.so";
  #else
  constexpr char kVulkanLibName[] = "libvulkan.so.1";
+diff --git a/src/dawn/native/vulkan/DeviceVk.cpp b/src/dawn/native/vulkan/DeviceVk.cpp
+index 328b9f38c..f04975083 100644
+--- a/src/dawn/native/vulkan/DeviceVk.cpp
++++ b/src/dawn/native/vulkan/DeviceVk.cpp
+@@ -182,7 +182,7 @@ MaybeError Device::Initialize(const UnpackedPtr<DeviceDescriptor>& descriptor) {
+ #if DAWN_PLATFORM_IS(FUCHSIA)
+         mExternalSemaphoreService = std::make_unique<external_semaphore::Service>(
+             this, VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_ZIRCON_EVENT_BIT_FUCHSIA);
+-#elif DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS)
++#elif DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS) || defined(__OHOS__)
+         mExternalSemaphoreService = std::make_unique<external_semaphore::Service>(
+             this, VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT);
+ #else
+diff --git a/src/dawn/native/vulkan/VulkanBackend.cpp b/src/dawn/native/vulkan/VulkanBackend.cpp
+index 3859eeb61..84be7f48a 100644
+--- a/src/dawn/native/vulkan/VulkanBackend.cpp
++++ b/src/dawn/native/vulkan/VulkanBackend.cpp
+@@ -40,6 +40,11 @@
+ #include "src/dawn/native/vulkan/DeviceVk.h"
+ #include "src/dawn/native/vulkan/TextureVk.h"
+ 
++#if defined(__OHOS__)
++#include "src/dawn/native/vulkan/external_memory/MemoryServiceImplementation.h"
++#include "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h"
++#endif
++
+ namespace dawn::native::vulkan {
+ 
+ VkInstance GetInstance(WGPUDevice device) {
+@@ -87,6 +92,21 @@ ExternalImageExportInfoAHardwareBuffer::ExternalImageExportInfoAHardwareBuffer()
+     : ExternalImageExportInfoFD(ExternalImageType::AHardwareBuffer) {}
+ #endif
+ 
++#if defined(__OHOS__)
++bool SupportsOHOSNativeBuffer(WGPUDevice device) {
++    Device* backend = ToBackend(FromAPI(device));
++    if (!backend->GetDeviceInfo().HasExt(DeviceExt::ExternalMemoryOHOSNativeBuffer)) {
++        return false;
++    }
++    return external_memory::CreateOHOSNativeBufferService(backend)->Supported();
++}
++
++ExternalImageDescriptorOHOSNativeBuffer::ExternalImageDescriptorOHOSNativeBuffer()
++    : ExternalImageDescriptorVk(ExternalImageType::OHOSNativeBuffer) {}
++ExternalImageExportInfoOHOSNativeBuffer::ExternalImageExportInfoOHOSNativeBuffer()
++    : ExternalImageExportInfoFD(ExternalImageType::OHOSNativeBuffer) {}
++#endif
++
+ #if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(LINUX)
+ WGPUTexture WrapVulkanImage(WGPUDevice device, const ExternalImageDescriptorVk* descriptor) {
+     Device* backendDevice = ToBackend(FromAPI(device));
+@@ -96,6 +116,15 @@ WGPUTexture WrapVulkanImage(WGPUDevice device, const ExternalImageDescriptorVk*
+     const std::vector<ExternalSemaphoreHandle>* waitHandles;
+ 
+     switch (descriptor->GetType()) {
++#if defined(__OHOS__)
++        case ExternalImageType::OHOSNativeBuffer: {
++            const auto* native = static_cast<const ExternalImageDescriptorOHOSNativeBuffer*>(descriptor);
++            // This import carries its typed handle in the descriptor, rather
++            // than interpreting a NativeBuffer as a Linux opaque-memory fd.
++            waitHandles = &native->waitFDs;
++            break;
++        }
++#endif
+ #if DAWN_PLATFORM_IS(ANDROID)
+         case ExternalImageType::AHardwareBuffer: {
+             const ExternalImageDescriptorAHardwareBuffer* ahbDescriptor =
+@@ -152,6 +181,9 @@ bool ExportVulkanImage(WGPUTexture texture,
+     auto deviceGuard = device->GetGuard();
+ #if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(LINUX)
+     switch (info->GetType()) {
++#if defined(__OHOS__)
++        case ExternalImageType::OHOSNativeBuffer:
++#endif
+         case ExternalImageType::AHardwareBuffer:
+         case ExternalImageType::OpaqueFD:
+         case ExternalImageType::DmaBuf: {
+diff --git a/src/dawn/native/vulkan/VulkanExtensions.cpp b/src/dawn/native/vulkan/VulkanExtensions.cpp
+index 2e4be1b9f..8e3eefa9f 100644
+--- a/src/dawn/native/vulkan/VulkanExtensions.cpp
++++ b/src/dawn/native/vulkan/VulkanExtensions.cpp
+@@ -166,6 +166,7 @@ static constexpr std::array<DeviceExtInfo, kDeviceExtCount> sDeviceExtInfos{{
+ 
+     {DeviceExt::ExternalMemoryAndroidHardwareBuffer,
+      "VK_ANDROID_external_memory_android_hardware_buffer"},
++    {DeviceExt::ExternalMemoryOHOSNativeBuffer, "VK_OHOS_external_memory"},
+     {DeviceExt::ExternalMemoryFD, "VK_KHR_external_memory_fd"},
+     {DeviceExt::ExternalMemoryDmaBuf, "VK_EXT_external_memory_dma_buf"},
+     {DeviceExt::ExternalMemoryZirconHandle, "VK_FUCHSIA_external_memory"},
+@@ -268,6 +269,7 @@ DeviceExtSet EnsureDependencies(const DeviceExtSet& advertisedExts,
+                     HasDep(DeviceExt::Swapchain) && HasDep(DeviceExt::ImageFormatList);
+                 break;
+ 
++            case DeviceExt::ExternalMemoryOHOSNativeBuffer:
+             case DeviceExt::ExternalMemoryAndroidHardwareBuffer:
+                 hasDependencies = HasDep(DeviceExt::QueueFamilyForeign);
+                 break;
+diff --git a/src/dawn/native/vulkan/VulkanExtensions.h b/src/dawn/native/vulkan/VulkanExtensions.h
+index eafb86872..69974624f 100644
+--- a/src/dawn/native/vulkan/VulkanExtensions.h
++++ b/src/dawn/native/vulkan/VulkanExtensions.h
+@@ -125,6 +125,7 @@ enum class DeviceExt : uint32_t {
+ 
+     // External* extensions
+     ExternalMemoryAndroidHardwareBuffer,
++    ExternalMemoryOHOSNativeBuffer,
+     ExternalMemoryFD,
+     ExternalMemoryDmaBuf,
+     ExternalMemoryZirconHandle,
+diff --git a/src/dawn/native/vulkan/external_memory/MemoryImportParams.h b/src/dawn/native/vulkan/external_memory/MemoryImportParams.h
+index b9cd98af5..d5457016e 100644
+--- a/src/dawn/native/vulkan/external_memory/MemoryImportParams.h
++++ b/src/dawn/native/vulkan/external_memory/MemoryImportParams.h
+@@ -36,6 +36,9 @@ struct MemoryImportParams {
+     VkDeviceSize allocationSize = 0;
+     uint32_t memoryTypeIndex = 0;
+     bool dedicatedAllocation = false;
++#if defined(__OHOS__)
++    void* nativeBuffer = nullptr;
++#endif
+ };
+ 
+ }  // namespace dawn::native::vulkan::external_memory
+diff --git a/src/dawn/native/vulkan/external_memory/MemoryService.cpp b/src/dawn/native/vulkan/external_memory/MemoryService.cpp
+index 0b352f95e..5b6b1f154 100644
+--- a/src/dawn/native/vulkan/external_memory/MemoryService.cpp
++++ b/src/dawn/native/vulkan/external_memory/MemoryService.cpp
+@@ -29,6 +29,10 @@
+ 
+ #include <utility>
+ 
++#if defined(__OHOS__)
++#include "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h"
++#endif
++
+ #include "src/dawn/native/vulkan/DeviceVk.h"
+ 
+ #if DAWN_PLATFORM_IS(LINUX_DESKTOP) || DAWN_PLATFORM_IS(CHROMEOS)
+@@ -59,6 +63,11 @@ bool Service::CheckSupport(const VulkanDeviceInfo& deviceInfo) {
+ }
+ 
+ Service::Service(Device* device) {
++#if defined(__OHOS__)
++    if (device->GetDeviceInfo().HasExt(DeviceExt::ExternalMemoryOHOSNativeBuffer)) {
++        mServiceImpls[ExternalImageType::OHOSNativeBuffer] = CreateOHOSNativeBufferService(device);
++    }
++#endif
+ #if DAWN_PLATFORM_IS(FUCHSIA)
+     if (CheckZirconHandleSupport(device->GetDeviceInfo())) {
+         mServiceImpls[ExternalImageType::OpaqueFD] = CreateZirconHandleService(device);
+diff --git a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
+index 13c748ca1..22d413b66 100644
+--- a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
++++ b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
+@@ -40,7 +40,7 @@
+ #include "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementation.h"
+ 
+ static constexpr VkExternalSemaphoreHandleTypeFlagBits kDefaultHandleType =
+-#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS)
++#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS) || defined(__OHOS__)
+     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
+ #else
+     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+diff --git a/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp b/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp
+new file mode 100644
+index 000000000..45225ae06
+--- /dev/null
++++ b/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp
+@@ -0,0 +1,181 @@
++// Copyright 2022 The Dawn & Tint Authors
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// 1. Redistributions of source code must retain the above copyright notice, this
++//    list of conditions and the following disclaimer.
++//
++// 2. Redistributions in binary form must reproduce the above copyright notice,
++//    this list of conditions and the following disclaimer in the documentation
++//    and/or other materials provided with the distribution.
++//
++// 3. Neither the name of the copyright holder nor the names of its
++//    contributors may be used to endorse or promote products derived from
++//    this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++// The import follows Dawn's Android native-buffer service and Huawei's
++// VK_OHOS_external_memory API, with the actual NativeBuffer memory type selected
++// from the intersection of driver buffer properties and image requirements.
++#include "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h"
++
++#include "src/dawn/native/vulkan/DeviceVk.h"
++#include "src/dawn/native/vulkan/PhysicalDeviceVk.h"
++#include "src/dawn/native/vulkan/TextureVk.h"
++#include "src/dawn/native/vulkan/UtilsVulkan.h"
++#include "src/dawn/native/vulkan/VulkanError.h"
++#include "src/dawn/native/vulkan/external_memory/MemoryServiceImplementation.h"
++
++// Platform extension declarations require the Vulkan types above.
++#include <vulkan/vulkan_ohos.h>
++
++namespace dawn::native::vulkan::external_memory {
++class ServiceImplementationOHOSNativeBuffer final : public ServiceImplementation {
++  public:
++    explicit ServiceImplementationOHOSNativeBuffer(Device* device) : ServiceImplementation(device) {
++        mGetProperties = reinterpret_cast<PFN_vkGetNativeBufferPropertiesOHOS>(
++            device->fn.GetDeviceProcAddr(device->GetVkDevice(), "vkGetNativeBufferPropertiesOHOS"));
++        // HarmonyOS shipping SDKs use 0x2000; newer Khronos headers registered
++        // 0x8000. Probe rather than imposing a header's ABI on an older driver.
++        for (auto value : {0x2000u, 0x8000u}) {
++            mHandleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(value);
++            if (SupportsImportMemory(
++                    VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
++                    VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
++                        VK_IMAGE_USAGE_TRANSFER_DST_BIT,
++                    VK_IMAGE_CREATE_ALIAS_BIT)) {
++                break;
++            }
++            mHandleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(0);
++        }
++    }
++    bool SupportsImportMemory(VkFormat format,
++                              VkImageType type,
++                              VkImageTiling tiling,
++                              VkImageUsageFlags usage,
++                              VkImageCreateFlags flags) override {
++        if (!mGetProperties || !mHandleType) {
++            return false;
++        }
++        VkPhysicalDeviceExternalImageFormatInfo ext = {};
++        ext.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO;
++        ext.handleType = mHandleType;
++        VkPhysicalDeviceImageFormatInfo2 info = {};
++        info.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2;
++        info.pNext = &ext;
++        info.format = format;
++        info.type = type;
++        info.tiling = tiling;
++        info.usage = usage;
++        info.flags = flags;
++        VkExternalImageFormatProperties external = {};
++        external.sType = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES;
++        VkImageFormatProperties2 properties = {};
++        properties.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
++        properties.pNext = &external;
++        auto result = mDevice->fn.GetPhysicalDeviceImageFormatProperties2(
++            ToBackend(mDevice->GetPhysicalDevice())->GetVkPhysicalDevice(), &info, &properties);
++        return result == VK_SUCCESS && (external.externalMemoryProperties.externalMemoryFeatures &
++                                        VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT);
++    }
++    bool SupportsCreateImage(const ExternalImageDescriptor*,
++                             VkFormat format,
++                             VkImageUsageFlags usage,
++                             bool* disjoint) override {
++        *disjoint = false;
++        return SupportsImportMemory(format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, usage,
++                                    VK_IMAGE_CREATE_ALIAS_BIT);
++    }
++    ResultOrError<MemoryImportParams> GetMemoryImportParams(
++        const ExternalImageDescriptor* descriptor,
++        VkImage image) override {
++        DAWN_INVALID_IF(descriptor->GetType() != ExternalImageType::OHOSNativeBuffer,
++                        "Expected an OHOS NativeBuffer descriptor.");
++        auto* native = static_cast<const ExternalImageDescriptorOHOSNativeBuffer*>(descriptor);
++        DAWN_INVALID_IF(!native->handle || !mGetProperties,
++                        "Missing NativeBuffer import handle or function.");
++        VkNativeBufferFormatPropertiesOHOS format = {};
++        format.sType = VK_STRUCTURE_TYPE_NATIVE_BUFFER_FORMAT_PROPERTIES_OHOS;
++        VkNativeBufferPropertiesOHOS props = {};
++        props.sType = VK_STRUCTURE_TYPE_NATIVE_BUFFER_PROPERTIES_OHOS;
++        props.pNext = &format;
++        DAWN_TRY(
++            CheckVkSuccess(mGetProperties(mDevice->GetVkDevice(),
++                                          static_cast<OH_NativeBuffer*>(native->handle), &props),
++                           "vkGetNativeBufferPropertiesOHOS"));
++        VkMemoryRequirements requirements;
++        mDevice->fn.GetImageMemoryRequirements(mDevice->GetVkDevice(), image, &requirements);
++        uint32_t types = props.memoryTypeBits & requirements.memoryTypeBits;
++        DAWN_INVALID_IF(!types || requirements.size > props.allocationSize,
++                        "NativeBuffer allocation incompatible with Vulkan image requirements.");
++        const auto* texture = FromAPI(descriptor->cTextureDescriptor);
++        DAWN_INVALID_IF(format.format != VulkanImageFormat(mDevice, texture->format),
++                        "NativeBuffer format does not match imported texture format.");
++        MemoryImportParams params;
++        params.allocationSize = props.allocationSize;
++        params.memoryTypeIndex = static_cast<uint32_t>(__builtin_ctz(types));
++        params.dedicatedAllocation = true;
++        params.nativeBuffer = native->handle;
++        return params;
++    }
++    uint32_t GetQueueFamilyIndex() override { return VK_QUEUE_FAMILY_FOREIGN_EXT; }
++    ResultOrError<VkDeviceMemory> ImportMemory(ExternalMemoryHandle,
++                                               const MemoryImportParams& params,
++                                               VkImage image) override {
++        VkImportNativeBufferInfoOHOS native = {};
++        native.sType = VK_STRUCTURE_TYPE_IMPORT_NATIVE_BUFFER_INFO_OHOS;
++        native.buffer = static_cast<OH_NativeBuffer*>(params.nativeBuffer);
++        VkMemoryDedicatedAllocateInfo dedicated = {};
++        dedicated.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
++        dedicated.image = image;
++        dedicated.pNext = &native;
++        VkMemoryAllocateInfo info = {};
++        info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
++        info.pNext = &dedicated;
++        info.allocationSize = params.allocationSize;
++        info.memoryTypeIndex = params.memoryTypeIndex;
++        VkDeviceMemory memory = VK_NULL_HANDLE;
++        DAWN_TRY(CheckVkSuccess(
++            mDevice->fn.AllocateMemory(mDevice->GetVkDevice(), &info, nullptr, &*memory),
++            "vkAllocateMemory(NativeBuffer)"));
++        return memory;
++    }
++    ResultOrUnknownError<VkImage> CreateImage(const ExternalImageDescriptor*,
++                                              const VkImageCreateInfo& base) override {
++        VkExternalMemoryImageCreateInfo external = {};
++        external.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
++        external.handleTypes = mHandleType;
++        VkImageCreateInfo info = base;
++        external.pNext = info.pNext;
++        info.pNext = &external;
++        info.flags |= VK_IMAGE_CREATE_ALIAS_BIT;
++        info.tiling = VK_IMAGE_TILING_OPTIMAL;
++        info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
++        VkImage image;
++        DAWN_TRY(
++            CheckVkSuccess(mDevice->fn.CreateImage(mDevice->GetVkDevice(), &info, nullptr, &*image),
++                           "vkCreateImage(NativeBuffer)"));
++        return image;
++    }
++    bool Supported() const override { return mHandleType != 0 && mGetProperties; }
++
++  private:
++    PFN_vkGetNativeBufferPropertiesOHOS mGetProperties = nullptr;
++    VkExternalMemoryHandleTypeFlagBits mHandleType =
++        static_cast<VkExternalMemoryHandleTypeFlagBits>(0);
++};
++std::unique_ptr<ServiceImplementation> CreateOHOSNativeBufferService(Device* device) {
++    return std::make_unique<ServiceImplementationOHOSNativeBuffer>(device);
++}
++}  // namespace dawn::native::vulkan::external_memory
+diff --git a/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h b/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h
+new file mode 100644
+index 000000000..2907a265f
+--- /dev/null
++++ b/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h
+@@ -0,0 +1,38 @@
++// Copyright 2022 The Dawn & Tint Authors
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// 1. Redistributions of source code must retain the above copyright notice, this
++//    list of conditions and the following disclaimer.
++//
++// 2. Redistributions in binary form must reproduce the above copyright notice,
++//    this list of conditions and the following disclaimer in the documentation
++//    and/or other materials provided with the distribution.
++//
++// 3. Neither the name of the copyright holder nor the names of its
++//    contributors may be used to endorse or promote products derived from
++//    this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++#ifndef SRC_DAWN_NATIVE_VULKAN_EXTERNAL_MEMORY_MEMORYSERVICEIMPLEMENTATIONOHOSNATIVEBUFFER_H_
++#define SRC_DAWN_NATIVE_VULKAN_EXTERNAL_MEMORY_MEMORYSERVICEIMPLEMENTATIONOHOSNATIVEBUFFER_H_
++#include <memory>
++namespace dawn::native::vulkan {
++class Device;
++namespace external_memory {
++class ServiceImplementation;
++std::unique_ptr<ServiceImplementation> CreateOHOSNativeBufferService(Device* device);
++}  // namespace external_memory
++}  // namespace dawn::native::vulkan
++#endif

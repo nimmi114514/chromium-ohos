@@ -11051,10 +11051,10 @@ index fcd979432d..ab14893e3e 100644
  #include "base/metrics/user_metrics.h"
 diff --git a/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc
 new file mode 100644
-index 0000000000..4bd835aedd
+index 0000000000..f05bc09914
 --- /dev/null
 +++ b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,84 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -11086,6 +11086,7 @@ index 0000000000..4bd835aedd
 +
 +#include "chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h"
 +
++#include "chrome/app/chrome_command_ids.h"
 +#include "chrome/browser/ui/views/frame/browser_widget.h"
 +#include "chrome/browser/ui/views/frame/browser_view.h"
 +#include "ohos/adapter/xcomponent/adapter/window_adapter.h"
@@ -11131,12 +11132,19 @@ index 0000000000..4bd835aedd
 +void BrowserDesktopWindowTreeHostOhos::OnFullscreenStateChanged() {
 +  browser_view_->FullscreenStateChanged();
 +}
++
++bool BrowserDesktopWindowTreeHostOhos::OnBackToLastPage() {
++  // Match the OHOS 132 system-back path: execute the browser command directly.
++  // A synthetic VKEY_BROWSER_BACK is not registered as an OHOS accelerator
++  // and can be consumed by the focused view without navigating.
++  return GetWidget()->ExecuteCommand(IDC_BACK);
++}
 diff --git a/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h
 new file mode 100644
-index 0000000000..af9cc9e3df
+index 0000000000..0dd5bd192b
 --- /dev/null
 +++ b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,72 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -11201,6 +11209,7 @@ index 0000000000..af9cc9e3df
 +  DesktopWindowTreeHost* AsDesktopWindowTreeHost() override;
 +
 +  void OnFullscreenStateChanged() override;
++  bool OnBackToLastPage() override;
 +
 +  void OnWidgetInitDone() override;
 +  bool UsesNativeSystemMenu() const override;

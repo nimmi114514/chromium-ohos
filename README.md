@@ -43,16 +43,18 @@
 | USB HID / WebHID | 部分适配：已加入 OHOS USB HID 枚举、授权、报告描述符及输入/输出报告通道；蓝牙 HID 尚未支持，手柄震动尚未验证成功，设备兼容性仍有限 |
 | AVC / HEVC 硬件解码 | 已接入 OHOS 解码器，此前验证过实际出帧、跳转和后台恢复；支持范围取决于设备 |
 | HDR | 已接入 HEVC PQ/HLG 元数据、10bit EGL 与显示能力；本地样本验证过，网站 HDR 选流和面板绝对亮度/色准尚未完整验收 |
-| WebGPU | Vulkan/Dawn 路径此前完成过功能及示例验证；呈现使用暂存拷贝，尚非零拷贝 |
+| DrDc | 独立 GPU 合成线程，使用 NativeBuffer/fence 共享与同步 |
+| WebGPU | Vulkan/Dawn；支持的驱动上，默认 RGBA 画布通过 NativeBuffer 共享给 GLES/DrDc |
+| WebGPU 图像与视频导入 | 8bit Canvas2D/WebGL/ImageBitmap 和 AVC/HEVC 视频通过 GPU 转换与共享，避免 CPU 像素回读和重新上传；仍可能有 GPU 拷贝 |
 | 填充密码前屏幕锁定认证 | 已恢复入口、中文文案与系统桥接；OHOS 每次受保护填充独立认证；最新修改通过主机模拟回归 |
 | 系统截屏 | 已修正受保护媒体结束后窗口隐私状态未释放的路径；最新修改通过主机生命周期检查 |
 | DRM | 受保护内容端到端播放尚未完成，不作为当前已支持功能；相关工作暂停 |
 
-当前交付包含 **2026-10-28 原生历史/书签弹窗与新增收藏生命周期修复**，并包含OHOS V8内嵌builtins复制回退。用户反馈本次问题已正常，范围与限制见[交付记录](docs/delivery-2026-10-28.md)及[开发状态](STATUS.md)。应用版本为 `1.0.2`，Chromium内核版本单独记录为 `158.0.8116.0`。
+应用版本为 `1.0.3`，Chromium 内核版本为 `158.0.8116.0`。BGRA/高位深画布呈现及不支持共享的驱动保留兼容拷贝路径；普通网页图块仍为 One-copy。
 
 JIT保留132的系统权限与安全模式门控；满足条件时使用V8 JIT，OHOS启动路径跳过内嵌builtins页重映射优化。未引入JITFort依赖，也不承诺任意固件、签名或系统安全配置下均可启用JIT。
 
-Graphite、Direct Rendering Display Compositor、TreesInViz、WebNN当前未启用。DRM工作暂停，Widevine与会员网站受保护内容播放不是已实现功能。Google登录/同步受凭证、网络与服务端策略影响，不保证可用。
+Graphite、TreesInViz、WebNN当前未启用。DRM工作暂停，Widevine与会员网站受保护内容播放不是已实现功能。Google登录/同步受凭证、网络与服务端策略影响，不保证可用。
 
 ## 目录结构
 

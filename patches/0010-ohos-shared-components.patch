@@ -127861,7 +127861,7 @@ index 46a517bc00..c3cbc0348b 100644
  }
  
 diff --git a/gpu/command_buffer/service/BUILD.gn b/gpu/command_buffer/service/BUILD.gn
-index d686d2d81a..6a0503c472 100644
+index d686d2d81a..aefa04a5d5 100644
 --- a/gpu/command_buffer/service/BUILD.gn
 +++ b/gpu/command_buffer/service/BUILD.gn
 @@ -509,7 +509,7 @@ target(link_target_type, "gles2_sources") {
@@ -127873,14 +127873,25 @@ index d686d2d81a..6a0503c472 100644
        sources += [
          "shared_image/dawn_ozone_image_representation.cc",
          "shared_image/dawn_ozone_image_representation.h",
-@@ -564,6 +564,26 @@ target(link_target_type, "gles2_sources") {
+@@ -564,6 +564,37 @@ target(link_target_type, "gles2_sources") {
      }
    }
  
++  if (is_ohos && use_dawn) {
++    sources += [
++      "shared_image/dawn_ohos_native_buffer_image_representation.cc",
++      "shared_image/dawn_ohos_native_buffer_image_representation.h",
++    ]
++  }
 +  if (is_ohos) {
 +    sources += [
 +      "abstract_texture_ohos.cc",
 +      "abstract_texture_ohos.h",
++      "ohos/hw_video_native_buffer_gl_owner.cc",
++      "ohos/hw_video_native_buffer_gl_owner.h",
++      "ohos/hw_video_native_buffer_image_backing.cc",
++      "ohos/hw_video_native_buffer_image_backing.h",
++      "ohos/scoped_native_buffer_fence_sync.h",
 +      "ohos/native_image_texture_gl_owner.cc",
 +      "ohos/native_image_texture_gl_owner.h",
 +      "ohos/native_image_texture_owner.cc",
@@ -128589,10 +128600,10 @@ index 0000000000..8ff2638870
 +#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_NATIVE_IMAGE_SURFACE_TEXTURE_GL_OWNER_H_
 diff --git a/gpu/command_buffer/service/ohos/native_image_texture_owner.cc b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
 new file mode 100644
-index 0000000000..341cd37f61
+index 0000000000..a0d8e76d3f
 --- /dev/null
 +++ b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,138 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -128635,6 +128646,8 @@ index 0000000000..341cd37f61
 +#include "gpu/command_buffer/service/decoder_context.h"
 +#include "gpu/command_buffer/service/feature_info.h"
 +#include "gpu/command_buffer/service/ohos/native_image_texture_gl_owner.h"
++#include "gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.h"
++#include "gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h"
 +#include "gpu/command_buffer/service/texture_base.h"
 +#include "ui/gl/scoped_binders.h"
 +#include "ui/gl/scoped_make_current.h"
@@ -128702,11 +128715,17 @@ index 0000000000..341cd37f61
 +// static
 +scoped_refptr<NativeImageTextureOwner> NativeImageTextureOwner::Create(
 +    scoped_refptr<SharedContextState> context_state,
-+    Mode mode) {
++    Mode mode,
++    scoped_refptr<RefCountedLock> drdc_lock) {
 +  auto texture = CreateTexture(context_state.get());
++  if (mode == Mode::kOhosNativeBuffer) {
++    return new HwVideoNativeBufferGLOwner(std::move(texture), std::move(context_state), std::move(drdc_lock));
++  }
 +  return new NativeImageTextureGlOwner(std::move(texture),
 +                                       std::move(context_state));
 +}
++
++std::unique_ptr<ScopedNativeBufferFenceSync> NativeImageTextureOwner::GetNativeBuffer() { return nullptr; }
 +
 +GLuint NativeImageTextureOwner::GetTextureId() const {
 +  return texture_->service_id();
@@ -128725,10 +128744,10 @@ index 0000000000..341cd37f61
 +}  // namespace gpu
 diff --git a/gpu/command_buffer/service/ohos/native_image_texture_owner.h b/gpu/command_buffer/service/ohos/native_image_texture_owner.h
 new file mode 100644
-index 0000000000..1bbe90c6f7
+index 0000000000..97ee7d38dd
 --- /dev/null
 +++ b/gpu/command_buffer/service/ohos/native_image_texture_owner.h
-@@ -0,0 +1,136 @@
+@@ -0,0 +1,140 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -128773,6 +128792,7 @@ index 0000000000..1bbe90c6f7
 +#include "ui/gl/gl_surface.h"
 +
 +namespace gpu {
++class ScopedNativeBufferFenceSync;
 +class AbstractTextureOHOS;
 +class TextureBase;
 +
@@ -128786,12 +128806,14 @@ index 0000000000..1bbe90c6f7
 +    kAImageReaderInsecureSurfaceControl,
 +    kAImageReaderSecureSurfaceControl,
 +    kSurfaceTextureInsecure,
-+    kOhosSurfaceTexture
++    kOhosSurfaceTexture,
++    kOhosNativeBuffer
 +  };
 +
 +  static scoped_refptr<NativeImageTextureOwner> Create(
 +      scoped_refptr<SharedContextState> context_state,
-+      Mode mode = Mode::kOhosSurfaceTexture);
++      Mode mode = Mode::kOhosSurfaceTexture,
++      scoped_refptr<RefCountedLock> drdc_lock = nullptr);
 +
 +  NativeImageTextureOwner(const NativeImageTextureOwner&) = delete;
 +  NativeImageTextureOwner& operator=(const NativeImageTextureOwner&) = delete;
@@ -128807,6 +128829,7 @@ index 0000000000..1bbe90c6f7
 +  virtual void* AquireOhosNativeWindow() const = 0;
 +
 +  virtual void UpdateNativeImage() = 0;
++  virtual std::unique_ptr<ScopedNativeBufferFenceSync> GetNativeBuffer();
 +
 +  virtual void EnsureNativeImageBound(GLuint service_id) = 0;
 +
@@ -128996,10 +129019,10 @@ index 0000000000..0d291075ae
 +#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_SHARED_IMAGE_BACKING_OHOS_H_
 diff --git a/gpu/command_buffer/service/ohos/shared_image_video_ohos.cc b/gpu/command_buffer/service/ohos/shared_image_video_ohos.cc
 new file mode 100644
-index 0000000000..31ebc26f62
+index 0000000000..0ffb068de5
 --- /dev/null
 +++ b/gpu/command_buffer/service/ohos/shared_image_video_ohos.cc
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,109 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -129035,6 +129058,7 @@ index 0000000000..31ebc26f62
 +#include "gpu/command_buffer/service/abstract_texture_ohos.h"
 +#include "gpu/command_buffer/service/ohos/native_image_texture_owner.h"
 +#include "gpu/command_buffer/service/ohos/shared_image_video_ohos_native_image.h"
++#include "gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.h"
 +#include "gpu/command_buffer/service/ref_counted_lock.h"
 +#include "gpu/command_buffer/service/shared_context_state.h"
 +#include "gpu/config/gpu_finch_features.h"
@@ -129074,6 +129098,11 @@ index 0000000000..31ebc26f62
 +    scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii,
 +    scoped_refptr<SharedContextState> context_state,
 +    scoped_refptr<RefCountedLock> drdc_lock) {
++  if (drdc_lock) {
++    return std::make_unique<HwVideoNativeBufferImageBacking>(
++        mailbox, size, color_space, surface_origin, alpha_type,
++        std::move(stream_texture_sii), std::move(context_state), std::move(drdc_lock));
++  }
 +  return std::make_unique<SharedImageVideoOhosNativeImage>(
 +      mailbox, size, color_space, surface_origin, alpha_type,
 +      std::move(stream_texture_sii), std::move(context_state), drdc_lock);
@@ -129642,11 +129671,227 @@ index 0000000000..6f7938c8d9
 +}  // namespace gpu
 +
 +#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_SHARED_IMAGE_VIDEO_OHOS_NATIVE_IMAGE_H_
+diff --git a/gpu/command_buffer/service/shared_image/dawn_fallback_image_representation.cc b/gpu/command_buffer/service/shared_image/dawn_fallback_image_representation.cc
+index 86cecc7176..d3cc3db05a 100644
+--- a/gpu/command_buffer/service/shared_image/dawn_fallback_image_representation.cc
++++ b/gpu/command_buffer/service/shared_image/dawn_fallback_image_representation.cc
+@@ -7,6 +7,7 @@
+ #include <dawn/native/DawnNative.h>
+ 
+ #include "base/bits.h"
++#include "base/trace_event/trace_event.h"
+ #include "base/synchronization/atomic_flag.h"
+ #include "base/threading/platform_thread.h"
+ #include "components/viz/common/resources/shared_image_format_utils.h"
+@@ -36,6 +37,7 @@ DawnFallbackImageRepresentation::~DawnFallbackImageRepresentation() = default;
+ wgpu::Texture DawnFallbackImageRepresentation::BeginAccess(
+     wgpu::TextureUsage wgpu_texture_usage,
+     wgpu::TextureUsage internal_usage) {
++  TRACE_EVENT0("gpu", "WebGPU.CPUStaging.BeginAccess");
+   const std::string debug_label = "DawnFallbackSharedImageRep(" +
+                                   CreateLabelForSharedImageUsage(usage()) + ")";
+ 
+diff --git a/gpu/command_buffer/service/shared_image/egl_image_backing.cc b/gpu/command_buffer/service/shared_image/egl_image_backing.cc
+index 60737400f0..7b5540cadf 100644
+--- a/gpu/command_buffer/service/shared_image/egl_image_backing.cc
++++ b/gpu/command_buffer/service/shared_image/egl_image_backing.cc
+@@ -23,6 +23,17 @@
+ #include "ui/gl/scoped_binders.h"
+ #include "ui/gl/shared_gl_fence_egl.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include <native_buffer/native_buffer.h>
++#include <native_window/external_window.h>
++#endif
++
++#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
++#include "gpu/command_buffer/service/shared_image/dawn_fallback_image_representation.h"
++#include "gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.h"
++#include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
++#endif
++
+ #if BUILDFLAG(USE_DAWN) && BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES)
+ #include "gpu/command_buffer/service/shared_image/dawn_egl_image_representation.h"
+ #endif
+@@ -215,7 +226,12 @@ EGLImageBacking::EGLImageBacking(
+   // When we have pixel data, we want to initialize the texture with pixel data
+   // first before creating eglimage from it. Hence using GenEGLImageSibling()
+   // call to do that.
+-  if (workarounds.dont_delete_source_texture_for_egl_image) {
++  // OHOS native GLES drivers need the same source-sibling lifetime as Android
++  // (crbug.com/1052114, crbug.com/1117370). DrDc consumes the EGLImage on a
++  // second context; keep uploads on the original texture and retain that
++  // texture until MarkForDestruction(), rather than deleting it immediately.
++  if (workarounds.dont_delete_source_texture_for_egl_image ||
++      BUILDFLAG(IS_OHOS)) {
+     source_texture_holders_ = GenEGLImageSiblings(pixel_data);
+   } else if (!pixel_data.empty()) {
+     auto texture_holder = GenEGLImageSiblings(pixel_data);
+@@ -224,6 +240,12 @@ EGLImageBacking::EGLImageBacking(
+ 
+ EGLImageBacking::~EGLImageBacking() {
+   CHECK(source_texture_holders_.empty());
++#if BUILDFLAG(IS_OHOS)
++  // EGLImages hold their own buffer references, as do active Vulkan imports.
++  if (native_buffer_) {
++    OH_NativeBuffer_Unreference(native_buffer_);
++  }
++#endif
+ }
+ 
+ SharedImageBackingType EGLImageBacking::GetType() const {
+@@ -320,6 +342,25 @@ std::unique_ptr<DawnImageRepresentation> EGLImageBacking::ProduceDawn(
+         device.Get(), std::move(view_formats));
+   }
+ #endif  // BUILDFLAG(USE_DAWN) && BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES)
++#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
++  if (backend_type == wgpu::BackendType::Vulkan) {
++    std::unique_ptr<GLTextureImageRepresentationBase> gl_representation;
++    if (use_passthrough_) {
++      gl_representation = ProduceGLTexturePassthrough(manager, tracker);
++    } else {
++      gl_representation = ProduceGLTexture(manager, tracker);
++    }
++    if (gl_representation && native_buffer_ &&
++        format() == viz::SinglePlaneFormat::kRGBA_8888) {
++      return std::make_unique<DawnOHOSNativeBufferImageRepresentation>(
++          manager, this, tracker, device, std::move(view_formats),
++          std::move(gl_representation), native_buffer_, std::move(context_state));
++    }
++    return std::make_unique<DawnFallbackImageRepresentation>(
++        manager, this, tracker, device, ToDawnFormat(format()),
++        std::move(view_formats));
++  }
++#endif
+   return nullptr;
+ }
+ 
+@@ -418,6 +459,61 @@ gl::ScopedEGLImage EGLImageBacking::GenEGLImageSibling(
+ 
+   gfx::Size plane_size = format().GetPlaneSize(plane, size());
+   const auto& format_info = format_info_[plane];
++#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
++  // Only WebGPU presentation/import buffers opt in. Raster images may advertise
++  // WEBGPU_READ preemptively (favicons, profile avatars, image caches), but
++  // must retain their established GL storage, upload and alpha semantics.
++  const bool webgpu_present =
++      usage().Has(SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE);
++  const bool webgpu_import =
++      usage() == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                  SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                  SHARED_IMAGE_USAGE_RASTER_WRITE);
++  if ((webgpu_present || webgpu_import) && pixel_data.empty() && plane == 0 &&
++      format() == viz::SinglePlaneFormat::kRGBA_8888) {
++    OH_NativeBuffer_Config config = {};
++    config.width = size().width();
++    config.height = size().height();
++    config.format = NATIVEBUFFER_PIXEL_FMT_RGBA_8888;
++    config.usage = NATIVEBUFFER_USAGE_HW_RENDER | NATIVEBUFFER_USAGE_HW_TEXTURE;
++    OH_NativeBuffer* buffer = OH_NativeBuffer_Alloc(&config);
++    if (buffer) {
++      auto* window_buffer =
++          OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(buffer);
++      if (!window_buffer) {
++        OH_NativeBuffer_Unreference(buffer);
++        return {};
++      }
++      constexpr EGLenum kEglNativeBufferOhos = 0x34E1;
++      const EGLint attributes[] = {EGL_IMAGE_PRESERVED_KHR, EGL_TRUE, EGL_NONE};
++      auto image = gl::MakeScopedEGLImage(
++          EGL_NO_CONTEXT, kEglNativeBufferOhos,
++          reinterpret_cast<EGLClientBuffer>(window_buffer), attributes);
++      OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
++      if (image.get()) {
++        api->glEGLImageTargetTexture2DOESFn(target, image.get());
++        if (api->glGetErrorFn() == GL_NO_ERROR) {
++          if (!pixel_data.empty()) {
++            ScopedUnpackState unpack(/*uploading_data=*/true);
++            api->glTexSubImage2DFn(target, 0, 0, 0, plane_size.width(),
++                                 plane_size.height(), format_info.adjusted_format,
++                                 format_info.gl_type, pixel_data.data());
++            if (api->glGetErrorFn() != GL_NO_ERROR) {
++              OH_NativeBuffer_Unreference(buffer);
++              return {};
++            }
++          }
++          native_buffer_ = buffer;
++          return image;
++        }
++      }
++      OH_NativeBuffer_Unreference(buffer);
++    }
++    LOG(ERROR) << "OHOS WebGPU NativeBuffer allocation/import failed";
++    return {};
++  }
++#endif
++
+   // Note that we only want to upload pixel data to a texture during init
+   // time before we create `egl_images_` from it. If pixel data is
+   // empty we only allocate memory for the texture object which is
+diff --git a/gpu/command_buffer/service/shared_image/egl_image_backing.h b/gpu/command_buffer/service/shared_image/egl_image_backing.h
+index da30b84518..57e90e5ed5 100644
+--- a/gpu/command_buffer/service/shared_image/egl_image_backing.h
++++ b/gpu/command_buffer/service/shared_image/egl_image_backing.h
+@@ -15,6 +15,10 @@
+ #include "ui/gl/gl_bindings.h"
+ #include "ui/gl/scoped_egl_image.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++struct OH_NativeBuffer;
++#endif
++
+ namespace gl {
+ class GLFenceEGL;
+ class SharedGLFenceEGL;
+@@ -79,6 +83,12 @@ class EGLImageBacking : public ClearTrackingSharedImageBacking {
+       scoped_refptr<SharedContextState> context_state) final;
+ 
+  private:
++#if BUILDFLAG(IS_OHOS)
++  friend class DawnOHOSNativeBufferImageRepresentation;
++  // Only WebGPU-compatible single-planar images use NativeBuffer storage.
++  // Other formats retain the existing EGL storage and staging fallback.
++  raw_ptr<OH_NativeBuffer> native_buffer_ = nullptr;
++#endif
+   class GLRepresentationShared;
+   class GLTextureEGLImageRepresentation;
+   class GLTexturePassthroughEGLImageRepresentation;
+diff --git a/gpu/command_buffer/service/shared_image/egl_image_backing_factory.cc b/gpu/command_buffer/service/shared_image/egl_image_backing_factory.cc
+index 0072950244..7d340bbdfe 100644
+--- a/gpu/command_buffer/service/shared_image/egl_image_backing_factory.cc
++++ b/gpu/command_buffer/service/shared_image/egl_image_backing_factory.cc
+@@ -102,7 +102,16 @@ bool EGLImageBackingFactory::IsSupported(SharedImageUsageSet usage,
+   if ((usage.HasAny(SHARED_IMAGE_USAGE_WEBGPU_READ |
+                     SHARED_IMAGE_USAGE_WEBGPU_WRITE)) &&
+       (use_webgpu_adapter_ != WebGPUAdapterName::kOpenGLES)) {
++#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
++    // NativeBuffer storage shares RGBA/BGRA with Vulkan WebGPU. EGL image
++    // siblings and fences allow the display compositor to read the same
++    // allocation from its own GPU thread. Other formats retain staging.
++    if (gr_context_type != GrContextType::kGL) {
++      return false;
++    }
++#else
+     return false;
++#endif
+   }
+ 
+   if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE &&
 diff --git a/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc b/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
-index 6803b04246..a05b10690c 100644
+index 6803b04246..bef48bb3ef 100644
 --- a/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
 +++ b/gpu/command_buffer/service/shared_image/gl_texture_image_backing_factory.cc
-@@ -156,9 +156,15 @@ bool GLTextureImageBackingFactory::IsSupported(
+@@ -17,6 +17,9 @@
+ #include "gpu/config/gpu_preferences.h"
+ #include "ui/gl/gl_gl_api_implementation.h"
+ #include "ui/gl/gl_implementation.h"
++#include "ui/gl/gl_display.h"
++#include "ui/gl/gl_surface_egl.h"
++#include "ui/gl/gl_utils.h"
+ #include "ui/gl/progress_reporter.h"
+ 
+ namespace gpu {
+@@ -156,9 +159,31 @@ bool GLTextureImageBackingFactory::IsSupported(
      }
    }
  
@@ -129655,8 +129900,24 @@ index 6803b04246..a05b10690c 100644
    if (usage.HasAny(kWebGPUUsages)) {
 -#if BUILDFLAG(USE_DAWN) && BUILDFLAG(DAWN_ENABLE_BACKEND_OPENGLES)
 +#if BUILDFLAG(IS_OHOS) && BUILDFLAG(USE_DAWN)
-+    // OHOS uses Skia's existing staging-copy bridge between Vulkan WebGPU and
-+    // GL presentation. This backing supplies the Skia/GL side of the transfer.
++    // WebGPU presentation shares an RGBA NativeBuffer with Vulkan. Ordinary
++    // raster/image uploads keep GLTexture storage even if WEBGPU_READ is in
++    // their potential usages; advertising an API does not imply using it.
++    auto* display = gl::GetDefaultDisplayEGL();
++    const bool webgpu_import =
++        usage == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                  SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                  SHARED_IMAGE_USAGE_RASTER_WRITE);
++    if (format == viz::SinglePlaneFormat::kRGBA_8888 &&
++        (usage.Has(SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) ||
++         webgpu_import) &&
++        display && display->ext->b_EGL_KHR_image_base &&
++        display->ext->b_EGL_KHR_gl_texture_2D_image &&
++        display->ext->b_EGL_KHR_fence_sync &&
++        gl::g_current_gl_driver->ext.b_GL_OES_EGL_image &&
++        !usage.Has(SHARED_IMAGE_USAGE_CONCURRENT_READ_WRITE)) {
++      return false;
++    }
 +    if (gr_context_type != GrContextType::kGL) {
 +      return false;
 +    }
@@ -129736,32 +129997,34 @@ index 436f2b1d28..18f3e8adbc 100644
      : public SharedImageRepresentation {
   public:
 diff --git a/gpu/command_buffer/service/stream_texture_shared_image_interface.h b/gpu/command_buffer/service/stream_texture_shared_image_interface.h
-index d4389fe45e..62d9734b4b 100644
+index d4389fe45e..e48b37915c 100644
 --- a/gpu/command_buffer/service/stream_texture_shared_image_interface.h
 +++ b/gpu/command_buffer/service/stream_texture_shared_image_interface.h
-@@ -19,6 +19,8 @@ class ScopedHardwareBufferFenceSync;
+@@ -19,6 +19,9 @@ class ScopedHardwareBufferFenceSync;
  
  namespace gpu {
  
 +class TextureBase;
++class ScopedNativeBufferFenceSync;
 +
  // This class lets AndroidVideoImageBacking draw video frames.
  class GPU_GLES2_EXPORT StreamTextureSharedImageInterface
      : public base::RefCounted<StreamTextureSharedImageInterface> {
-@@ -28,6 +30,12 @@ class GPU_GLES2_EXPORT StreamTextureSharedImageInterface
+@@ -28,6 +31,13 @@ class GPU_GLES2_EXPORT StreamTextureSharedImageInterface
    virtual void ReleaseResources() = 0;
  
    virtual bool HasTextureOwner() const = 0;
 +#if BUILDFLAG(IS_OHOS)
 +  // OHOS NativeImage imports frames through external GL textures.
 +  virtual void UpdateAndBindTexImage() = 0;
++  virtual std::unique_ptr<ScopedNativeBufferFenceSync> GetNativeBuffer() = 0;
 +  virtual TextureBase* GetTextureBase() const = 0;
 +  virtual bool TextureOwnerBindsTextureOnUpdate() = 0;
 +#endif
  
    // Notify the texture of overlay decision, When overlay promotion is true,
    // this also sets the bounds of where the overlay is.
-@@ -43,8 +51,10 @@ class GPU_GLES2_EXPORT StreamTextureSharedImageInterface
+@@ -43,8 +53,10 @@ class GPU_GLES2_EXPORT StreamTextureSharedImageInterface
    // finished and it can be safely read from.
    // The buffer is guaranteed to be valid until the lifetime of the object
    // returned.
@@ -129817,10 +130080,55 @@ index 99495a97d7..a5c197308a 100644
    // the stream texture. See SetStreamTextureServiceId() for the details of
    // how |service_id| is used.
 diff --git a/gpu/command_buffer/service/webgpu_decoder_impl.cc b/gpu/command_buffer/service/webgpu_decoder_impl.cc
-index 6030a9f57c..c8096d7540 100644
+index 6030a9f57c..6ef84d2518 100644
 --- a/gpu/command_buffer/service/webgpu_decoder_impl.cc
 +++ b/gpu/command_buffer/service/webgpu_decoder_impl.cc
-@@ -1859,7 +1859,14 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
+@@ -29,6 +29,9 @@
+ #include "base/trace_event/trace_event.h"
+ #include "base/unguessable_token.h"
+ #include "build/build_config.h"
++#if BUILDFLAG(IS_OHOS)
++#include <dawn/native/VulkanBackend.h>
++#endif
+ #include "gpu/command_buffer/common/mailbox.h"
+ #include "gpu/command_buffer/common/shared_image_usage.h"
+ #include "gpu/command_buffer/common/webgpu_cmd_format.h"
+@@ -1036,6 +1039,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
+   struct DeviceMetadata {
+     wgpu::AdapterType adapterType;
+     wgpu::BackendType backendType;
++    bool supports_ohos_native_buffer = false;
+   };
+   struct DeviceHash {
+     size_t operator()(const wgpu::Device& device) const {
+@@ -1525,6 +1529,9 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
+       wgpu::FeatureName::SharedFenceSyncFD,
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++      wgpu::FeatureName::SharedFenceSyncFD,
++#endif
+ #if BUILDFLAG(IS_ANDROID)
+       wgpu::FeatureName::SharedTextureMemoryAHardwareBuffer,
+       wgpu::FeatureName::SharedFenceSyncFD,
+@@ -1642,9 +1649,13 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
+           // known devices on.
+           wgpu::AdapterInfo info;
+           adapter_obj.GetInfo(&info);
+-          known_device_metadata_.emplace(
+-              std::move(device_copy),
+-              DeviceMetadata{info.adapterType, info.backendType});
++          DeviceMetadata metadata{info.adapterType, info.backendType};
++#if BUILDFLAG(IS_OHOS)
++          metadata.supports_ohos_native_buffer =
++              info.backendType == wgpu::BackendType::Vulkan &&
++              dawn::native::vulkan::SupportsOHOSNativeBuffer(device_copy.Get());
++#endif
++          known_device_metadata_.emplace(std::move(device_copy), metadata);
+         }
+       });
+   // The callback must have been called synchronously. We could allow async
+@@ -1859,7 +1870,14 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
      // SharedTextureMemory.
      supports_external_textures = native_adapter.SupportsExternalImages();
  #endif
@@ -129836,18 +130144,57 @@ index 6030a9f57c..c8096d7540 100644
        return false;
      }
  
-@@ -2246,7 +2253,15 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
+@@ -2125,7 +2143,7 @@ WebGPUDecoderImpl::AssociateMailboxDawn(
+   }
+ 
+ #if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_APPLE) && \
+-    !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_LINUX)
++    !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_OHOS)
+   if (usage & wgpu::TextureUsage::StorageBinding) {
+     LOG(ERROR) << "AssociateMailbox: wgpu::TextureUsage::StorageBinding is NOT "
+                   "supported yet on this platform.";
+@@ -2169,6 +2187,7 @@ WebGPUDecoderImpl::AssociateMailboxUsingSkiaFallback(
+     return nullptr;
+   }
+ 
++  TRACE_EVENT0("gpu", "WebGPU.CPUStaging.Skia");
+   return SharedImageRepresentationAndAccessSkiaFallback::Create(
+       shared_context_state_, std::move(shared_image), dawn_instance_->Get(),
+       device, usage, internal_usage, std::move(view_formats));
+@@ -2246,7 +2265,37 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
    std::unique_ptr<SharedImageRepresentationAndAccess> representation_and_access;
    auto it = known_device_metadata_.find(device);
    CHECK(it != known_device_metadata_.end());
 -  if (it->second.adapterType == wgpu::AdapterType::CPU) {
 +  bool use_skia_fallback = it->second.adapterType == wgpu::AdapterType::CPU;
 +#if BUILDFLAG(IS_OHOS)
-+  // The OHOS GLES driver lacks desktop GL external-memory extensions. Bridge
-+  // shared images through Chromium's staging-copy path; shader execution stays
-+  // on the Vulkan device and normal compositing keeps its existing GL context.
-+  use_skia_fallback |= shared_context_state_->GrContextIsGL() &&
-+                       it->second.backendType == wgpu::BackendType::Vulkan;
++  if (shared_context_state_->GrContextIsGL() &&
++      it->second.backendType == wgpu::BackendType::Vulkan) {
++    // Vulkan normally needs no GL context. The OHOS import does: both
++    // ProduceSkia (capability lookup) and ProduceDawn create EGL siblings.
++    // Make the owning shared context current BEFORE either production call;
++    // doing it in BeginAccess is too late and can create/delete texture names
++    // in an unrelated renderer context, corrupting its raster caches.
++    if (!shared_context_state_->MakeCurrent(nullptr, true)) {
++      return error::kLostContext;
++    }
++    shared_context_state_->PessimisticallyResetGrContext();
++    shared_context_state_->set_need_context_state_reset(true);
++    auto skia = shared_image_representation_factory_->ProduceSkia(
++        mailbox, shared_context_state_);
++    // RGBA WebGPU presentation and dedicated import-cache buffers opt into
++    // direct Vulkan imports. Ordinary raster images retain their established
++    // storage; Blink first copies them into the import cache on the GPU.
++    const bool webgpu_import =
++        skia && skia->usage() == (SHARED_IMAGE_USAGE_WEBGPU_READ |
++                                 SHARED_IMAGE_USAGE_WEBGPU_WRITE |
++                                 SHARED_IMAGE_USAGE_RASTER_WRITE);
++    use_skia_fallback |= !it->second.supports_ohos_native_buffer || !skia ||
++                        skia->format() != viz::SinglePlaneFormat::kRGBA_8888 ||
++                        (!skia->usage().Has(
++                             SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE) &&
++                         !webgpu_import);
++  }
 +#endif
 +  if (use_skia_fallback) {
      representation_and_access = AssociateMailboxUsingSkiaFallback(
@@ -129949,7 +130296,7 @@ index 4ec9d453cc..12f9bea2f0 100644
  //    "version" is a VERSION structure (defined below).
  // 3. "vendor_id" is a string.  0 is reserved.
 diff --git a/gpu/config/gpu_finch_features.cc b/gpu/config/gpu_finch_features.cc
-index 41f4e5bbff..974c884c10 100644
+index 41f4e5bbff..4903d47fb6 100644
 --- a/gpu/config/gpu_finch_features.cc
 +++ b/gpu/config/gpu_finch_features.cc
 @@ -211,7 +211,8 @@ BASE_FEATURE(kSharedImageStubHighPriority, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -129962,6 +130309,15 @@ index 41f4e5bbff..974c884c10 100644
               base::FEATURE_ENABLED_BY_DEFAULT
  #else
               base::FEATURE_DISABLED_BY_DEFAULT
+@@ -268,7 +269,7 @@ bool IsShaderDiskCacheEnabled(const base::CommandLine* command_line) {
+ BASE_FEATURE(kForceEnableWebGpuInterop, base::FEATURE_DISABLED_BY_DEFAULT);
+ 
+ BASE_FEATURE(kEnableDrDc,
+-#if BUILDFLAG(IS_ANDROID)
++#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_OHOS)
+              base::FEATURE_ENABLED_BY_DEFAULT
+ #elif BUILDFLAG(IS_MAC)
+              // DrDC will not be running if Graphite is disabled on Mac.
 @@ -282,7 +283,8 @@ BASE_FEATURE(kEnableDrDc,
  // Enable WebGPU on gpu service side only. This is used with origin trial and
  // enabled by default on supported platforms.
@@ -130067,6 +130423,53 @@ index fe415ba4c3..d0775b1977 100644
      case kConfigChromeOS:
      case kConfigAndroid:
        if ((config->os() & kTokenData[token].flag) != 0) {
+diff --git a/gpu/config/gpu_util.cc b/gpu/config/gpu_util.cc
+index 837c62e54c..4b77f6e4b7 100644
+--- a/gpu/config/gpu_util.cc
++++ b/gpu/config/gpu_util.cc
+@@ -378,7 +378,9 @@ GpuFeatureStatus GetWebNNFeatureStatus(
+ }
+ 
+ GpuFeatureStatus GetDrDCFeatureStatus(const std::set<int>& blocklisted_features,
+-                                      GpuFeatureStatus graphite_status) {
++                                      GpuFeatureStatus graphite_status,
++                                      const GPUInfo& gpu_info,
++                                      const GpuPreferences& gpu_preferences) {
+   if (blocklisted_features.count(
+           GPU_FEATURE_TYPE_DIRECT_RENDERING_DISPLAY_COMPOSITOR)) {
+     return kGpuFeatureStatusDisabled;
+@@ -392,6 +394,21 @@ GpuFeatureStatus GetDrDCFeatureStatus(const std::set<int>& blocklisted_features,
+   }
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++  // OHOS currently uses Ganesh/GL. Its cross-thread images require EGL image
++  // siblings and native fences; keep the single-thread path on other drivers.
++  const auto egl_extensions = gfx::MakeExtensionSet(gpu_info.gl_ws_extensions);
++  const auto gl_extensions = gfx::MakeExtensionSet(gpu_info.gl_extensions);
++  if (gpu_preferences.gr_context_type != GrContextType::kGL ||
++      !gfx::HasExtension(egl_extensions, "EGL_KHR_image_base") ||
++      !gfx::HasExtension(egl_extensions, "EGL_KHR_gl_texture_2D_image") ||
++      !gfx::HasExtension(egl_extensions, "EGL_ANDROID_native_fence_sync") ||
++      !gfx::HasExtension(egl_extensions, "EGL_KHR_wait_sync") ||
++      !gfx::HasExtension(gl_extensions, "GL_OES_EGL_image")) {
++    return kGpuFeatureStatusDisabled;
++  }
++#endif
++
+   return features::ShouldEnableDrDc() ? kGpuFeatureStatusEnabled
+                                       : kGpuFeatureStatusDisabled;
+ }
+@@ -717,7 +734,8 @@ GpuFeatureInfo ComputeGpuFeatureInfo(const GPUInfo& gpu_info,
+       .status_values[GPU_FEATURE_TYPE_DIRECT_RENDERING_DISPLAY_COMPOSITOR] =
+       GetDrDCFeatureStatus(
+           blocklisted_features,
+-          gpu_feature_info.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE]);
++          gpu_feature_info.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE],
++          gpu_info, gpu_preferences);
+ #if DCHECK_IS_ON()
+   for (int ii = 0; ii < NUMBER_OF_GPU_FEATURE_TYPES; ++ii) {
+     DCHECK_NE(kGpuFeatureStatusUndefined, gpu_feature_info.status_values[ii]);
 diff --git a/gpu/config/process_json.py b/gpu/config/process_json.py
 index a8fcb73559..9bbd7d3724 100755
 --- a/gpu/config/process_json.py
@@ -145007,10 +145410,10 @@ index 0000000000..f0dd2228f8
 +#endif  // MEDIA_GPU_OHOS_CODEC_BUFFER_WAIT_COORDINATOR_H_
 diff --git a/media/gpu/ohos/codec_image.cc b/media/gpu/ohos/codec_image.cc
 new file mode 100644
-index 0000000000..3b09cd7d08
+index 0000000000..ed61e64f4d
 --- /dev/null
 +++ b/media/gpu/ohos/codec_image.cc
-@@ -0,0 +1,163 @@
+@@ -0,0 +1,171 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -145048,6 +145451,7 @@ index 0000000000..3b09cd7d08
 +
 +#include "base/functional/callback_helpers.h"
 +#include "gpu/command_buffer/service/gles2_cmd_decoder.h"
++#include "gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h"
 +#include "gpu/command_buffer/service/texture_manager.h"
 +#include "gpu/config/gpu_finch_features.h"
 +#include "ui/gl/gl_context.h"
@@ -145100,6 +145504,13 @@ index 0000000000..3b09cd7d08
 +void CodecImage::UpdateAndBindTexImage() {
 +  AssertAcquiredDrDcLock();
 +  RenderToTextureOwnerFrontBuffer();
++}
++
++std::unique_ptr<gpu::ScopedNativeBufferFenceSync> CodecImage::GetNativeBuffer() {
++  AssertAcquiredDrDcLock();
++  if (!output_buffer_renderer_ || !texture_owner()) return nullptr;
++  if (!RenderToTextureOwnerFrontBuffer()) return nullptr;
++  return texture_owner()->GetNativeBuffer();
 +}
 +
 +bool CodecImage::HasTextureOwner() const {
@@ -145176,10 +145587,10 @@ index 0000000000..3b09cd7d08
 +}  // namespace media
 diff --git a/media/gpu/ohos/codec_image.h b/media/gpu/ohos/codec_image.h
 new file mode 100644
-index 0000000000..b21a7b37b3
+index 0000000000..7e4eaaad04
 --- /dev/null
 +++ b/media/gpu/ohos/codec_image.h
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,143 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -145247,6 +145658,7 @@ index 0000000000..b21a7b37b3
 +  void NotifyUnused();
 +  void ReleaseResources() override;
 +  void UpdateAndBindTexImage() override;
++  std::unique_ptr<gpu::ScopedNativeBufferFenceSync> GetNativeBuffer() override;
 +  bool HasTextureOwner() const override;
 +  gpu::TextureBase* GetTextureBase() const override;
 +  void NotifyOverlayPromotion(bool promotion, const gfx::Rect& bounds) override;
@@ -148997,10 +149409,10 @@ index 0000000000..ff9cb70937
 +#endif  // MEDIA_GPU_OHOS_VIDEO_FRAME_FACTORY_H_
 diff --git a/media/gpu/ohos/video_frame_factory_impl.cc b/media/gpu/ohos/video_frame_factory_impl.cc
 new file mode 100644
-index 0000000000..8211d767b9
+index 0000000000..f347872cc2
 --- /dev/null
 +++ b/media/gpu/ohos/video_frame_factory_impl.cc
-@@ -0,0 +1,239 @@
+@@ -0,0 +1,241 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -149070,7 +149482,9 @@ index 0000000000..8211d767b9
 +  std::move(init_cb).Run(
 +      gpu::NativeImageTextureOwner::Create(
 +        shared_context_state,
-+        gpu::NativeImageTextureOwner::Mode::kOhosSurfaceTexture));
++        drdc_lock ? gpu::NativeImageTextureOwner::Mode::kOhosNativeBuffer
++                  : gpu::NativeImageTextureOwner::Mode::kOhosSurfaceTexture,
++        std::move(drdc_lock)));
 +}
 +
 +}  // namespace
@@ -149648,10 +150062,10 @@ index 138b2d91ac..eaaad249fb 100644
        "android_mojo_media_client.cc",
 diff --git a/media/mojo/services/gpu_mojo_media_client_ohos.cc b/media/mojo/services/gpu_mojo_media_client_ohos.cc
 new file mode 100644
-index 0000000000..1a66051255
+index 0000000000..db1b786ff5
 --- /dev/null
 +++ b/media/mojo/services/gpu_mojo_media_client_ohos.cc
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,146 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -149722,7 +150136,9 @@ index 0000000000..1a66051255
 +    VideoDecoderTraits& traits) final {
 +  LOG(INFO) << "CreatePlatformVideoDecoder";
 +  scoped_refptr<gpu::RefCountedLock> ref_counted_lock;
-+  ref_counted_lock = base::MakeRefCounted<gpu::RefCountedLock>();
++  if (gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_DIRECT_RENDERING_DISPLAY_COMPOSITOR] == gpu::kGpuFeatureStatusEnabled) {
++    ref_counted_lock = base::MakeRefCounted<gpu::RefCountedLock>();
++  }
 +
 +  std::unique_ptr<SharedImageVideoProvider> image_provider =
 +      std::make_unique<DirectSharedImageVideoProvider>(
@@ -161596,3 +162012,1168 @@ index 25a00c2dbf..67b99ae9ce 100644
  </enum>
  
  <enum name="VideoCaptureError">
+diff --git a/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.cc b/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.cc
+new file mode 100644
+index 0000000000..f3fda7dc92
+--- /dev/null
++++ b/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.cc
+@@ -0,0 +1,397 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++// Based on image_reader_gl_owner.cc originally written by
++// Copyright (c) 2012 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.h"
++
++#include <stdint.h>
++
++#include "base/debug/alias.h"
++#include "base/debug/dump_without_crashing.h"
++#include "base/feature_list.h"
++#include "base/logging.h"
++#include "base/memory/ptr_util.h"
++#include "base/memory/raw_ptr.h"
++#include "base/posix/eintr_wrapper.h"
++#include "base/synchronization/waitable_event.h"
++#include "base/task/bind_post_task.h"
++#include "base/trace_event/trace_event.h"
++#include "gpu/command_buffer/service/abstract_texture_ohos.h"
++#include "gpu/command_buffer/service/ohos/native_image_texture_gl_owner.h"
++#include "gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h"
++#include "gpu/config/gpu_finch_features.h"
++#include "ui/gl/gl_utils.h"
++#include "ui/gl/scoped_binders.h"
++#include "ui/gl/scoped_make_current.h"
++
++namespace gpu {
++
++struct OhosWindowBuffer {
++  void* rawbuffer = nullptr;
++};
++
++// This class is safe to be created/destroyed on different threads. This is made
++// sure by destruction happening on correct thread. This class is not thread
++// safe to be used concurrently on multiple thraeads.
++class HwVideoNativeBufferGLOwner::ScopedNativeBufferImpl
++    : public ScopedNativeBufferFenceSync {
++ public:
++  ScopedNativeBufferImpl(
++      scoped_refptr<HwVideoNativeBufferGLOwner> texture_owner,
++      OhosWindowBuffer* image,
++      ScopedNativeBufferHandle handle,
++      base::ScopedFD fence_fd)
++      : ScopedNativeBufferFenceSync(std::move(handle), std::move(fence_fd)),
++        texture_owner_(std::move(texture_owner)),
++        image_(image) {
++    DCHECK(image_);
++    texture_owner_->RegisterRefOnImageLocked(image_);
++  }
++
++  ~ScopedNativeBufferImpl() override {
++    texture_owner_->ReleaseRefOnImage(image_, std::move(read_fence_));
++  }
++
++  void SetReadFence(base::ScopedFD fence_fd) final {
++    read_fence_ = gl::MergeFDs(std::move(read_fence_), std::move(fence_fd));
++  }
++
++ private:
++  base::ScopedFD read_fence_;
++  scoped_refptr<HwVideoNativeBufferGLOwner> texture_owner_;
++  raw_ptr<OhosWindowBuffer> image_;
++};
++
++#define IMAGE_BUFFER_SIZE 3
++HwVideoNativeBufferGLOwner::HwVideoNativeBufferGLOwner(
++    std::unique_ptr<AbstractTextureOHOS> texture,
++    scoped_refptr<SharedContextState> context_state,
++    scoped_refptr<RefCountedLock> drdc_lock)
++    : NativeImageTextureOwner(false /* binds_texture_on_image_update */,
++                              std::move(texture),
++                              std::move(context_state)),
++      RefCountedLockHelperDrDc(std::move(drdc_lock)),
++      loader_(gl::OhosNativeImage::Create()),
++      context_(gl::GLContext::GetCurrent()),
++      surface_(gl::GLSurface::GetCurrent()) {
++  DCHECK(context_);
++  DCHECK(surface_);
++  max_images_ = IMAGE_BUFFER_SIZE;
++}
++
++HwVideoNativeBufferGLOwner::~HwVideoNativeBufferGLOwner() {
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++
++  // Call ReleaseResources() if it hasn't already. This will do nothing if the
++  // texture and other resources has already been destroyed due to context loss.
++  ReleaseResources();
++
++  DCHECK_EQ(image_refs_.size(), 0u);
++}
++
++void HwVideoNativeBufferGLOwner::ReleaseResources() {
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++  base::AutoLock auto_lock(lock_);
++  // Either TextureOwner is being destroyed or the TextureOwner's shared context
++  // is lost. Cleanup is it hasn't already.
++  if (!loader_) {
++    return;
++  }
++
++  TRACE_EVENT0("gpu", "HwVideoNativeBufferGLOwner::ReleaseResources");
++  // Delete all images before closing the associated image reader.
++  for (auto& image_ref : image_refs_) {
++    int32_t return_code =
++        loader_->ReleaseNativeWindowBuffer(image_ref.first->rawbuffer, -1);
++    if (return_code != 0) {
++      LOG(WARNING) << "NativeImage buffer release failed: " << return_code;
++    }
++    delete image_ref.first;
++  }
++
++  // Delete the image reader.
++  loader_->ReleaseNativeImage();
++  loader_ = nullptr;
++
++  // Clean up the ImageRefs which should now be a no-op since there is no
++  // valid |image_reader_|.
++  image_refs_.clear();
++  current_image_ref_.reset();
++}
++
++void HwVideoNativeBufferGLOwner::SetFrameAvailableCallback(
++    const base::RepeatingClosure& frame_available_cb) {
++  DCHECK(!is_frame_available_callback_set_);
++  is_frame_available_callback_set_ = true;
++  loader_->SetFrameAvailableCallback(std::move(frame_available_cb));
++}
++
++void HwVideoNativeBufferGLOwner::UpdateNativeImage() {
++  TRACE_EVENT0("gpu", "HwVideoNativeBufferGLOwner::UpdateNativeImage");
++  base::AutoLock auto_lock(lock_);
++  // If we've lost the texture, then do nothing.
++  if (!texture() || !loader_) {
++    return;
++  }
++
++  DCHECK(loader_);
++  int acquire_fence_fd = -1;
++  void* buffer = nullptr;
++
++  int32_t return_code = 0;
++  return_code = loader_->AcquireNativeWindowBuffer(&buffer, &acquire_fence_fd);
++  base::ScopedFD scoped_acquire_fence_fd(acquire_fence_fd);
++  // If there is no new image simply return. At this point previous image will
++  // still be bound to the texture.
++  if (return_code != 0 || !buffer) {
++    LOG(ERROR) << "NativeImage: image is nullptr or acquire buffer fail :"
++               << return_code;
++    return;
++  }
++
++  OhosWindowBuffer* image = new OhosWindowBuffer();
++  if (image) {
++    image->rawbuffer = buffer;
++    // Make the newly acquired image as current image.
++    current_image_ref_.emplace(this, image, std::move(scoped_acquire_fence_fd));
++  }
++}
++
++std::unique_ptr<ScopedNativeBufferFenceSync>
++HwVideoNativeBufferGLOwner::GetNativeBuffer() {
++  TRACE_EVENT0("gpu", "HwVideoNativeBufferGLOwner::GetNativeBuffer");
++
++  base::AutoLock auto_lock(lock_);
++  if (!current_image_ref_) {
++    return nullptr;
++  }
++  OHOSNativeBuffer buffer = nullptr;
++  if (loader_->GetNativeBuffer(current_image_ref_->image()->rawbuffer,
++                               &buffer) != 0 ||
++      !buffer) {
++    LOG(ERROR) << "GetNativeBuffer returned nullptr: ";
++    return nullptr;
++  }
++
++  uint32_t seq_num = OH_NativeBuffer_GetSeqNum(buffer);
++  TRACE_EVENT1("gpu", "HwVideoNativeBufferGLOwner::GetNativeBuffer", "seqnum",
++               seq_num);
++
++  return std::make_unique<ScopedNativeBufferImpl>(
++      this, current_image_ref_->image(),
++      ScopedNativeBufferHandle::Create(buffer),
++      current_image_ref_->GetReadyFence());
++}
++
++void HwVideoNativeBufferGLOwner::RegisterRefOnImageLocked(
++    OhosWindowBuffer* image) {
++  lock_.AssertAcquired();
++  DCHECK(loader_);
++
++  // Add a ref that the caller will release.
++  image_refs_[image].count++;
++}
++
++void HwVideoNativeBufferGLOwner::ReleaseRefOnImage(OhosWindowBuffer* image,
++                                                   base::ScopedFD fence_fd) {
++  base::AutoLock auto_lock(lock_);
++  ReleaseRefOnImageLocked(image, std::move(fence_fd));
++}
++
++void HwVideoNativeBufferGLOwner::ReleaseRefOnImageLocked(
++    OhosWindowBuffer* image,
++    base::ScopedFD fence_fd) {
++  TRACE_EVENT0("gpu", "HwVideoNativeBufferGLOwner::ReleaseRefOnImageLocked");
++  lock_.AssertAcquired();
++  // During cleanup on losing the texture, all images are synchronously released
++  // and the |image_reader_| is destroyed.
++  if (!loader_) {
++    return;
++  }
++
++  // Ensure that DrDc lock is held when |buffer_available_cb| can be triggered
++  // because we do not want any other thread to steal the free buffer slot which
++  // is meant to be used by |buffer_available_cb| and hence resulting in wrong
++  // FrameInfo for all future frames.
++  AssertAcquiredDrDcLock();
++
++  auto it = image_refs_.find(image);
++  CHECK(it != image_refs_.end());
++
++  auto& image_ref = it->second;
++  DCHECK_GT(image_ref.count, 0u);
++  image_ref.count--;
++  image_ref.release_fence_fd =
++      gl::MergeFDs(std::move(image_ref.release_fence_fd), std::move(fence_fd));
++
++  if (image_ref.count > 0) {
++    return;
++  }
++
++  TRACE_EVENT1("base", "HwVideoNativeBufferGLOwner::ReleaseRefOnImageLocked",
++               "fd", image_ref.release_fence_fd.get());
++  int return_code = 0;
++  if (image_ref.release_fence_fd.is_valid()) {
++    return_code = loader_->ReleaseNativeWindowBuffer(
++        image->rawbuffer, std::move(image_ref.release_fence_fd.release()));
++  } else {
++    return_code = loader_->ReleaseNativeWindowBuffer(image->rawbuffer, -1);
++  }
++
++  if (return_code != 0) {
++    LOG(WARNING) << "An error occured while releasing the native buffer";
++    LOG(WARNING) << "NativeImage buffer release failed: " << return_code;
++  }
++
++  image_refs_.erase(it);
++  delete image;
++  image = nullptr;
++  DCHECK_GT(max_images_, static_cast<int32_t>(image_refs_.size()));
++  auto buffer_available_cb = std::move(buffer_available_cb_);
++  // |buffer_available_cb| will try to acquire lock again via
++  // UpdateNativeImage(), hence we need to unlock here. Note that when
++  // |max_images_| is 1, this callback will always be empty here since it will
++  // be run immediately in RunWhenBufferIsAvailable(). Hence resetting
++  // |current_image_ref_| in UpdateNativeImage() can not trigger this callback.
++  // Otherwise triggering this callback from UpdateNativeImage() on
++  // |current_image_ref_| reset would cause callback and hence FrameInfoHelper
++  // to run and eventually call UpdateNativeImage() from there which could have
++  // been filmsy.
++  if (buffer_available_cb) {
++    base::AutoUnlock auto_unlock(lock_);
++    DCHECK_GT(max_images_, 1);
++    std::move(buffer_available_cb).Run();
++  }
++}
++
++gl::GLContext* HwVideoNativeBufferGLOwner::GetContext() const {
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++  return context_.get();
++}
++
++gl::GLSurface* HwVideoNativeBufferGLOwner::GetSurface() const {
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++  return surface_.get();
++}
++
++void HwVideoNativeBufferGLOwner::RunWhenBufferIsAvailable(
++    base::OnceClosure callback) {
++  TRACE_EVENT0("base", "HwVideoNativeBufferGLOwner::RunWhenBufferIsAvailable");
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++  int image_refs_size = 0;
++  {
++    base::AutoLock auto_lock(lock_);
++    // Note that we handle only one simultaneous request, this is not issue
++    // because FrameInfoHelper maintain request queue and has only single
++    // outstanding request on GPU thread.
++    DCHECK(!buffer_available_cb_);
++    image_refs_size = static_cast<int>(image_refs_.size());
++  }
++  // If `max_images` == 1 we will drop it before acquiring new buffer. Note
++  // that this must never happen with SurfaceControl and the
++  // HwVideoNativeBufferGLOwner is the sole owner of the images.
++  if (max_images_ == 1 || image_refs_size < max_images_) {
++    // This callback is run from here as well as from ReleaseRefOnImage() where
++    // we remove one image from image reader queue before callback is run.
++    // Once the |lock_| is dropped in this method here, another thread can
++    // UpdateNativeImage() before callback is run and hence cause the image
++    // reader queue to become full. In that case callback will not be able to
++    // render and acquire updated image and hence will use FrameInfo of the
++    // previous image which will result in wrong coded size for all future
++    // frames. To avoid this, no other thread should try to UpdateNativeImage()
++    // when this callback is run. Hence drdc_lock should be held from all the
++    // places from where the callback could be run which is either
++    // OnGpu::GetFrameInfo() or
++    // HwVideoNativeBufferGLOwner::ReleaseRefOnImageLocked() and
++    // OnGpu::GetFrameInfoImpl() should assume that the drdc_lock is always
++    // held.
++    std::move(callback).Run();
++  } else {
++    base::AutoLock auto_lock(lock_);
++    buffer_available_cb_ = std::move(callback);
++  }
++}
++
++bool HwVideoNativeBufferGLOwner::GetCodedSizeAndVisibleRect(
++    gfx::Size rotated_visible_size,
++    gfx::Size* coded_size,
++    gfx::Rect* visible_rect) {
++  base::AutoLock auto_lock(lock_);
++  DCHECK(coded_size);
++  DCHECK(visible_rect);
++
++  if (!loader_ || !current_image_ref_) {
++    *visible_rect = gfx::Rect();
++    *coded_size = gfx::Size();
++    return false;
++  }
++
++  uint32_t width = 0;
++  uint32_t height = 0;
++  loader_->GetNativeWindowBufferSize(current_image_ref_->image()->rawbuffer,
++                                     &width, &height);
++
++  *coded_size = gfx::Size(width, height);
++  *visible_rect = gfx::Rect(*coded_size);
++
++  DVLOG(2) << "GetCodedSizeAndVisibleRect rotated_visible_size width = "
++           << rotated_visible_size.width()
++           << ", height = " << rotated_visible_size.height()
++           << "; coded_size width = " << width << ", height = " << height;
++  return true;
++}
++
++HwVideoNativeBufferGLOwner::ImageRef::ImageRef() = default;
++HwVideoNativeBufferGLOwner::ImageRef::~ImageRef() = default;
++HwVideoNativeBufferGLOwner::ImageRef::ImageRef(ImageRef&& other) = default;
++HwVideoNativeBufferGLOwner::ImageRef&
++HwVideoNativeBufferGLOwner::ImageRef::operator=(ImageRef&& other) = default;
++
++HwVideoNativeBufferGLOwner::ScopedCurrentImageRef::ScopedCurrentImageRef(
++    HwVideoNativeBufferGLOwner* texture_owner,
++    OhosWindowBuffer* image,
++    base::ScopedFD ready_fence)
++    : texture_owner_(texture_owner),
++      image_(image),
++      ready_fence_(std::move(ready_fence)) {
++  DCHECK(texture_owner_);
++  texture_owner_->lock_.AssertAcquired();
++  DCHECK(image_);
++  texture_owner_->RegisterRefOnImageLocked(image_);
++}
++
++HwVideoNativeBufferGLOwner::ScopedCurrentImageRef::~ScopedCurrentImageRef() {
++  texture_owner_->lock_.AssertAcquired();
++  texture_owner_->ReleaseRefOnImageLocked(image_, std::move(ready_fence_));
++}
++
++base::ScopedFD
++HwVideoNativeBufferGLOwner::ScopedCurrentImageRef::GetReadyFence() const {
++  return base::ScopedFD(HANDLE_EINTR(dup(ready_fence_.get())));
++}
++
++void* HwVideoNativeBufferGLOwner::AquireOhosNativeWindow() const {
++  TRACE_EVENT0("base", "HwVideoNativeBufferGLOwner::AquireOhosNativeWindow");
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++
++  if (loader_ != nullptr) {
++    return loader_->AquireOhosNativeWindow();
++  } else {
++    return nullptr;
++  }
++}
++
++void HwVideoNativeBufferGLOwner::EnsureNativeImageBound(GLuint service_id) {
++  DCHECK_EQ(service_id, GetTextureId());
++}
++
++void HwVideoNativeBufferGLOwner::ReleaseNativeImage() {
++  DCHECK_CALLED_ON_VALID_THREAD(gpu_main_thread_checker_);
++  // ReleaseNativeImage() call is not required with HwVideoNativeBuffer.
++}
++}  // namespace gpu
+diff --git a/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.h b/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.h
+new file mode 100644
+index 0000000000..e8162a9014
+--- /dev/null
++++ b/gpu/command_buffer/service/ohos/hw_video_native_buffer_gl_owner.h
+@@ -0,0 +1,148 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++// Based on image_reader_gl_owner.h originally written by
++// Copyright (c) 2012 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_GL_OWNER_H_
++#define GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_GL_OWNER_H_
++
++#include <memory>
++
++#include "base/containers/circular_deque.h"
++#include "base/containers/flat_map.h"
++#include "base/files/scoped_file.h"
++#include "base/memory/raw_ptr.h"
++#include "base/threading/thread_checker.h"
++#include "gpu/command_buffer/service/ohos/native_image_texture_owner.h"
++#include "gpu/command_buffer/service/ref_counted_lock.h"
++#include "gpu/gpu_gles2_export.h"
++#include "ui/gl/gl_fence_egl.h"
++#include "ui/gl/ohos/ohos_native_image.h"
++
++namespace gpu {
++struct OhosWindowBuffer;
++class AbstractTextureOHOS;
++class ScopedNativeBufferFenceSync;
++class TextureBase;
++
++class GPU_GLES2_EXPORT HwVideoNativeBufferGLOwner
++    : public NativeImageTextureOwner,
++      public RefCountedLockHelperDrDc {
++ public:
++  HwVideoNativeBufferGLOwner(const HwVideoNativeBufferGLOwner&) = delete;
++  HwVideoNativeBufferGLOwner& operator=(const HwVideoNativeBufferGLOwner&) =
++      delete;
++
++  gl::GLContext* GetContext() const override;
++  gl::GLSurface* GetSurface() const override;
++  void SetFrameAvailableCallback(
++      const base::RepeatingClosure& frame_available_cb) override;
++  void UpdateNativeImage() override;
++  std::unique_ptr<ScopedNativeBufferFenceSync> GetNativeBuffer() override;
++  bool GetCodedSizeAndVisibleRect(gfx::Size rotated_visible_size,
++                                  gfx::Size* coded_size,
++                                  gfx::Rect* visible_rect) override;
++
++  void RunWhenBufferIsAvailable(base::OnceClosure callback) override;
++
++  void* AquireOhosNativeWindow() const override;
++
++  void EnsureNativeImageBound(GLuint service_id) override;
++
++  void ReleaseNativeImage() override;
++
++ protected:
++  void ReleaseResources() override;
++
++ private:
++  friend class NativeImageTextureOwner;
++  class ScopedNativeBufferImpl;
++
++  // Manages ownership of the latest image retrieved from gl::OhosNativeImage
++  // and ensuring synchronization of its use in GL using fences.
++  class ScopedCurrentImageRef {
++   public:
++    ScopedCurrentImageRef(HwVideoNativeBufferGLOwner* texture_owner,
++                          OhosWindowBuffer* image,
++                          base::ScopedFD ready_fence);
++
++    ScopedCurrentImageRef(const ScopedCurrentImageRef&) = delete;
++    ScopedCurrentImageRef& operator=(const ScopedCurrentImageRef&) = delete;
++
++    ~ScopedCurrentImageRef();
++    OhosWindowBuffer* image() const { return image_; }
++    base::ScopedFD GetReadyFence() const;
++
++   private:
++    raw_ptr<HwVideoNativeBufferGLOwner> texture_owner_;
++    raw_ptr<OhosWindowBuffer> image_;
++    base::ScopedFD ready_fence_;
++  };
++
++  HwVideoNativeBufferGLOwner(std::unique_ptr<AbstractTextureOHOS> texture,
++                             scoped_refptr<SharedContextState> context_state,
++                             scoped_refptr<RefCountedLock> drdc_lock);
++  ~HwVideoNativeBufferGLOwner() override;
++
++  // Registers and releases a ref on the image. Once the ref-count for an image
++  // goes to 0, it is released back to the gl::OhosNativeImage with an optional
++  // release fence if needed.
++  void RegisterRefOnImageLocked(OhosWindowBuffer* image);
++  void ReleaseRefOnImageLocked(OhosWindowBuffer* image,
++                               base::ScopedFD fence_fd);
++
++  // This method acquires |lock_| and calls ReleaseRefOnImageLocked().
++  void ReleaseRefOnImage(OhosWindowBuffer* image, base::ScopedFD fence_fd);
++
++  // All members which can be concurrently accessed from multiple threads will
++  // be guarded by |lock_|.
++  mutable base::Lock lock_;
++
++  // This works like a cached image until next new image is acquired which
++  // overwrites this.
++  std::optional<ScopedCurrentImageRef> current_image_ref_ GUARDED_BY(lock_);
++
++  // A map consisting of pending refs on an AImage. If an image has any refs, it
++  // is automatically released once the ref-count is 0.
++  struct ImageRef {
++    ImageRef();
++
++    ImageRef(const ImageRef&) = delete;
++    ImageRef& operator=(const ImageRef&) = delete;
++
++    ~ImageRef();
++
++    ImageRef(ImageRef&& other);
++    ImageRef& operator=(ImageRef&& other);
++
++    size_t count = 0u;
++    base::ScopedFD release_fence_fd;
++  };
++  using AImageRefMap = base::flat_map<OhosWindowBuffer*, ImageRef>;
++  AImageRefMap image_refs_ GUARDED_BY(lock_);
++
++  // reference to the class instance which is used to dynamically
++  // load the functions in ohos libraries at runtime.
++  scoped_refptr<gl::OhosNativeImage> loader_;
++
++  // The context and surface that were used to create |texture_id_|.
++  scoped_refptr<gl::GLContext> context_;
++  scoped_refptr<gl::GLSurface> surface_;
++  int32_t max_images_ = 0;
++
++  // Runs when free buffer is available.
++  base::OnceClosure buffer_available_cb_ GUARDED_BY(lock_);
++
++  bool is_frame_available_callback_set_ = false;
++
++  // This class is created on gpu main thread.
++  THREAD_CHECKER(gpu_main_thread_checker_);
++};
++
++}  // namespace gpu
++
++#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_GL_OWNER_H_
+diff --git a/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.cc b/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.cc
+new file mode 100644
+index 0000000000..e9bbbf6a0d
+--- /dev/null
++++ b/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.cc
+@@ -0,0 +1,272 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++// Adapted from ArkWeb 144 hw_video_native_buffer_image_backing.cc for the
++// public OHOS NDK and Chromium 158 GL representation interfaces.
++#include "gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.h"
++
++#include "base/functional/bind.h"
++#include "base/task/bind_post_task.h"
++#include "gpu/command_buffer/service/abstract_texture_ohos.h"
++#include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
++#include "gpu/command_buffer/service/stream_texture_shared_image_interface.h"
++#include "gpu/command_buffer/service/texture_manager.h"
++#include "native_window/external_window.h"
++#include "ui/gl/android/egl_fence_utils.h"
++#include "ui/gl/scoped_binders.h"
++#include "ui/gl/scoped_egl_image.h"
++
++namespace gpu {
++namespace {
++// EGL_OHOS_image_native_buffer, defined by the public OHOS EGL extension.
++constexpr EGLenum kEglNativeBufferOhos = 0x34E1;
++// Each representation owns a context-local external texture. Only the native
++// buffer and its fences cross GPU threads; an EGLContext never changes threads.
++class NativeBufferReadAccess : public RefCountedLockHelperDrDc {
++ public:
++  explicit NativeBufferReadAccess(scoped_refptr<RefCountedLock> lock)
++      : RefCountedLockHelperDrDc(std::move(lock)) {}
++  bool Begin(StreamTextureSharedImageInterface* stream, GLuint service_id) {
++    {
++      auto lock = GetScopedDrDcLock();
++      buffer_ = stream->GetNativeBuffer();
++    }
++    if (!buffer_ || !buffer_->buffer()) {
++      return false;
++    }
++    if (!gl::InsertEglFenceAndWait(buffer_->TakeFence())) {
++      Reset();
++      return false;
++    }
++    auto* client = OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(
++        buffer_->buffer());
++    if (!client) {
++      Reset();
++      return false;
++    }
++    auto image =
++        gl::MakeScopedEGLImage(EGL_NO_CONTEXT, kEglNativeBufferOhos,
++                               static_cast<EGLClientBuffer>(client), nullptr);
++    OH_NativeWindow_DestroyNativeWindowBuffer(client);
++    if (!image.is_valid()) {
++      LOG(ERROR) << "DrDc video: NativeBuffer EGLImage import failed";
++      Reset();
++      return false;
++    }
++    gl::ScopedTextureBinder bind(GL_TEXTURE_EXTERNAL_OES, service_id);
++    glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image.get());
++    return true;
++  }
++  void End() {
++    if (!buffer_) {
++      return;
++    }
++    auto fence = gl::CreateEglFenceAndExportFd();
++    // Do not return a buffer to the decoder until queued GPU reads complete.
++    if (!fence.is_valid()) {
++      glFinish();
++    }
++    buffer_->SetReadFence(std::move(fence));
++    Reset();
++  }
++
++ private:
++  void Reset() {
++    auto lock = GetScopedDrDcLock();
++    buffer_.reset();
++  }
++  std::unique_ptr<ScopedNativeBufferFenceSync> buffer_;
++};
++}  // namespace
++
++HwVideoNativeBufferImageBacking::HwVideoNativeBufferImageBacking(
++    const Mailbox& mailbox,
++    const gfx::Size& size,
++    const gfx::ColorSpace color_space,
++    GrSurfaceOrigin origin,
++    SkAlphaType alpha_type,
++    scoped_refptr<StreamTextureSharedImageInterface> stream,
++    scoped_refptr<SharedContextState> context,
++    scoped_refptr<RefCountedLock> lock)
++    : SharedImageVideoOhos(mailbox,
++                           size,
++                           color_space,
++                           origin,
++                           alpha_type,
++                           !!lock),
++      RefCountedLockHelperDrDc(std::move(lock)),
++      stream_texture_sii_(std::move(stream)),
++      gpu_main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {
++  context_lost_helper_ = std::make_unique<ContextLostObserverHelper>(
++      std::move(context), stream_texture_sii_, gpu_main_task_runner_,
++      GetDrDcLock());
++}
++HwVideoNativeBufferImageBacking::~HwVideoNativeBufferImageBacking() {
++  if (!gpu_main_task_runner_->RunsTasksInCurrentSequence()) {
++    gpu_main_task_runner_->PostTask(
++        FROM_HERE,
++        base::BindOnce(
++            [](std::unique_ptr<ContextLostObserverHelper> helper,
++               scoped_refptr<StreamTextureSharedImageInterface> stream) {
++              stream.reset();
++              helper.reset();
++            },
++            std::move(context_lost_helper_), std::move(stream_texture_sii_)));
++  }
++}
++size_t HwVideoNativeBufferImageBacking::GetEstimatedSizeForMemoryDump() const {
++  return GetEstimatedSize();
++}
++class HwVideoNativeBufferImageBacking::GLTextureVideoImageRepresentation
++    : public GLTextureImageRepresentation {
++ public:
++  GLTextureVideoImageRepresentation(
++      SharedImageManager* manager,
++      HwVideoNativeBufferImageBacking* backing,
++      MemoryTypeTracker* tracker,
++      std::unique_ptr<AbstractTextureOHOS> texture,
++      scoped_refptr<RefCountedLock> lock)
++      : GLTextureImageRepresentation(manager, backing, tracker),
++        texture_(std::move(texture)),
++        access_(std::move(lock)) {}
++  ~GLTextureVideoImageRepresentation() override {
++    if (!has_context()) {
++      texture_->NotifyOnContextLost();
++    }
++  }
++  gles2::Texture* GetTexture(size_t plane_index) override {
++    return gles2::Texture::CheckedCast(texture_->GetTextureBase());
++  }
++  bool BeginAccess(GLenum mode) override {
++    DCHECK_EQ(mode, GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
++    return access_.Begin(
++        static_cast<HwVideoNativeBufferImageBacking*>(backing())
++            ->stream_texture_sii_.get(),
++        texture_->service_id());
++  }
++  void EndAccess() override { access_.End(); }
++
++ private:
++  std::unique_ptr<AbstractTextureOHOS> texture_;
++  NativeBufferReadAccess access_;
++};
++class HwVideoNativeBufferImageBacking::
++    GLTexturePassthroughVideoImageRepresentation
++    : public GLTexturePassthroughImageRepresentation {
++ public:
++  GLTexturePassthroughVideoImageRepresentation(
++      SharedImageManager* manager,
++      HwVideoNativeBufferImageBacking* backing,
++      MemoryTypeTracker* tracker,
++      std::unique_ptr<AbstractTextureOHOS> texture,
++      scoped_refptr<RefCountedLock> lock)
++      : GLTexturePassthroughImageRepresentation(manager, backing, tracker),
++        texture_(std::move(texture)),
++        passthrough_(
++            gles2::TexturePassthrough::CheckedCast(texture_->GetTextureBase())),
++        access_(std::move(lock)) {}
++  ~GLTexturePassthroughVideoImageRepresentation() override {
++    if (!has_context()) {
++      texture_->NotifyOnContextLost();
++    }
++  }
++  const scoped_refptr<gles2::TexturePassthrough>& GetTexturePassthrough(
++      size_t plane_index) override {
++    return passthrough_;
++  }
++  bool BeginAccess(GLenum mode) override {
++    DCHECK_EQ(mode, GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM);
++    return access_.Begin(
++        static_cast<HwVideoNativeBufferImageBacking*>(backing())
++            ->stream_texture_sii_.get(),
++        texture_->service_id());
++  }
++  void EndAccess() override { access_.End(); }
++
++ private:
++  std::unique_ptr<AbstractTextureOHOS> texture_;
++  scoped_refptr<gles2::TexturePassthrough> passthrough_;
++  NativeBufferReadAccess access_;
++};
++std::unique_ptr<GLTextureImageRepresentation>
++HwVideoNativeBufferImageBacking::ProduceGLTexture(SharedImageManager* manager,
++                                                  MemoryTypeTracker* tracker) {
++  auto lock = GetScopedDrDcLock();
++  if (!stream_texture_sii_->HasTextureOwner()) {
++    return nullptr;
++  }
++  return std::make_unique<GLTextureVideoImageRepresentation>(
++      manager, this, tracker, GenAbstractTexture(false), GetDrDcLock());
++}
++std::unique_ptr<GLTexturePassthroughImageRepresentation>
++HwVideoNativeBufferImageBacking::ProduceGLTexturePassthrough(
++    SharedImageManager* manager,
++    MemoryTypeTracker* tracker) {
++  auto lock = GetScopedDrDcLock();
++  if (!stream_texture_sii_->HasTextureOwner()) {
++    return nullptr;
++  }
++  return std::make_unique<GLTexturePassthroughVideoImageRepresentation>(
++      manager, this, tracker, GenAbstractTexture(true), GetDrDcLock());
++}
++std::unique_ptr<SkiaGaneshImageRepresentation>
++HwVideoNativeBufferImageBacking::ProduceSkiaGanesh(
++    SharedImageManager* manager,
++    MemoryTypeTracker* tracker,
++    scoped_refptr<SharedContextState> context_state) {
++  if (!context_state || !context_state->GrContextIsGL()) {
++    return nullptr;
++  }
++  auto gl_representation = ProduceGLTexture(manager, tracker);
++  if (!gl_representation) {
++    return nullptr;
++  }
++  return SkiaGLImageRepresentation::Create(std::move(gl_representation),
++                                           std::move(context_state), manager,
++                                           this, tracker);
++}
++HwVideoNativeBufferImageBacking::ContextLostObserverHelper::
++    ContextLostObserverHelper(
++        scoped_refptr<SharedContextState> context_state,
++        scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii,
++        scoped_refptr<base::SingleThreadTaskRunner> gpu_main_task_runner,
++        scoped_refptr<RefCountedLock> drdc_lock)
++    : RefCountedLockHelperDrDc(std::move(drdc_lock)),
++      context_state_(std::move(context_state)),
++      stream_texture_sii_(std::move(stream_texture_sii)),
++      gpu_main_task_runner_(std::move(gpu_main_task_runner)) {
++  DCHECK(context_state_);
++  DCHECK(stream_texture_sii_);
++
++  context_state_->AddContextLostObserver(this);
++}
++
++HwVideoNativeBufferImageBacking::ContextLostObserverHelper::
++    ~ContextLostObserverHelper() {
++  DCHECK(gpu_main_task_runner_->RunsTasksInCurrentSequence());
++
++  if (context_state_) {
++    context_state_->RemoveContextLostObserver(this);
++  }
++  {
++    base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
++    stream_texture_sii_->ReleaseResources();
++    stream_texture_sii_.reset();
++  }
++}
++
++// SharedContextState::ContextLostObserver implementation.
++void HwVideoNativeBufferImageBacking::ContextLostObserverHelper::
++    OnContextLost() {
++  DCHECK(gpu_main_task_runner_->RunsTasksInCurrentSequence());
++  base::AutoLockMaybe auto_lock(GetDrDcLockPtr());
++
++  // We release codec buffers when shared image context is lost. This is
++  // because texture owner's texture was created on shared context. Once
++  // shared context is lost, no one should try to use that texture.
++  stream_texture_sii_->ReleaseResources();
++  context_state_->RemoveContextLostObserver(this);
++  context_state_ = nullptr;
++}
++
++}  // namespace gpu
+diff --git a/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.h b/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.h
+new file mode 100644
+index 0000000000..ff781cc87c
+--- /dev/null
++++ b/gpu/command_buffer/service/ohos/hw_video_native_buffer_image_backing.h
+@@ -0,0 +1,96 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++// Based on shared_image_video_image_reader.h originally written by
++// Copyright (c) 2012 The Chromium Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_IMAGE_BACKING_H_
++#define GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_IMAGE_BACKING_H_
++
++#include "base/memory/scoped_refptr.h"
++#include "base/task/single_thread_task_runner.h"
++#include "gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h"
++#include "gpu/command_buffer/service/ohos/shared_image_video_ohos.h"
++#include "gpu/command_buffer/service/ref_counted_lock.h"
++#include "gpu/command_buffer/service/shared_context_state.h"
++#include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
++#include "gpu/gpu_gles2_export.h"
++
++namespace gpu {
++
++class HwVideoNativeBufferImageBacking : public SharedImageVideoOhos,
++                                        public RefCountedLockHelperDrDc {
++ public:
++  HwVideoNativeBufferImageBacking(
++      const Mailbox& mailbox,
++      const gfx::Size& size,
++      const gfx::ColorSpace color_space,
++      GrSurfaceOrigin surface_origin,
++      SkAlphaType alpha_type,
++      scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii,
++      scoped_refptr<SharedContextState> shared_context_state,
++      scoped_refptr<RefCountedLock> drdc_lock);
++
++  ~HwVideoNativeBufferImageBacking() override;
++
++  HwVideoNativeBufferImageBacking(const HwVideoNativeBufferImageBacking&) =
++      delete;
++  HwVideoNativeBufferImageBacking& operator=(
++      const HwVideoNativeBufferImageBacking&) = delete;
++
++  // SharedImageBacking implementation.
++  size_t GetEstimatedSizeForMemoryDump() const override;
++
++ protected:
++  std::unique_ptr<GLTextureImageRepresentation> ProduceGLTexture(
++      SharedImageManager* manager,
++      MemoryTypeTracker* tracker) override;
++
++  std::unique_ptr<GLTexturePassthroughImageRepresentation>
++  ProduceGLTexturePassthrough(SharedImageManager* manager,
++                              MemoryTypeTracker* tracker) override;
++
++  std::unique_ptr<SkiaGaneshImageRepresentation> ProduceSkiaGanesh(
++      SharedImageManager* manager,
++      MemoryTypeTracker* tracker,
++      scoped_refptr<SharedContextState> context_state) override;
++
++ private:
++  // Helper class for observing SharedContext loss on gpu main thread and
++  // cleaning up resources accordingly.
++  class ContextLostObserverHelper
++      : public SharedContextState::ContextLostObserver,
++        public RefCountedLockHelperDrDc {
++   public:
++    ContextLostObserverHelper(
++        scoped_refptr<SharedContextState> context_state,
++        scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii,
++        scoped_refptr<base::SingleThreadTaskRunner> gpu_main_task_runner,
++        scoped_refptr<RefCountedLock> drdc_lock);
++    ~ContextLostObserverHelper() override;
++
++   private:
++    // SharedContextState::ContextLostObserver implementation.
++    void OnContextLost() override;
++
++    scoped_refptr<SharedContextState> context_state_;
++    scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii_;
++    scoped_refptr<base::SingleThreadTaskRunner> gpu_main_task_runner_;
++  };
++
++  class GLTextureVideoImageRepresentation;
++  class GLTexturePassthroughVideoImageRepresentation;
++
++  std::unique_ptr<ContextLostObserverHelper> context_lost_helper_;
++  scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii_;
++
++  // Currently this object is created only from gpu main thread.
++  scoped_refptr<base::SingleThreadTaskRunner> gpu_main_task_runner_;
++};
++
++}  // namespace gpu
++
++#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_HW_VIDEO_NATIVE_BUFFER_IMAGE_BACKING_H_
+diff --git a/gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h b/gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h
+new file mode 100644
+index 0000000000..29a0b23092
+--- /dev/null
++++ b/gpu/command_buffer/service/ohos/scoped_native_buffer_fence_sync.h
+@@ -0,0 +1,58 @@
++// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef GPU_COMMAND_BUFFER_SERVICE_OHOS_SCOPED_NATIVE_BUFFER_FENCE_SYNC_H_
++#define GPU_COMMAND_BUFFER_SERVICE_OHOS_SCOPED_NATIVE_BUFFER_FENCE_SYNC_H_
++#include <utility>
++
++#include "base/files/scoped_file.h"
++#include "gpu/gpu_gles2_export.h"
++#include "native_buffer/native_buffer.h"
++using OHOSNativeBuffer = OH_NativeBuffer*;
++namespace gpu {
++class GPU_GLES2_EXPORT ScopedNativeBufferHandle {
++ public:
++  ScopedNativeBufferHandle() = default;
++  ScopedNativeBufferHandle(ScopedNativeBufferHandle&& other)
++      : buffer_(std::exchange(other.buffer_, nullptr)) {}
++  ScopedNativeBufferHandle& operator=(ScopedNativeBufferHandle&& other) {
++    if (this != &other) {
++      reset();
++      buffer_ = std::exchange(other.buffer_, nullptr);
++    }
++    return *this;
++  }
++  ~ScopedNativeBufferHandle() { reset(); }
++  static ScopedNativeBufferHandle Create(OHOSNativeBuffer buffer) {
++    ScopedNativeBufferHandle result;
++    if (buffer && OH_NativeBuffer_Reference(buffer) == 0) {
++      result.buffer_ = buffer;
++    }
++    return result;
++  }
++  OHOSNativeBuffer get() const { return buffer_; }
++
++ private:
++  void reset() {
++    if (buffer_) {
++      OH_NativeBuffer_Unreference(std::exchange(buffer_, nullptr));
++    }
++  }
++  OHOSNativeBuffer buffer_ = nullptr;
++};
++class GPU_GLES2_EXPORT ScopedNativeBufferFenceSync {
++ public:
++  ScopedNativeBufferFenceSync(ScopedNativeBufferHandle handle,
++                              base::ScopedFD fence_fd)
++      : handle_(std::move(handle)), fence_fd_(std::move(fence_fd)) {}
++  virtual ~ScopedNativeBufferFenceSync() = default;
++  OHOSNativeBuffer buffer() const { return handle_.get(); }
++  base::ScopedFD TakeFence() { return std::move(fence_fd_); }
++  virtual void SetReadFence(base::ScopedFD fence_fd) = 0;
++
++ private:
++  ScopedNativeBufferHandle handle_;
++  base::ScopedFD fence_fd_;
++};
++}  // namespace gpu
++#endif
+diff --git a/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc
+new file mode 100644
+index 0000000000..3d29ade653
+--- /dev/null
++++ b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.cc
+@@ -0,0 +1,114 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#include "gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.h"
++
++#include <dawn/native/VulkanBackend.h>
++#include <native_buffer/native_buffer.h>
++#include <unistd.h>
++
++#include "base/trace_event/trace_event.h"
++#include "gpu/command_buffer/service/shared_context_state.h"
++#include "gpu/command_buffer/service/shared_image/egl_image_backing.h"
++#include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
++#include "ui/gl/android/egl_fence_utils.h"
++#include "ui/gl/gl_bindings.h"
++namespace gpu {
++DawnOHOSNativeBufferImageRepresentation::
++    DawnOHOSNativeBufferImageRepresentation(
++        SharedImageManager* manager,
++        EGLImageBacking* backing,
++        MemoryTypeTracker* tracker,
++        const wgpu::Device& device,
++        std::vector<wgpu::TextureFormat> view_formats,
++        std::unique_ptr<GLTextureImageRepresentationBase> gl_representation,
++        OH_NativeBuffer* buffer,
++        scoped_refptr<SharedContextState> context_state)
++    : DawnImageRepresentation(manager, backing, tracker),
++      egl_backing_(backing),
++      device_(device),
++      view_formats_(std::move(view_formats)),
++      gl_representation_(std::move(gl_representation)),
++      native_buffer_(buffer),
++      context_state_(std::move(context_state)) {
++  OH_NativeBuffer_Reference(native_buffer_);
++}
++DawnOHOSNativeBufferImageRepresentation::
++    ~DawnOHOSNativeBufferImageRepresentation() {
++  EndAccess();
++  OH_NativeBuffer_Unreference(native_buffer_);
++}
++wgpu::Texture DawnOHOSNativeBufferImageRepresentation::BeginAccess(
++    wgpu::TextureUsage usage,
++    wgpu::TextureUsage internal_usage) {
++  TRACE_EVENT1("gpu", "OHOSWebGPU.NativeBuffer.BeginAccess", "resource",
++               debug_label());
++  if (!context_state_ || !context_state_->MakeCurrent(nullptr, true) ||
++      !egl_backing_->BeginWrite()) {
++    return nullptr;
++  }
++  auto acquire = gl::CreateEglFenceAndExportFd();
++  if (!acquire.is_valid()) {
++    // An unavailable export can be synchronized by completing GL work. This
++    // waits for the GPU but still shares the same storage without pixel copies.
++    gl::g_current_gl_context->glFinishFn();
++  }
++  wgpu::TextureDescriptor descriptor;
++  descriptor.label = "OHOS NativeBuffer zero-copy";
++  descriptor.format = ToDawnFormat(format());
++  descriptor.usage = usage;
++  descriptor.size = {static_cast<uint32_t>(size().width()),
++                     static_cast<uint32_t>(size().height()), 1};
++  descriptor.viewFormatCount = view_formats_.size();
++  descriptor.viewFormats = view_formats_.data();
++  wgpu::DawnTextureInternalUsageDescriptor internal;
++  internal.internalUsage = internal_usage;
++  descriptor.nextInChain = &internal;
++  dawn::native::vulkan::ExternalImageDescriptorOHOSNativeBuffer external;
++  external.cTextureDescriptor =
++      reinterpret_cast<WGPUTextureDescriptor*>(&descriptor);
++  external.handle = native_buffer_;
++  external.isInitialized = IsCleared();
++  external.releasedOldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
++  external.releasedNewLayout = VK_IMAGE_LAYOUT_UNDEFINED;
++  if (acquire.is_valid()) {
++    external.waitFDs.push_back(acquire.get());
++  }
++  texture_ = wgpu::Texture::Acquire(
++      dawn::native::vulkan::WrapVulkanImage(device_.Get(), &external));
++  if (texture_) {
++    (void)acquire.release();  // Dawn consumed the fd on successful import.
++  } else {
++    egl_backing_->EndWrite();
++    LOG(ERROR) << "OHOS WebGPU NativeBuffer Vulkan import failed";
++  }
++  return texture_;
++}
++void DawnOHOSNativeBufferImageRepresentation::EndAccess() {
++  if (!texture_) {
++    return;
++  }
++  TRACE_EVENT0("gpu", "OHOSWebGPU.NativeBuffer.EndAccess");
++  dawn::native::vulkan::ExternalImageExportInfoOHOSNativeBuffer info;
++  bool exported =
++      dawn::native::vulkan::ExportVulkanImage(texture_.Get(), &info);
++  bool current = context_state_->MakeCurrent(nullptr, true);
++  bool waited = exported && current;
++  for (int fd : info.semaphoreHandles) {
++    base::ScopedFD release(fd);
++    if (current) {
++      waited &= gl::InsertEglFenceAndWait(std::move(release));
++    }
++  }
++  if (waited && info.isInitialized) {
++    SetCleared();
++  }
++  if (!waited) {
++    LOG(ERROR) << "OHOS WebGPU NativeBuffer release synchronization failed";
++  }
++  texture_ = nullptr;
++  if (current) {
++    egl_backing_->EndWrite();
++  }
++}
++}  // namespace gpu
+diff --git a/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.h b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.h
+new file mode 100644
+index 0000000000..b4dbec6060
+--- /dev/null
++++ b/gpu/command_buffer/service/shared_image/dawn_ohos_native_buffer_image_representation.h
+@@ -0,0 +1,38 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef GPU_COMMAND_BUFFER_SERVICE_SHARED_IMAGE_DAWN_OHOS_NATIVE_BUFFER_IMAGE_REPRESENTATION_H_
++#define GPU_COMMAND_BUFFER_SERVICE_SHARED_IMAGE_DAWN_OHOS_NATIVE_BUFFER_IMAGE_REPRESENTATION_H_
++#include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
++struct OH_NativeBuffer;
++namespace gpu {
++class EGLImageBacking;
++// Vulkan and EGL import the same allocation; fence fds carry ownership across
++// the GPU main and display compositor threads. No CPU pixel staging is used.
++class DawnOHOSNativeBufferImageRepresentation final
++    : public DawnImageRepresentation {
++ public:
++  DawnOHOSNativeBufferImageRepresentation(
++      SharedImageManager*,
++      EGLImageBacking*,
++      MemoryTypeTracker*,
++      const wgpu::Device&,
++      std::vector<wgpu::TextureFormat>,
++      std::unique_ptr<GLTextureImageRepresentationBase>,
++      OH_NativeBuffer*,
++      scoped_refptr<SharedContextState>);
++  ~DawnOHOSNativeBufferImageRepresentation() override;
++
++ private:
++  wgpu::Texture BeginAccess(wgpu::TextureUsage, wgpu::TextureUsage) override;
++  void EndAccess() override;
++  raw_ptr<EGLImageBacking> egl_backing_;
++  wgpu::Device device_;
++  std::vector<wgpu::TextureFormat> view_formats_;
++  std::unique_ptr<GLTextureImageRepresentationBase> gl_representation_;
++  raw_ptr<OH_NativeBuffer> native_buffer_;
++  scoped_refptr<SharedContextState> context_state_;
++  wgpu::Texture texture_;
++};
++}  // namespace gpu
++#endif
