@@ -1,0 +1,41 @@
+diff --git a/media/gpu/ohos/ohos_video_decoder.cc b/media/gpu/ohos/ohos_video_decoder.cc
+index ad67005107..4a2c37f3bd 100644
+--- a/media/gpu/ohos/ohos_video_decoder.cc
++++ b/media/gpu/ohos/ohos_video_decoder.cc
+@@ -318,8 +318,14 @@ void OhosVideoDecoder::OnVideoFrameFactoryInitialized(
+     EnterTerminalState(State::kError, "Could not allocated TextureOwner");
+     return;
+   }
+-  texture_owner_bundle_ =
+-      new CodecSurfaceBundle(std::move(texture_owner), GetDrDcLock());
++  // CodecSurfaceBundle derives from base::RefCountedDeleteOnSequence, whose
++  // reference count starts at 1 (StartRefCountFromOneTag). The first scoped_refptr
++  // must therefore be created with base::AdoptRef(); assigning a raw new to a
++  // scoped_refptr adds a second reference that is never released, so the bundle
++  // would never be destroyed and neither would the OH_NativeImage owned by its
++  // texture owner.
++  texture_owner_bundle_ = base::AdoptRef(
++      new CodecSurfaceBundle(std::move(texture_owner), GetDrDcLock()));
+ 
+   OnSurfaceChosen();
+ }
+diff --git a/gpu/command_buffer/service/ohos/native_image_texture_owner.cc b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
+index 341cd37f61..353bb5ac53 100644
+--- a/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
++++ b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
+@@ -109,8 +109,13 @@ scoped_refptr<NativeImageTextureOwner> NativeImageTextureOwner::Create(
+     scoped_refptr<SharedContextState> context_state,
+     Mode mode) {
+   auto texture = CreateTexture(context_state.get());
+-  return new NativeImageTextureGlOwner(std::move(texture),
+-                                       std::move(context_state));
++  // Same reason as CodecSurfaceBundle above: NativeImageTextureOwner is a
++  // base::RefCountedDeleteOnSequence (refcount starts at 1), so the returned
++  // scoped_refptr must adopt the initial reference. Otherwise the owner is
++  // never destroyed, its GL texture is never deleted, and the driver keeps the
++  // dma-buf of the last bound EGLImage alive after every playback.
++  return base::AdoptRef(new NativeImageTextureGlOwner(std::move(texture),
++                                                     std::move(context_state)));
+ }
+ 
+ GLuint NativeImageTextureOwner::GetTextureId() const {
