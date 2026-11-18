@@ -83,11 +83,10 @@
        if (this.checkVirtualId(data)) {
 --- a/web_engine/src/main/ets/utils/CmdArgsHelper.ets
 +++ b/web_engine/src/main/ets/utils/CmdArgsHelper.ets
-@@ -57,6 +57,6 @@
+@@ -57,5 +57,6 @@
      "--enable-features=UseOzonePlatform",
      "--ozone-platform=ohos",
      "--enable-logging",
 +    "--ohos-enable-hdr",
      "--no-zygote",
      "--disable-gpu-watchdog",
--    "--ohos-refresh-rate=144",

@@ -1,0 +1,15 @@
+diff --git a/chromium/src/main/resources/dark/element/color.json b/chromium/src/main/resources/dark/element/color.json
+new file mode 100644
+index 0000000..438d5bc
+--- /dev/null
++++ b/chromium/src/main/resources/dark/element/color.json
+@@ -0,0 +1,8 @@
++{
++  "color": [
++    {
++      "name": "start_window_background",
++      "value": "#000000"
++    }
++  ]
++}
+\ No newline at end of file
