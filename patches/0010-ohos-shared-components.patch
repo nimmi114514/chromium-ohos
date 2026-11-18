@@ -128600,10 +128600,9 @@ index 0000000000..8ff2638870
 +#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_NATIVE_IMAGE_SURFACE_TEXTURE_GL_OWNER_H_
 diff --git a/gpu/command_buffer/service/ohos/native_image_texture_owner.cc b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
 new file mode 100644
-index 0000000000..a0d8e76d3f
 --- /dev/null
 +++ b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,139 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -128719,10 +128718,11 @@ index 0000000000..a0d8e76d3f
 +    scoped_refptr<RefCountedLock> drdc_lock) {
 +  auto texture = CreateTexture(context_state.get());
 +  if (mode == Mode::kOhosNativeBuffer) {
-+    return new HwVideoNativeBufferGLOwner(std::move(texture), std::move(context_state), std::move(drdc_lock));
++    return base::AdoptRef(new HwVideoNativeBufferGLOwner(
++        std::move(texture), std::move(context_state), std::move(drdc_lock)));
 +  }
-+  return new NativeImageTextureGlOwner(std::move(texture),
-+                                       std::move(context_state));
++  return base::AdoptRef(new NativeImageTextureGlOwner(std::move(texture),
++                                                    std::move(context_state)));
 +}
 +
 +std::unique_ptr<ScopedNativeBufferFenceSync> NativeImageTextureOwner::GetNativeBuffer() { return nullptr; }
@@ -147540,7 +147540,6 @@ index 0000000000..5c013d9288
 +#endif  // MEDIA_GPU_OHOS_FRAME_INFO_HELPER_H_
 diff --git a/media/gpu/ohos/ohos_video_decoder.cc b/media/gpu/ohos/ohos_video_decoder.cc
 new file mode 100644
-index 0000000000..ad67005107
 --- /dev/null
 +++ b/media/gpu/ohos/ohos_video_decoder.cc
 @@ -0,0 +1,783 @@
@@ -147864,8 +147863,8 @@ index 0000000000..ad67005107
 +    EnterTerminalState(State::kError, "Could not allocated TextureOwner");
 +    return;
 +  }
-+  texture_owner_bundle_ =
-+      new CodecSurfaceBundle(std::move(texture_owner), GetDrDcLock());
++  texture_owner_bundle_ = base::AdoptRef(
++      new CodecSurfaceBundle(std::move(texture_owner), GetDrDcLock()));
 +
 +  OnSurfaceChosen();
 +}
