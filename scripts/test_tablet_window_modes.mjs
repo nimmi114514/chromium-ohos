@@ -68,7 +68,8 @@ function fixture(mode, deviceType='tablet', pc=false) {
     context:{},getWebappInfo:()=>Promise.resolve(),needDarkMode:()=>false,getContentPath:()=>'',
     initStatus:status.MAXIMIZE,deviceInfoAdapter:{isNormalWindowMode:()=>true,registerDeviceModeChange(){}},
     nativeContext:{OnWindowRectChange:(_id,rect)=>rects.push(rect),OnAvoidAreaChangeCallback(){}},
-    displayAdapter:{setStatusBarHeight(){},availableAreaUpdateByStatusBar(){}},updateAvoidAreaStatus(value){immersion.push(value);}});
+    displayAdapter:{setStatusBarHeight(){},availableAreaUpdateByStatusBar(){}},updateAvoidAreaStatus(value){immersion.push(value);},
+    syncSystemBarWithWindowStatus(){immersion.push(mode===status.FULL_SCREEN||mode===status.MAXIMIZE);}});
   ability.onWindowStageCreate({setWindowRectAutoSave(){},getMainWindow:cb=>cb({code:0},mock),
     on(){},getMainWindowSync:()=>mock,loadContent(){}});
   return {ability,mock,listeners,rects,immersion,maximizes:()=>maximizes};
