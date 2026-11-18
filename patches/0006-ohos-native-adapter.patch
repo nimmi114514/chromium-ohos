@@ -29649,10 +29649,10 @@ index 0000000000..354500932f
 +#endif  // OHOS_ADAPTER_APP_WINDOW_SYSTEM_FLOATING_WINDOW_ADAPTER_H_
 diff --git a/ohos/adapter/window/window_common.cc b/ohos/adapter/window/window_common.cc
 new file mode 100644
-index 0000000000..70e2ce9279
+index 0000000..68821cf
 --- /dev/null
 +++ b/ohos/adapter/window/window_common.cc
-@@ -0,0 +1,100 @@
+@@ -0,0 +1,101 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -29716,6 +29716,7 @@ index 0000000000..70e2ce9279
 +
 +void WindowInitParameter::SetBackground(uint32_t color_argb) {
 +  background_color = GetRGB(color_argb);
++  background_color_argb = color_argb;
 +}
 +
 +JSBIND_CLASS(WindowLimits) {
@@ -29755,10 +29756,10 @@ index 0000000000..70e2ce9279
 +}  // namespace ohos::adapter::window
 diff --git a/ohos/adapter/window/window_common.h b/ohos/adapter/window/window_common.h
 new file mode 100644
-index 0000000000..2e31f2428f
+index 0000000..24d6639
 --- /dev/null
 +++ b/ohos/adapter/window/window_common.h
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,161 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -29843,6 +29844,9 @@ index 0000000000..2e31f2428f
 +  std::string window_id;
 +  WindowRect bounds;
 +  std::string init_color_argb;
++  // Native surface background ARGB. The string form above drops the
++  // alpha channel, which is fine for ArkUI but not for a surface background.
++  uint32_t init_color_argb_value = 0xFFFFFFFF;
 +  bool hide_title_bar;
 +  bool use_dark_mode;
 +  bool caption_button_visible;
@@ -29893,6 +29897,8 @@ index 0000000000..2e31f2428f
 +  std::string parent_id = "";
 +  // Tells the back ground color of a window.
 +  std::string background_color;
++  // Background ARGB for the native surface, including its alpha channel.
++  uint32_t background_color_argb = 0xFFFFFFFF;
 +  // Whether to hide the system title bar.
 +  bool hide_title_bar = true;
 +  // Specify whether the window is a floating window.
@@ -34728,10 +34734,10 @@ index 0000000000..cfbf88cb53
 +#endif  // OHOS_ADAPTER_XCOMPONENT_XCOMPONENT_DELEGATE_H_
 diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcomponent/xcomponent_manager.cc
 new file mode 100644
-index 0000000000..127a666477
+index 0000000..7ffb73e
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/xcomponent_manager.cc
-@@ -0,0 +1,702 @@
+@@ -0,0 +1,752 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -34785,6 +34791,7 @@ index 0000000000..127a666477
 +namespace ohos::adapter::xcomponent {
 +
 +namespace {
++
 +NewWindowParam ConvertWindowInitParamsToNewParams(
 +    const WindowInitParameter& param) {
 +  NewWindowParam newParam;
@@ -34792,6 +34799,7 @@ index 0000000000..127a666477
 +  newParam.window_id = param.window_id;
 +  newParam.bounds = param.bounds;
 +  newParam.init_color_argb = param.background_color;
++  newParam.init_color_argb_value = param.background_color_argb;
 +  newParam.hide_title_bar = param.hide_title_bar;
 +  newParam.use_dark_mode = param.use_dark_mode;
 +  newParam.caption_button_visible = param.caption_button_visible;
@@ -34859,6 +34867,31 @@ index 0000000000..127a666477
 +  return true;
 +}
 + 
++// Applies |argb| as the ArkUI background color of |node_handle|. Must run on
++// the ArkUI main thread.
++__attribute__((no_sanitize("cfi", "cfi-icall")))
++bool SetNodeHandleBackgroundColor(ArkUI_NodeHandle node_handle,
++                                  const std::string& xcomponent_id,
++                                  uint32_t argb) {
++  ArkUI_NativeNodeAPI_1* node_api = GetNativeNodeAPI();
++  if (node_handle == nullptr || node_api == nullptr) {
++    LOGE("[XComponentManager] %{public}s has no node, skip background",
++         xcomponent_id.c_str());
++    return false;
++  }
++  ArkUI_NumberValue color_value[] = {{.u32 = argb}};
++  ArkUI_AttributeItem color_item = {color_value, 1};
++  auto result =
++      node_api->setAttribute(node_handle, NODE_BACKGROUND_COLOR, &color_item);
++  if (result != ARKUI_ERROR_CODE_NO_ERROR) {
++    LOGE("[XComponentManager] %{public}s set BACKGROUND_COLOR failed, "
++         "res %{public}d",
++         xcomponent_id.c_str(), result);
++    return false;
++  }
++  return true;
++}
++
 +__attribute__((no_sanitize("cfi", "cfi-icall")))
 +bool CreateAndBindNodeHandle(
 +    std::shared_ptr<NodeHandleXComponentImpl> render,
@@ -34938,8 +34971,14 @@ index 0000000000..127a666477
 +void FindOrCreateNodeHandleXComponent(XComponentAttribute attribute) {
 +  std::string xcomponent_id = attribute.xcomponent_id;
 +
-+  if (XComponentManager::GetInstance()->GetNodeHandleXComponent(
-+          xcomponent_id)) {
++  auto existing =
++      XComponentManager::GetInstance()->GetNodeHandleXComponent(xcomponent_id);
++  if (existing) {
++    // The XComponent is reused by a new window. Reset the background to the
++    // window color requested for it: the surface still shows the opaque black
++    // left by the previous window until the first frame of this one is drawn.
++    SetNodeHandleBackgroundColor(existing->GetNodeHandle(), xcomponent_id,
++                                 attribute.background_color);
 +    XComponentManager::GetInstance()->OnXcomponentAvailable(xcomponent_id);
 +    return;
 +  }
@@ -35170,7 +35209,8 @@ index 0000000000..127a666477
 +  if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
 +    std::string create_id = param.window_id;
 +    creating_window_ = create_id;
-+    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow);
++    CreateXComponentViaNodeHandle(create_id, XComponentType::kWindow,
++                                  param.init_color_argb_value);
 +    WaitForXComponentCreated(create_id);
 +    creating_window_.clear();
 +    return create_id;
@@ -35189,7 +35229,8 @@ index 0000000000..127a666477
 +
 +void XComponentManager::CreateXComponentViaNodeHandle(
 +    const std::string& create_id,
-+    XComponentType type) {
++    XComponentType type,
++    uint32_t background_color) {
 +  {
 +    std::lock_guard<std::mutex> lock_protect(window_status_mutex_);
 +    window_status_[create_id] = std::promise<bool>();
@@ -35197,9 +35238,22 @@ index 0000000000..127a666477
 + 
 +  // Create XComponent via NodeHandle
 +  XComponentAttribute attribute = XComponentAttribute{
-+      create_id, type, true, true, 0x00FFFFFF, ARKUI_RENDER_FIT_TOP_LEFT};
++      create_id, type, true, true, background_color,
++      ARKUI_RENDER_FIT_TOP_LEFT};
 +  taskRunner::MainThreadTaskRunner::GetInstance().PostTask(
 +      std::bind(FindOrCreateNodeHandleXComponent, std::move(attribute)));
++}
++
++void XComponentManager::SetNodeHandleXComponentBackgroundColor(
++    const std::string& id,
++    uint32_t argb) {
++  auto it = node_handle_render_map_.find(id);
++  if (it == node_handle_render_map_.end() || !it->second) {
++    LOGW("[XComponentManager] %{public}s is gone, skip background update",
++         id.c_str());
++    return;
++  }
++  SetNodeHandleBackgroundColor(it->second->GetNodeHandle(), id, argb);
 +}
 +
 +void XComponentManager::AddCreatingAbility(const std::string& create_id) {
@@ -35234,8 +35288,9 @@ index 0000000000..127a666477
 +         reuse_window_id.c_str());
 + 
 +    if (nodeHandle::NodeHandleImpl::GetInstance().IsSupportNodeHandle()) {
-+      CreateXComponentViaNodeHandle(reuse_window_id,
-+                                    XComponentType::kSubWindow);
++      CreateXComponentViaNodeHandle(
++          reuse_window_id, XComponentType::kSubWindow,
++          param.init_color_argb_value);
 +      WaitForXComponentCreated(reuse_window_id);
 +    }
 +    return reuse_window_id;
@@ -35265,7 +35320,8 @@ index 0000000000..127a666477
 +std::string XComponentManager::CreateSubWindowViaNodeHandle(
 +    const NewWindowParam& param) {
 +  std::string create_id = param.window_id;
-+  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow);
++  CreateXComponentViaNodeHandle(create_id, XComponentType::kSubWindow,
++                                param.init_color_argb_value);
 +  AddCreatingAbility(create_id);
 +  CreateAbility(param);
 +  WaitForAbilityCreated(create_id);
@@ -35436,10 +35492,10 @@ index 0000000000..127a666477
 +}  // namespace ohos::adapter::xcomponent
 diff --git a/ohos/adapter/xcomponent/xcomponent_manager.h b/ohos/adapter/xcomponent/xcomponent_manager.h
 new file mode 100644
-index 0000000000..98f7868880
+index 0000000..7943942
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/xcomponent_manager.h
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,156 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -35538,6 +35594,16 @@ index 0000000000..98f7868880
 +                                                      const std::string& id,
 +                                                      XComponentType type);
 +  std::shared_ptr<NodeHandleXComponentImpl> GetNodeHandleXComponent(const std::string& id);
++
++  // Sets the ArkUI background color of the NodeHandle XComponent |id|.
++  //
++  // Opaque black passes RenderService's XComponent background-color check;
++  // this does not override its other hardware-composition eligibility checks.
++  // Callers keep the theme color until the first successful presentation.
++  //
++  // Must be called on the ArkUI main thread.
++  void SetNodeHandleXComponentBackgroundColor(const std::string& id,
++                                             uint32_t argb);
 +  void RegisterNodeHandleInputEventCallBack(int32_t widget_id,
 +                                            std::shared_ptr<NodeHandleInputEventCallBack> callback);
 +  bool BindNativeXComponentNode(const std::string& id, ArkUI_NodeContentHandle node_content_handle);
@@ -35560,7 +35626,8 @@ index 0000000000..98f7868880
 +  std::string CreateMainWindowViaNodeHandle(const NewWindowParam& param);
 +  std::string CreateSubWindowViaNodeHandle(const NewWindowParam& param);
 +  void CreateXComponentViaNodeHandle(const std::string& create_id,
-+                                     XComponentType type);
++                                     XComponentType type,
++                                     uint32_t background_color);
 +  void CreateAbility(const NewWindowParam& param);
 +  void WaitForXComponentCreated(std::string& create_id);
 +  void WaitForAbilityCreated(std::string& create_id);

@@ -17037,10 +17037,10 @@ index 0000000000..796bad4760
 \ No newline at end of file
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
 new file mode 100644
-index 0000000000..7e216c8e6b
+index 0000000..ea98c15
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
-@@ -0,0 +1,723 @@
+@@ -0,0 +1,733 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17266,6 +17266,12 @@ index 0000000000..7e216c8e6b
 +  caption_button_visible_ = properties.caption_button_visible;
 +  ability_type_ = properties.ability_type;
 +  app_id_ = properties.app_id;
++  use_opaque_surface_background_ =
++      properties.type == PlatformWindowType::kWindow &&
++      properties.opacity != PlatformWindowOpacity::kTranslucentWindow;
++  if (properties.background_color.has_value()) {
++    init_color_argb_ = properties.background_color.value();
++  }
 +}
 +
 +bool OhosToplevelWindow::OnCreateWindow(WindowInitParameter param) {
@@ -17435,6 +17441,10 @@ index 0000000000..7e216c8e6b
 +                  bounds_in_pixels_.height()};
 +  // Calculate initial bounds.
 +  parameter.bounds = rect;
++  parameter.SetBackground(init_color_argb_);
++  if (!use_opaque_surface_background_) {
++    parameter.background_color_argb = 0x00FFFFFF;
++  }
 +  parameter.hide_title_bar = hide_title_bar_;
 +  parameter.use_floating_window = use_floating_window_;
 +  parameter.window_id = GetWindowUniqueId();
@@ -17766,10 +17776,10 @@ index 0000000000..7e216c8e6b
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.h b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
 new file mode 100644
-index 0000000000..80d1591109
+index 0000000..2fd0f2e
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,190 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17944,6 +17954,11 @@ index 0000000000..80d1591109
 +  // So we set this flag to true to represent split screen state.
 +  bool is_split_screen_ = false;
 +  bool use_dark_mode_ = false;
++  // Background color requested by Chromium for this window. It is handed to the
++  // ArkUI window and to the XComponent hosted in it, so the surface shows the
++  // color of the current theme until the first frame is painted.
++  uint32_t init_color_argb_ = 0xFFFFFFFF;
++  bool use_opaque_surface_background_ = false;
 +  bool caption_button_visible_ = true;
 +  AbilityType ability_type_ = AbilityType::kEntryAbility;
 +  std::string app_id_;
@@ -21672,10 +21687,10 @@ index 0000000000..d0c4497866
 \ No newline at end of file
 diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
 new file mode 100644
-index 0000000000..a46eec3299
+index 0000000..fa04142
 --- /dev/null
 +++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,311 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -21710,8 +21725,12 @@ index 0000000000..a46eec3299
 +#include "base/logging.h"
 +#include "ohos/adapter/cursor/cursor.h"
 +#include "ohos/adapter/xcomponent/adapter/window_adapter.h"
++#include "ohos/adapter/task_runner/main_thread_task_runner.h"
++#include "ohos/adapter/xcomponent/xcomponent_manager.h"
 +#include "ui/aura/window_delegate.h"
++#include "ui/color/color_id.h"
 +#include "ui/display/screen_ohos.h"
++#include "ui/gfx/presentation_feedback.h"
 +#include "ui/platform_window/platform_window.h"
 +#include "ui/platform_window/platform_window_init_properties.h"
 +#include "ui/platform_window/wm/wm_move_resize_handler.h"
@@ -21722,13 +21741,29 @@ index 0000000000..a46eec3299
 +
 +namespace views {
 +
++namespace {
++
++// Opaque black passes RenderService's XComponent background-color check.
++// Other hardware-composition eligibility checks still apply.
++constexpr uint32_t kSurfaceOpaqueBlack = 0xFF000000;
++
++}  // namespace
++
 +DesktopWindowTreeHostOhos::DesktopWindowTreeHostOhos(
 +    internal::NativeWidgetDelegate* native_widget_delegate,
 +    DesktopNativeWidgetAura* desktop_native_widget_aura)
 +    : DesktopWindowTreeHostPlatform(native_widget_delegate,
 +                                    desktop_native_widget_aura) {}
 +
-+DesktopWindowTreeHostOhos::~DesktopWindowTreeHostOhos() = default;
++DesktopWindowTreeHostOhos::~DesktopWindowTreeHostOhos() {
++  surface_background_cancelled_->store(true);
++}
++
++void DesktopWindowTreeHostOhos::CloseNow() {
++  surface_finalized_ = true;
++  surface_background_cancelled_->store(true);
++  DesktopWindowTreeHostPlatform::CloseNow();
++}
 +
 +void DesktopWindowTreeHostOhos::OnNativeWidgetCreated(
 +    const Widget::InitParams& params) {
@@ -21738,7 +21773,36 @@ index 0000000000..a46eec3299
 +  DesktopWindowTreeHostPlatform::OnNativeWidgetCreated(params);
 +}
 +
++void DesktopWindowTreeHostOhos::OnDidPresentCompositorFrame(
++    ui::Compositor* compositor,
++    uint32_t frame_token,
++    const gfx::PresentationFeedback& feedback) {
++  // A commit does not guarantee that a frame was displayed. Failed or empty
++  // presentation feedback must leave the initial theme background in place.
++  if (surface_finalized_ || feedback.failed() || feedback.timestamp.is_null()) {
++    return;
++  }
++  const ui::PlatformWindow* window = platform_window();
++  if (!window || window->GetWindowUniqueId().empty()) {
++    return;
++  }
++  surface_finalized_ = true;
++  const std::string window_id = window->GetWindowUniqueId();
++  auto cancelled = surface_background_cancelled_;
++  ohos::adapter::taskRunner::MainThreadTaskRunner::GetInstance().PostTask(
++      [window_id, cancelled]() {
++        if (cancelled->load()) {
++          return;
++        }
++        ohos::adapter::xcomponent::XComponentManager::GetInstance()
++            ->SetNodeHandleXComponentBackgroundColor(window_id,
++                                                     kSurfaceOpaqueBlack);
++      });
++}
++
 +void DesktopWindowTreeHostOhos::OnClosed() {
++  surface_finalized_ = true;
++  surface_background_cancelled_->store(true);
 +  DestroyNonClientEventFilter();
 +  DesktopWindowTreeHostPlatform::OnClosed();
 +}
@@ -21764,6 +21828,10 @@ index 0000000000..a46eec3299
 +  }
 +  properties->background_color =
 +      GetWidget()->GetColorProvider()->GetColor(target_color);
++  // Bubbles and tooltips need their transparent margins and rounded corners.
++  surface_finalized_ =
++      properties->type != ui::PlatformWindowType::kWindow ||
++      properties->opacity == ui::PlatformWindowOpacity::kTranslucentWindow;
 +  properties->app_id = params.app_id;
 +  properties->using_system_floating_window = params.using_system_floating_window;
 +  properties->use_dark_mode = params.use_dark_mode;
@@ -21936,10 +22004,10 @@ index 0000000000..a46eec3299
 +}  // namespace views
 diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
 new file mode 100644
-index 0000000000..de38f35cc1
+index 0000000..3ce4e66
 --- /dev/null
 +++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,105 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -21972,6 +22040,10 @@ index 0000000000..de38f35cc1
 +#ifndef UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_OHOS_H_
 +#define UI_VIEWS_WIDGET_DESKTOP_AURA_DESKTOP_WINDOW_TREE_HOST_OHOS_H_
 +
++#include <atomic>
++#include <memory>
++
++#include "ui/compositor/compositor_observer.h"
 +#include "ui/views/views_export.h"
 +#include "ui/views/widget/desktop_aura/desktop_window_tree_host_platform.h"
 +
@@ -21991,6 +22063,7 @@ index 0000000000..de38f35cc1
 +      delete;
 +
 +  ~DesktopWindowTreeHostOhos() override;
++  void CloseNow() override;
 +  std::unique_ptr<aura::ScopedEnableUnadjustedMouseEvents>
 +  RequestUnadjustedMovement() override;
 +  bool SupportsMouseLock() override;
@@ -22000,6 +22073,12 @@ index 0000000000..de38f35cc1
 + protected:
 +  // Overridden from DesktopWindowTreeHost:
 +  void OnNativeWidgetCreated(const Widget::InitParams& params) override;
++
++  // Reuse WindowTreeHost's existing CompositorObserver registration.
++  void OnDidPresentCompositorFrame(
++      ui::Compositor* compositor,
++      uint32_t frame_token,
++      const gfx::PresentationFeedback& feedback) override;
 +  Widget::MoveLoopResult RunMoveLoop(
 +    const gfx::Vector2d& drag_offset,
 +    Widget::MoveLoopSource source,
@@ -22017,6 +22096,12 @@ index 0000000000..de38f35cc1
 + private:
 +  void CreateNonClientEventFilter();
 +  void DestroyNonClientEventFilter();
++  // Only opaque top-level windows may replace the surface background.
++  bool surface_finalized_ = false;
++  // The ArkUI task may outlive this host. Cancellation must be readable on
++  // that thread without dereferencing a window or compositor owned here.
++  std::shared_ptr<std::atomic_bool> surface_background_cancelled_ =
++      std::make_shared<std::atomic_bool>(false);
 +
 +  // A handler for events intended for non client area.
 +  // A posthandler for events intended for non client area. Handles events if no
