@@ -1,5 +1,5 @@
 {
-  "created": "2026-11-15T13:22:33.928963+00:00",
+  "created": "2026-11-18T12:08:12.374944+00:00",
   "chromiumVersion": "158.0.8116.0",
   "chromiumRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
   "api": 26,
@@ -10,39 +10,39 @@
   "runtimeValidation": "pending",
   "hap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
-    "size": 201025074,
-    "sha256": "468cc63576c80a029273085789325f26d7183202748b9874b134281b3831c96c"
+    "size": 201019686,
+    "sha256": "589403f0bfbdbf16947788116ba4650c0224afb94c8b13f65dbe3bbc94decca1"
   },
   "unsignedHap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-unsigned.hap",
-    "size": 200961150,
-    "sha256": "6261c0565d4702c672d66f31ce68c321135fdc1ef54bf443c7c45d0d27b484a0"
+    "size": 200966943,
+    "sha256": "6297f98018ff6bae170f459363f60b25d33cfa1eb387f1bbc5629ee2f0c1109b"
   },
   "nativeLibraries": [
     {
       "path": "libs/arm64-v8a/libadapter.so",
-      "sha256": "cc67f8f3b673f0662e8329a5f7b5bac19d6285dd55f824035dc8b62bfe430d50",
-      "sizeBytes": 1439448,
+      "sha256": "5cd990ef8cbedd20e4ab2e898a4ef76090aa85f15958faed4e23d2ab47b8b6dd",
+      "sizeBytes": 1440472,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "f761eba002688cb292004f6d0c77cf5a5734cde3a5ed9249e0898ca9fdf2d717",
+      "buildSourceSha256": "010d279049426e29639499847904aa8a8dbe702ed9b00df0fd48d2a929e3c585",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 25,
       "symbolsStripped": true
     },
     {
       "path": "libs/arm64-v8a/libchrome_main_web.so",
-      "sha256": "cf3a89c2eed37153a711245ee10eaec1f57630e742676acb3c50beadc263e052",
+      "sha256": "302b852dc841c9a247c21dfb3519d7f5f5f004cd070f12e114541d9c3dc881ef",
       "sizeBytes": 254041096,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "d9f16dc756b440866c5fc4917bcd062557aa45aec14433df822c12a30d50615f",
+      "buildSourceSha256": "1b2ba7a6a007e4000170bb5be27f0aea8e64c2d8fea91832ce3544130eb9384f",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 27,
       "symbolsStripped": true
     }
   ],
   "nativeBuildIds": {
-    "libadapter.so": "851516de8b74dcac973c2629815ac1a8953d67c7",
-    "libchrome_main_web.so": "fca748c501c2f9a545b91ca9d9152810b5b9f645"
+    "libadapter.so": "eb05d6a1b41acbc57c7abc0e23dbed56d2d7bb50",
+    "libchrome_main_web.so": "d6d3383ad27b25331eb79fcba48f8cd1e1e2a1f3"
   },
   "resources": [
     {
@@ -1216,7 +1216,7 @@
     "compileSdkVersion": "26.0.0.105",
     "minAPIVersion": 260000026,
     "targetAPIVersion": 260000026,
-    "versionName": "1.0.3",
+    "versionName": "1.0.4",
     "debug": false,
     "deviceTypes": [
       "2in1",

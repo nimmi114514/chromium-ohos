@@ -1,6 +1,6 @@
 {
   "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
-  "tracked_files": 1942,
+  "tracked_files": 1947,
   "added_files": 7,
   "replay_matches_worktree": true,
   "patches": [
@@ -46,8 +46,8 @@
     },
     {
       "name": "0009-ohos-chrome-platform.patch",
-      "files": 431,
-      "sha256": "44f29e55964f2e1e470b8915c660dfa0d2b9dfd4b1e4e5c8c022b1c502b44d03"
+      "files": 436,
+      "sha256": "44d0ac1a87695ed26969a7de499dc3cabe0892b068dd2f77dd0024368d1282d8"
     },
     {
       "name": "0010-ohos-shared-components.patch",

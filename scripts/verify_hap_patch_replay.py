@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT.parent / "chromium-2in1-hap"
 BASELINE = "cc241f6d431c52144afe58f3d4232ca7c9658c43"
 EXCLUDED = {
+    ".idea/.name",  # DevEco may regenerate this ignored local workspace label.
     "build-profile.json5",  # Private local signing settings; checked separately.
     "chromium/oh-package-lock.json5",
     "oh-package-lock.json5",

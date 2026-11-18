@@ -1,0 +1,82 @@
+diff --git a/AppScope/app.json5 b/AppScope/app.json5
+index b1b126d..095e951 100644
+--- a/AppScope/app.json5
++++ b/AppScope/app.json5
+@@ -2,8 +2,8 @@
+   "app": {
+     "bundleName": "com.example.ohos.chromium",
+     "vendor": "openharmony-tpc",
+-    "versionCode": 1000003,
+-    "versionName": "1.0.3",
++    "versionCode": 1000004,
++    "versionName": "1.0.4",
+     "icon": "$media:app_icon",
+     "label": "$string:app_name",
+     "configuration": "$profile:configuration"
+diff --git a/README.md b/README.md
+index 299c664..1973aed 100644
+--- a/README.md
++++ b/README.md
+@@ -15,7 +15,7 @@
+ 
+ 本仓库需要配套内核编译产生的原生库、ICU、PAK语言/界面资源及V8快照。**只有本HAP仓库无法单独编译出完整浏览器**；应先按配套仓库的[从两个仓库构建完整HAP](https://github.com/nimmi114514/chromium-ohos#从两个仓库构建完整-hap)获取固定Chromium源码和DEPS依赖、应用补丁并编译内核，再打包本工程。无需额外取得作者的私有子仓库。
+ 
+-应用版本当前为 `1.0.3`；它与Chromium内核版本 `158.0.8116.0` 分开管理。更新内核后，需要同步资源并重新生成HAP，设备中的内核才会更新。
++应用版本当前为 `1.0.4`；它与Chromium内核版本 `158.0.8116.0` 分开管理。更新内核后，需要同步资源并重新生成HAP，设备中的内核才会更新。
+ 
+ ## 相对132工程的主要改动
+ 
+@@ -27,7 +27,7 @@
+ - 补充显示 HDR、亮度与色彩能力桥接，完善亮度观察者的清理。
+ - 恢复屏幕锁定认证入口及 PIN 能力查询，正确传递系统认证结果；取消、失败和未录入均不会被当作成功。
+ 
+-标签栏、渲染、媒体解码、密码填充策略及窗口隐私状态等 C++ 改动位于配套内核仓库。应用外壳的 `versionName: 1.0.3` 与 Chromium 内核版本分别记录。
++标签栏、渲染、媒体解码、密码填充策略及窗口隐私状态等 C++ 改动位于配套内核仓库。应用外壳的 `versionName: 1.0.4` 与 Chromium 内核版本分别记录。
+ 
+ ## 当前状态与限制
+ 
+diff --git a/web_engine/src/main/ets/adapter/ContextPathAdapter.ets b/web_engine/src/main/ets/adapter/ContextPathAdapter.ets
+index ea8ca0a..8b9eb2d 100644
+--- a/web_engine/src/main/ets/adapter/ContextPathAdapter.ets
++++ b/web_engine/src/main/ets/adapter/ContextPathAdapter.ets
+@@ -36,7 +36,6 @@ import LogMethod from '../common/LogDecorator';
+ import { ContextAdapter } from './ContextAdapter';
+ import { fileUri, picker } from '@kit.CoreFileKit';
+ import { BusinessError } from '@kit.BasicServicesKit';
+-import { common } from '@kit.AbilityKit';
+ 
+ const TAG: string = 'ContextPath';
+ 
+@@ -104,17 +103,22 @@ export class ContextPathAdapter extends BaseAdapter {
+ 
+   @LogMethod
+   getAppDownloadDir(callback: (downloadDirPath: string) => void) {
+-    let context = getContext(this) as common.Context;
+-    const documentViewPicker = new picker.DocumentViewPicker(context);
+-    const documentSaveOptions = new picker.DocumentSaveOptions();
+-    documentSaveOptions.pickerMode = picker.DocumentPickerMode.DOWNLOAD;
+- 
+-    documentViewPicker.save(documentSaveOptions).then((documentSaveResult: Array<string>) => {
+-      let downloadDirPath = new fileUri.FileUri(documentSaveResult[0]).path;
+-      callback(downloadDirPath);
+-    }).catch((err: BusinessError) => {
++    // Adapters are not ArkUI components; use the injected ability/application
++    // context, including when Chromium requests its default before UI load.
++    const context = this.ctxAdapter.getActiveContext() ?? this.ctxAdapter.getContext();
++    try {
++      const documentViewPicker = new picker.DocumentViewPicker(context);
++      const documentSaveOptions = new picker.DocumentSaveOptions();
++      documentSaveOptions.pickerMode = picker.DocumentPickerMode.DOWNLOAD;
++      documentViewPicker.save(documentSaveOptions).then((result: Array<string>) => {
++        callback(result.length > 0 ? new fileUri.FileUri(result[0]).path : '');
++      }).catch((err: BusinessError) => {
++        LogUtil.error(TAG, `createAppDownloadDir failed: ${JSON.stringify(err)}`);
++        callback('');
++      });
++    } catch (err) {
+       LogUtil.error(TAG, `createAppDownloadDir failed: ${JSON.stringify(err)}`);
+       callback('');
+-    })
++    }
+   }
+ }
