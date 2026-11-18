@@ -16047,3 +16047,21 @@ index 14cdd3f487..3d076c3698 100644
  #if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
    services.Add(RunRedirectionService);
  #endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
+diff --git a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+index 7c2536e4d9..76be268058 100644
+--- a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
++++ b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+@@ -341,6 +341,13 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
+   params.z_order = ui::ZOrderLevel::kFloatingWindow;
+   params.visible_on_all_workspaces = true;
+   params.remove_standard_frame = true;
++#if BUILDFLAG(IS_OHOS)
++  // Hiding the window decor only hides the title bar on OHOS: the
++  // minimize/maximize/close buttons stay visible and sink into the content
++  // area, overlapping the picture-in-picture controls. Hide them explicitly
++  // for the PiP window.
++  params.caption_button_visible = false;
++#endif
+   params.name = "PictureInPictureWindow";
+   params.layer_type = ui::LAYER_NOT_DRAWN;
+   params.delegate = new OverlayWindowWidgetDelegate();
