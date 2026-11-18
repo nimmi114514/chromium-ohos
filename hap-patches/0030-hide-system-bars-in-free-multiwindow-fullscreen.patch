@@ -1,0 +1,301 @@
+diff --git a/web_engine/src/main/ets/ability/WebAbility.ets b/web_engine/src/main/ets/ability/WebAbility.ets
+index 73ce84e..dcc1126 100644
+--- a/web_engine/src/main/ets/ability/WebAbility.ets
++++ b/web_engine/src/main/ets/ability/WebAbility.ets
+@@ -159,10 +159,12 @@ export class WebAbility extends WebBaseAbility {
+         if (deviceInfo.sdkApiVersion >= 20) {
+           data.on('windowStatusDidChange', (status) => {
+             this.notifyWindowStatusChange(status)
++            this.syncSystemBarWithWindowStatus();
+           })
+         } else {
+           data.on('windowStatusChange', (status) => {
+             this.notifyWindowStatusChange(status)
++            this.syncSystemBarWithWindowStatus();
+           })
+         }
+       } catch (exception) {
+@@ -483,9 +485,9 @@ export class WebAbility extends WebBaseAbility {
+   }
+ 
+   private onPadWindowStageCreate(windowClass: window.Window, storage: LocalStorage) {
+-    // Always run in full-screen layout with the status bar hidden so web
+-    // content uses the whole screen (Chrome-like behavior on 2-in-1/tablet).
+-    this.updateAvoidAreaStatus(true);
++    // Follow the actual window status: a full-screen/maximized window keeps the
++    // system bars hidden, a floating free multi-window keeps them visible.
++    this.syncSystemBarWithWindowStatus();
+ 
+     let avoidArea = windowClass.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+     let statusBarHeight = avoidArea.topRect.height;
+diff --git a/web_engine/src/main/ets/ability/WebBaseAbility.ets b/web_engine/src/main/ets/ability/WebBaseAbility.ets
+index 6ccaf54..c01a410 100644
+--- a/web_engine/src/main/ets/ability/WebBaseAbility.ets
++++ b/web_engine/src/main/ets/ability/WebBaseAbility.ets
+@@ -38,7 +38,7 @@ import { CommandType, ConfigData, ContextType } from '../common/Constants';
+ import CheckEmptyUtils from '../utils/CheckEmptyUtils';
+ import { WebProxy } from '../interface/WebProxy';
+ import { common } from '@kit.AbilityKit';
+-import { BusinessError } from '@kit.BasicServicesKit';
++import { BusinessError, deviceInfo, settings } from '@kit.BasicServicesKit';
+ import { WebAbilityStage } from '../application/WebAbilityStage';
+ import { CmdArgsHelper } from '../utils/CmdArgsHelper';
+ import { CommonDependencyProvider } from '../common/CommonDependencyProvider';
+@@ -182,29 +182,89 @@ export class WebBaseAbility extends UIAbility implements WebProxy {
+     return this.originWindowId;
+   }
+ 
++  private systemBarUpdateRunning: boolean = false;
++  private pendingSystemBarImmersive: boolean | undefined = undefined;
++
++  // Whether this window form lets the app drive the status bar and the bottom
++  // navigation indicator itself. PC desktop has no navigation indicator and the
++  // related Window APIs are no-ops on PC/2in1, so it is left to the system.
++  public canManageSystemBar(): boolean {
++    if (deviceInfo.deviceType !== 'tablet') {
++      return false;
++    }
++    try {
++      return settings.getValueSync(this.context, 'isSystemModePc', '',
++        settings.domainName.USER_PROPERTY) !== 'true';
++    } catch (err) {
++      LogUtil.error(TAG, 'Failed to read isSystemModePc: ' + JSON.stringify(err));
++      return true;
++    }
++  }
++
++  // Applies a complete system bar state. When isFullScreen is true the layout
++  // extends under the system bars and both the status bar and the bottom
++  // navigation indicator are hidden; otherwise every system bar is restored.
+   public updateAvoidAreaStatus(isFullScreen: boolean) {
+-    let windowClass = this.getWindow();
++    this.pendingSystemBarImmersive = isFullScreen;
++    if (this.systemBarUpdateRunning) {
++      return;
++    }
++    this.systemBarUpdateRunning = true;
++    this.runSystemBarUpdates();
++  }
+ 
+-    // Set window to full screen.
+-    windowClass?.setWindowLayoutFullScreen(true).then(() => {
+-      LogUtil.info(TAG, 'Succeeded in setting the window layout to full-screen mode.');
+-    }).catch((err: BusinessError) => {
+-      LogUtil.error(TAG, 'Failed to set the window layout to full-screen mode. Cause:' + JSON.stringify(err));
+-    });
++  // The Window calls must not run concurrently: hiding wants the layout first,
++  // while restoring must enable the bars first and then refresh the layout,
++  // otherwise the bars stay hidden after leaving maximize/full-screen.
++  private async runSystemBarUpdates() {
++    try {
++      while (this.pendingSystemBarImmersive !== undefined) {
++        const immersive = this.pendingSystemBarImmersive;
++        this.pendingSystemBarImmersive = undefined;
++        await this.applySystemBarState(immersive);
++      }
++    } finally {
++      this.systemBarUpdateRunning = false;
++    }
++  }
+ 
+-    // Hide the navigation bar here.
+-    windowClass?.setSpecificSystemBarEnabled('navigationIndicator', false).then(() => {
+-      LogUtil.info(TAG, 'Succeeded in setting the navigation indicator to be invisible.');
+-    }).catch((err: BusinessError) => {
+-      LogUtil.error(TAG, `Failed to set the navigation indicator to be invisible. Code is ${err.code}, message is ${err.message}`);
+-    });
++  private async applySystemBarState(immersive: boolean) {
++    let windowClass = this.getWindow();
++    if (!windowClass || !this.canManageSystemBar()) {
++      return;
++    }
++    try {
++      if (immersive) {
++        await windowClass.setWindowLayoutFullScreen(true);
++        await windowClass.setSpecificSystemBarEnabled('navigationIndicator', false);
++        await windowClass.setSpecificSystemBarEnabled('status', false);
++      } else {
++        await windowClass.setSpecificSystemBarEnabled('navigationIndicator', true);
++        await windowClass.setSpecificSystemBarEnabled('status', true);
++        await windowClass.setWindowLayoutFullScreen(false);
++      }
++      LogUtil.info(TAG, `Applied the system bar state, immersive:${immersive}.`);
++    } catch (err) {
++      LogUtil.error(TAG, `Failed to apply the system bar state: ${JSON.stringify(err)}`);
++    }
++  }
+ 
+-    // The top status bar is set up to be hidden when in full-screen mode and displayed when maximized.
+-    windowClass?.setSpecificSystemBarEnabled('status', !isFullScreen).then(() => {
+-      LogUtil.info(TAG, 'Succeeded in setting the status bar to be invisible.');
+-    }).catch((err: BusinessError) => {
+-      LogUtil.error(TAG, `Failed to set the status bar to be invisible. Code is ${err.code}, message is ${err.message}`);
+-    });
++  // Keeps the system bars hidden while the window is full-screen or maximized
++  // and restores them once the user leaves full-screen/maximize, so exiting a
++  // page fullscreen returns to the previous window state.
++  public syncSystemBarWithWindowStatus() {
++    let windowClass = this.getWindow();
++    if (!windowClass || !this.canManageSystemBar()) {
++      return;
++    }
++    try {
++      let status = windowClass.getWindowStatus();
++      let immersive = status === window.WindowStatusType.FULL_SCREEN ||
++        status === window.WindowStatusType.MAXIMIZE;
++      this.updateAvoidAreaStatus(immersive);
++    } catch (err) {
++      LogUtil.error(TAG, 'Failed to sync the system bar: ' + JSON.stringify(err));
++    }
+   }
+ 
+   isUIAbility(): boolean {
+diff --git a/web_engine/src/main/ets/ability/WebBaseExtensionAbility.ets b/web_engine/src/main/ets/ability/WebBaseExtensionAbility.ets
+index e992b99..a731179 100644
+--- a/web_engine/src/main/ets/ability/WebBaseExtensionAbility.ets
++++ b/web_engine/src/main/ets/ability/WebBaseExtensionAbility.ets
+@@ -143,6 +143,8 @@ export class WebBaseExtensionAbility extends EmbeddedUIExtensionAbility implemen
+ 
+   updateAvoidAreaStatus(isFullScreen: boolean) {}
+ 
++  syncSystemBarWithWindowStatus() {}
++
+   isUIAbility(): boolean {
+     return false;
+   }
+diff --git a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+index cf61316..23feb2d 100644
+--- a/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
++++ b/web_engine/src/main/ets/adapter/AppWindowAdapter.ets
+@@ -187,21 +187,22 @@ export class AppWindowAdapter extends BaseAdapter {
+       return;
+     }
+ 
+-    if (this.deviceInfoAdapter.isNormalWindowMode()) {
++    // Hide the status bar and the bottom navigation indicator for every tablet
++    // window form, including the free multi-window mode. PC desktop is excluded
++    // inside the ability implementation because it has no navigation indicator
++    // and the related Window APIs are no-ops there. The Window APIs only take
++    // effect once the window is full-screen/maximized, so the state is declared
++    // before maximize() and asserted again after the transition finishes.
++    this.abilityManager.getProxy(id)?.updateAvoidAreaStatus(true);
++
++    let presentation = deviceInfo.sdkApiVersion >= 14 ?
++      window.MaximizePresentation.ENTER_IMMERSIVE_DISABLE_TITLE_AND_DOCK_HOVER :
++      window.MaximizePresentation.ENTER_IMMERSIVE;
++    windowClass.maximize(presentation).then(() => {
+       this.abilityManager.getProxy(id)?.updateAvoidAreaStatus(true);
+-    }
+-
+-    if (deviceInfo.sdkApiVersion >= 14) {
+-      windowClass.maximize(window.MaximizePresentation.ENTER_IMMERSIVE_DISABLE_TITLE_AND_DOCK_HOVER)
+-        .catch((err: BusinessError) => {
+-          LogUtil.error(TAG, 'Failed to maximize the window. Cause:' + JSON.stringify(err));
+-        });
+-    } else {
+-      windowClass.maximize(window.MaximizePresentation.ENTER_IMMERSIVE)
+-        .catch((err: BusinessError) => {
+-          LogUtil.error(TAG, 'Failed to maximize the window. Cause:' + JSON.stringify(err));
+-        });
+-    }
++    }).catch((err: BusinessError) => {
++      LogUtil.error(TAG, 'Failed to maximize the window. Cause:' + JSON.stringify(err));
++    });
+   }
+ 
+   @LogMethod
+@@ -299,20 +300,20 @@ export class AppWindowAdapter extends BaseAdapter {
+       return;
+     }
+ 
++    // Leaving the page fullscreen can restore a maximized window. Keep the
++    // system bars hidden in that case instead of restoring them.
+     if (windowClass.getWindowStatus() === window.WindowStatusType.MAXIMIZE) {
++      this.abilityManager.getProxy(id)?.syncSystemBarWithWindowStatus();
+       return;
+     }
+ 
+     try {
+       windowClass.maximize(window.MaximizePresentation.EXIT_IMMERSIVE).then(() => {
+         LogUtil.info(TAG, 'Succeeded in maximizing the window.');
++        this.abilityManager.getProxy(id)?.syncSystemBarWithWindowStatus();
+       }).catch((err: BusinessError) => {
+         LogUtil.error(TAG, 'Failed to maximize the window. Cause:' + JSON.stringify(err));
+       });
+-
+-      if (!this.deviceInfoAdapter.isPcMode()) {
+-        this.abilityManager.getProxy(id)?.updateAvoidAreaStatus(false);
+-      }
+     } catch (exception) {
+       LogUtil.error(TAG, 'maximize the window exception. Cause:' + JSON.stringify(exception));
+     }
+@@ -328,7 +329,8 @@ export class AppWindowAdapter extends BaseAdapter {
+ 
+     try {
+       windowClass.recover().then(() => {
+-        LogUtil.info(TAG, 'Succeeded in setting the system bar to be invisible.');
++        LogUtil.info(TAG, 'Succeeded in recovering the window.');
++        this.abilityManager.getProxy(id)?.syncSystemBarWithWindowStatus();
+       }).catch((err: BusinessError) => {
+         LogUtil.error(TAG, 'Failed to recover the window. Cause: ' + JSON.stringify(err));
+       });
+@@ -438,6 +440,7 @@ export class AppWindowAdapter extends BaseAdapter {
+     }
+     windowClass.restore().then(() => {
+       LogUtil.info(TAG, 'Succeeded in restoring the window.');
++      this.abilityManager.getProxy(id)?.syncSystemBarWithWindowStatus();
+     }).catch((err: BusinessError) => {
+       LogUtil.error(TAG, 'Failed to restore the window. Cause: ' + JSON.stringify(err));
+     });
+diff --git a/web_engine/src/main/ets/adapter/DeviceInfoAdapter.ets b/web_engine/src/main/ets/adapter/DeviceInfoAdapter.ets
+index 559b95d..643b0d5 100644
+--- a/web_engine/src/main/ets/adapter/DeviceInfoAdapter.ets
++++ b/web_engine/src/main/ets/adapter/DeviceInfoAdapter.ets
+@@ -32,13 +32,16 @@ export class DeviceInfoAdapter {
+       });
+     if (!res) {
+       LogUtil.error(TAG, 'Failed to register window_pcmode_switch_status.');
++      // Keep deviceMode in sync even when the observer is unavailable, otherwise
++      // it stays at its kPcMode default and free multi-window handling is lost.
++      this.updateDeviceMode(this.getDeviceModeFromSystem(context));
+       return;
+     }
+ 
+     this.updateDeviceMode(this.getDeviceModeFromSystem(context));
+     let proxyList = this.abilityManager.getProxyList();
+     for (let i = 0; i < proxyList.length; i++) {
+-      this.abilityManager.getProxy(proxyList[i].getWindowId())?.updateAvoidAreaStatus(true);
++      this.abilityManager.getProxy(proxyList[i].getWindowId())?.syncSystemBarWithWindowStatus();
+     }
+ 
+     this.isRegisterDeviceModeChange = true;
+@@ -50,7 +53,7 @@ export class DeviceInfoAdapter {
+ 
+       let proxyList = this.abilityManager.getProxyList();
+       for (let i = 0; i < proxyList.length; i++) {
+-        this.abilityManager.getProxy(proxyList[i].getWindowId())?.updateAvoidAreaStatus(true);
++        this.abilityManager.getProxy(proxyList[i].getWindowId())?.syncSystemBarWithWindowStatus();
+         if (this.deviceMode === DeviceMode.kNormalWindowMode) {
+           this.abilityManager.getProxy(proxyList[i].getWindowId())?.setDeviceModeChangeEvent(ChangeEventType.CHANGE_TO_NORMAL_MODE);
+         } else if (this.deviceMode === DeviceMode.kFreeWindowsMode) {
+diff --git a/web_engine/src/main/ets/interface/WebProxy.ets b/web_engine/src/main/ets/interface/WebProxy.ets
+index 2d28952..c3ef949 100644
+--- a/web_engine/src/main/ets/interface/WebProxy.ets
++++ b/web_engine/src/main/ets/interface/WebProxy.ets
+@@ -16,6 +16,7 @@ export interface WebProxy {
+   createSubWindow: (name: string) => Promise<window.Window>;
+   getOriginWindowId: () => number;
+   updateAvoidAreaStatus: (isFullScreen: boolean) => void;
++  syncSystemBarWithWindowStatus: () => void;
+   isUIAbility: () => boolean;
+   setDeviceModeChangeEvent: (deviceModeChangeEvent: ChangeEventType | undefined) => void;
+ };
+@@ -53,6 +54,8 @@ export class FakeWebProxy implements WebProxy {
+ 
+   updateAvoidAreaStatus(isFullScreen: boolean) {}
+ 
++  syncSystemBarWithWindowStatus() {}
++
+   isUIAbility(): boolean {
+     return true;
+   }
