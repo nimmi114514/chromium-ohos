@@ -17040,7 +17040,7 @@ new file mode 100644
 index 0000000..ea98c15
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
-@@ -0,0 +1,733 @@
+@@ -0,0 +1,752 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17119,6 +17119,13 @@ index 0000000..ea98c15
 +  }
 +  OhosWindow::BindNodeHandle();
 +  OhosWindow::Show(inactive);
++
++  if (!is_shown_) {
++    is_shown_ = true;
++    // SetBoundsInPixels() calls made while the widget was being created were
++    // ignored, so publish the bounds the system reported in the meantime.
++    Applied(previous_bounds_in_pixels_, bounds_in_pixels_);
++  }
 +}
 +
 +void OhosToplevelWindow::Hide() {
@@ -17221,6 +17228,18 @@ index 0000000..ea98c15
 +void OhosToplevelWindow::SetBoundsInPixels(const gfx::Rect& bounds) {
 +  // Update the minimum and maximum sizes in case they have changed.
 +  UpdateMinAndMaxSize();
++
++  // The first request comes from the saved window placement and is issued while
++  // the widget is still being created. At that point the ArkTS side has no
++  // decoration metrics yet (drawableRect), so the request is applied without
++  // the title bar height, the window shrinks and the content jumps over the tab
++  // strip. Keep the bounds reported by windowRectChange instead; Show() will
++  // publish them once the window is up.
++  if (!is_shown_) {
++    LOG(INFO) << "[ohoswindow] ignore SetBoundsInPixels before Show, bounds: "
++              << bounds.ToString();
++    return;
++  }
 +
 +  gfx::Rect new_bounds_in_pixels(bounds);
 +
@@ -17779,7 +17798,7 @@ new file mode 100644
 index 0000000..2fd0f2e
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
-@@ -0,0 +1,190 @@
+@@ -0,0 +1,196 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17929,6 +17948,12 @@ index 0000000..2fd0f2e
 +  void CreateAndShowInternal();
 +
 +  bool use_native_frame_ = false;
++
++  // True once the window has been shown at least once. Before that the ArkTS
++  // side has no reliable decoration metrics (drawableRect), so a bounds request
++  // coming from the saved window placement would be applied without the title
++  // bar height and the window would shrink.
++  bool is_shown_ = false;
 +
 +  gfx::Rect window_position_size_;
 +
