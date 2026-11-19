@@ -27138,10 +27138,10 @@ index 0000000000..b950929cc8
 +}
 diff --git a/ohos/adapter/web_entry/chrome/chrome_loader.cc b/ohos/adapter/web_entry/chrome/chrome_loader.cc
 new file mode 100644
-index 0000000000..c4021987bd
+index 0000000000..01ad0dbd45
 --- /dev/null
 +++ b/ohos/adapter/web_entry/chrome/chrome_loader.cc
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,133 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -27240,7 +27240,13 @@ index 0000000000..c4021987bd
 +  std::vector<std::string> args = {
 +      "chrome",
 +      "--use-gl=egl",
-+      "--enable-features=UseOzonePlatform",
++      // MiddleClickAutoscroll is a Blink runtime feature (default off), so it
++      // has to be turned on explicitly. It is enabled through --enable-features
++      // rather than --enable-blink-features because the latter is listed in
++      // chrome::kBadFlags and would trigger the "unsupported command line flag"
++      // infobar on every startup. Every runtime feature also declares a
++      // same-named base::Feature, so this reaches the renderer as well.
++      "--enable-features=UseOzonePlatform,MiddleClickAutoscroll",
 +      "--ozone-platform=ohos",
 +      "--enable-logging",
 +      "--ozone-dump-file=/data/storage/el2/base/cache/",
