@@ -37,7 +37,7 @@
     {
       "name": "0007-ohos-ui-and-ozone.patch",
       "files": 223,
-      "sha256": "98cfa32658d31f31831411e34aa304b23b547ca6f62ae3d164c3017a10458d1c"
+      "sha256": "8a8dbea0481eed3bf2146cb7f06fff9956e3795fec569bdb437e1a1008e9bd06"
     },
     {
       "name": "0008-ohos-third-party-platforms.patch",
@@ -47,7 +47,7 @@
     {
       "name": "0009-ohos-chrome-platform.patch",
       "files": 436,
-      "sha256": "a644a507ceae612c32478f3e5e2fe72a32e257f99d6d8ce579275f505b0f7894"
+      "sha256": "8fa277c77f931b4c6421db9952d61eb40c957cafeb82207896e4dbad0bb1a2a0"
     },
     {
       "name": "0010-ohos-shared-components.patch",

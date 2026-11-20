@@ -11196,10 +11196,10 @@ index fcd979432d..ab14893e3e 100644
  #include "base/metrics/user_metrics.h"
 diff --git a/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc
 new file mode 100644
-index 0000000000..f05bc09914
+index 0000000000..aa0c23bd92
 --- /dev/null
 +++ b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.cc
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,100 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -11235,6 +11235,7 @@ index 0000000000..f05bc09914
 +#include "chrome/browser/ui/views/frame/browser_widget.h"
 +#include "chrome/browser/ui/views/frame/browser_view.h"
 +#include "ohos/adapter/xcomponent/adapter/window_adapter.h"
++#include "ui/gfx/geometry/rect_conversions.h"
 +
 +BrowserDesktopWindowTreeHostOhos::BrowserDesktopWindowTreeHostOhos(
 +    views::internal::NativeWidgetDelegate* native_widget_delegate,
@@ -11262,6 +11263,21 @@ index 0000000000..f05bc09914
 +  return false;
 +}
 +
++gfx::Rect BrowserDesktopWindowTreeHostOhos::GetRestoredBounds() const {
++  if (IsMaximized() || IsMinimized() || IsFullscreen()) {
++    return views::DesktopWindowTreeHostOhos::GetRestoredBounds();
++  }
++  // Layout encloses fractional DIP bounds to avoid clipping. Persist rounded
++  // bounds instead, so restoring them through the pixel transform does not
++  // grow and move the window on every launch at fractional display scales.
++  const auto restored =
++      GetRootTransform().InverseMapRect(gfx::RectF(GetBoundsInPixels()));
++  if (restored) {
++    return gfx::ToRoundedRect(*restored);
++  }
++  return views::DesktopWindowTreeHostOhos::GetRestoredBounds();
++}
++
 +// static
 +BrowserDesktopWindowTreeHost*
 +BrowserDesktopWindowTreeHost::CreateBrowserDesktopWindowTreeHost(
@@ -11286,10 +11302,10 @@ index 0000000000..f05bc09914
 +}
 diff --git a/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h
 new file mode 100644
-index 0000000000..0dd5bd192b
+index 0000000000..96f03aa508
 --- /dev/null
 +++ b/chrome/browser/ui/views/frame/browser_desktop_window_tree_host_ohos.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,74 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -11355,6 +11371,8 @@ index 0000000000..0dd5bd192b
 +
 +  void OnFullscreenStateChanged() override;
 +  bool OnBackToLastPage() override;
++
++  gfx::Rect GetRestoredBounds() const override;
 +
 +  void OnWidgetInitDone() override;
 +  bool UsesNativeSystemMenu() const override;
@@ -11533,10 +11551,10 @@ index 0000000000..811a57be96
 \ No newline at end of file
 diff --git a/chrome/browser/ui/views/frame/browser_native_widget_aura_ohos.cc b/chrome/browser/ui/views/frame/browser_native_widget_aura_ohos.cc
 new file mode 100644
-index 0000000000..b0a4d56018
+index 0000000000..c78ff3ed26
 --- /dev/null
 +++ b/chrome/browser/ui/views/frame/browser_native_widget_aura_ohos.cc
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,117 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -11572,8 +11590,12 @@ index 0000000000..b0a4d56018
 +#include "chrome/browser/ui/views/frame/browser_native_widget_factory.h"
 +#include "chrome/browser/ui/views/frame/browser_view.h"
 +#include "chrome/browser/ui/web_applications/app_browser_controller.h"
++#include "ohos/adapter/context/context_adapter.h"
 +#include "ohos/adapter/device_info/device_info.h"
++#include "ui/aura/window.h"
++#include "ui/aura/window_tree_host.h"
 +#include "ui/base/mojom/window_show_state.mojom.h"
++#include "ui/gfx/geometry/rect_conversions.h"
 +
 +BrowserNativeWidgetAuraOhos::BrowserNativeWidgetAuraOhos(
 +    BrowserWidget* browser_widget, BrowserView* browser_view)
@@ -11602,15 +11624,48 @@ index 0000000000..b0a4d56018
 +bool BrowserNativeWidgetAuraOhos::ShouldSaveWindowPlacement() const {
 +  using ohos::adapter::device_info::DeviceInfo;
 +  using ohos::adapter::device_info::DeviceType;
-+  return DeviceInfo::GetInstance().GetDeviceType() == DeviceType::_2IN1 &&
-+         !IsMinimized();
++
++  // 2in1 always keeps the window placement: the desktop window can be moved and
++  // resized freely and nothing else remembers the result.
++  if (DeviceInfo::GetInstance().GetDeviceType() == DeviceType::_2IN1) {
++    return true;
++  }
++
++  // On tablets Chromium only owns the rect when the user can float the window:
++  //  * kFreeWindowsMode: free multi-window, windows are movable and resizable.
++  //  * kPcMode: the tablet runs in PC desktop mode. WebAbility skips
++  //    onPadWindowStageCreate() there, so the mode keeps this default value and
++  //    the window behaves like a 2in1 desktop.
++  // Plain tablet mode (kNormalWindowMode) is a full-screen window whose bounds
++  // come from setWindowRectAutoSave(); storing a placement there would make the
++  // next launch overwrite the rect the system restored.
++  auto& context = ohos::adapter::ContextAdapter::GetInstance();
++  return context.IsPcMode() || context.IsFreeWindowsMode();
 +}
 +
 +void BrowserNativeWidgetAuraOhos::GetWindowPlacement(
-+    gfx::Rect* bounds, ui::mojom::WindowShowState* show_state) const {
-+  *bounds = GetWidget()->GetRestoredBounds();
-+  *show_state = IsMaximized() ? ui::mojom::WindowShowState::kMaximized
-+                             : ui::mojom::WindowShowState::kNormal;
++    gfx::Rect* bounds,
++    ui::mojom::WindowShowState* show_state) const {
++  if (IsMaximized()) {
++    // The rect recorded before the window was maximized.
++    *bounds = GetWidget()->GetRestoredBounds();
++    *show_state = ui::mojom::WindowShowState::kMaximized;
++    return;
++  }
++  // Read the live bounds rather than GetRestoredBounds(): a minimized or
++  // already hidden window (OHOS reports that as kMinimized) would otherwise
++  // yield a stale pre-maximize rect, or nothing at all.
++  *bounds = GetWidget()->GetWindowBoundsInScreen();
++  if (auto* window = GetWidget()->GetNativeWindow()) {
++    if (auto* host = window->GetHost()) {
++      const auto restored = host->GetRootTransform().InverseMapRect(
++          gfx::RectF(host->GetBoundsInPixels()));
++      if (restored) {
++        *bounds = gfx::ToRoundedRect(*restored);
++      }
++    }
++  }
++  *show_state = ui::mojom::WindowShowState::kNormal;
 +}
 +
 +BrowserNativeWidget* BrowserNativeWidgetFactory::Create(

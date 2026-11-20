@@ -17037,10 +17037,10 @@ index 0000000000..796bad4760
 \ No newline at end of file
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
 new file mode 100644
-index 0000000000..ea98c15edc
+index 0000000000..af695b4b57
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
-@@ -0,0 +1,733 @@
+@@ -0,0 +1,756 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17073,6 +17073,8 @@ index 0000000000..ea98c15edc
 +#include <optional>
 +
 +#include "ui/ozone/platform/ohos/host/ohos_toplevel_window.h"
++
++#include "ohos/adapter/context/context_adapter.h"
 +
 +#include <window_manager/oh_window.h>
 +
@@ -17119,6 +17121,18 @@ index 0000000000..ea98c15edc
 +  }
 +  OhosWindow::BindNodeHandle();
 +  OhosWindow::Show(inactive);
++  if (pending_initial_bounds_in_pixels_) {
++    const gfx::Rect bounds = *pending_initial_bounds_in_pixels_;
++    pending_initial_bounds_in_pixels_.reset();
++    auto& context = ohos::adapter::ContextAdapter::GetInstance();
++    if ((context.IsPcMode() || context.IsFreeWindowsMode()) &&
++        !is_split_screen_) {
++      SetBoundsInPixels(bounds);
++    } else {
++      // Full-screen tablet and split-screen rectangles belong to WindowKit.
++      Applied(previous_bounds_in_pixels_, bounds_in_pixels_);
++    }
++  }
 +}
 +
 +void OhosToplevelWindow::Hide() {
@@ -17221,6 +17235,15 @@ index 0000000000..ea98c15edc
 +void OhosToplevelWindow::SetBoundsInPixels(const gfx::Rect& bounds) {
 +  // Update the minimum and maximum sizes in case they have changed.
 +  UpdateMinAndMaxSize();
++
++  // The first main window exists before BrowserWidget initialization, but its
++  // drawableRect is not ready for a saved Views placement yet. Apply the latest
++  // request once from Show(), after binding the initialized widget. Other
++  // windows (including PiP) retain their normal initial-placement path.
++  if (!HasInitDone()) {
++    pending_initial_bounds_in_pixels_ = bounds;
++    return;
++  }
 +
 +  gfx::Rect new_bounds_in_pixels(bounds);
 +
@@ -17776,10 +17799,10 @@ index 0000000000..ea98c15edc
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.h b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
 new file mode 100644
-index 0000000000..2fd0f2ecd2
+index 0000000000..b74192ac97
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
-@@ -0,0 +1,190 @@
+@@ -0,0 +1,192 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17929,6 +17952,8 @@ index 0000000000..2fd0f2ecd2
 +  void CreateAndShowInternal();
 +
 +  bool use_native_frame_ = false;
++
++  std::optional<gfx::Rect> pending_initial_bounds_in_pixels_;
 +
 +  gfx::Rect window_position_size_;
 +
