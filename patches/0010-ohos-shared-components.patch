@@ -117978,7 +117978,7 @@ index 7b16e7c395..1aa0d23418 100644
  
    // Callback type for Watch(). |path| points to the file that was updated,
 diff --git a/content/browser/file_system_access/file_system_access_file_handle_impl.cc b/content/browser/file_system_access/file_system_access_file_handle_impl.cc
-index e4b3716e15..6c083d6bd6 100644
+index e4b3716e15..dcfd3416c7 100644
 --- a/content/browser/file_system_access/file_system_access_file_handle_impl.cc
 +++ b/content/browser/file_system_access/file_system_access_file_handle_impl.cc
 @@ -61,6 +61,10 @@
@@ -117992,17 +117992,29 @@ index e4b3716e15..6c083d6bd6 100644
  using blink::mojom::FileSystemAccessStatus;
  using storage::BlobDataHandle;
  using storage::BlobImpl;
-@@ -741,6 +745,13 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
+@@ -741,6 +745,25 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
      } else {
        swap_url = url().CreateSibling(*opt_swap_name);
      }
 +#elif BUILDFLAG(IS_OHOS)
-+    std::string file_name = opt_swap_name->value();
-+    base::FilePath private_swap_path =
-+        base::FilePath(::ohos::adapter::ContextPathAdapter::GetAppDownloadDir())
-+            .Append(base::FilePath::FromUTF8Unsafe(file_name));
-+    storage::FileSystemURL swap_url =
-+        manager()->CreateFileSystemURLFromPath(PathInfo(private_swap_path));
++    // OPFS and other non-local backends must keep the original storage key,
++    // bucket and file-system type. Redirect only user-picked local files to
++    // the app-authorized directory where a sibling swap file can be created.
++    storage::FileSystemURL swap_url = url().CreateSibling(*opt_swap_name);
++    if (url().type() == storage::kFileSystemTypeLocal) {
++      const base::FilePath swap_dir(
++          ::ohos::adapter::ContextPathAdapter::GetAppDownloadDir());
++      if (swap_dir.empty()) {
++        std::move(callback).Run(
++            file_system_access_error::FromStatus(
++                FileSystemAccessStatus::kOperationFailed,
++                "Unable to access the application download directory."),
++            mojo::NullRemote());
++        return;
++      }
++      swap_url = manager()->CreateFileSystemURLFromPath(
++          PathInfo(swap_dir.Append(opt_swap_name->path())));
++    }
  #else
      storage::FileSystemURL swap_url = url().CreateSibling(*opt_swap_name);
  #endif
@@ -128600,6 +128612,7 @@ index 0000000000..8ff2638870
 +#endif  // GPU_COMMAND_BUFFER_SERVICE_OHOS_NATIVE_IMAGE_SURFACE_TEXTURE_GL_OWNER_H_
 diff --git a/gpu/command_buffer/service/ohos/native_image_texture_owner.cc b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
 new file mode 100644
+index 0000000000..db43dfeb26
 --- /dev/null
 +++ b/gpu/command_buffer/service/ohos/native_image_texture_owner.cc
 @@ -0,0 +1,139 @@
@@ -147540,6 +147553,7 @@ index 0000000000..5c013d9288
 +#endif  // MEDIA_GPU_OHOS_FRAME_INFO_HELPER_H_
 diff --git a/media/gpu/ohos/ohos_video_decoder.cc b/media/gpu/ohos/ohos_video_decoder.cc
 new file mode 100644
+index 0000000000..9674698081
 --- /dev/null
 +++ b/media/gpu/ohos/ohos_video_decoder.cc
 @@ -0,0 +1,783 @@

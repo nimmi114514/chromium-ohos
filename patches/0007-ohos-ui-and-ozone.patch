@@ -17037,7 +17037,7 @@ index 0000000000..796bad4760
 \ No newline at end of file
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
 new file mode 100644
-index 0000000..ea98c15
+index 0000000000..ea98c15edc
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
 @@ -0,0 +1,733 @@
@@ -17776,7 +17776,7 @@ index 0000000..ea98c15
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.h b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
 new file mode 100644
-index 0000000..2fd0f2e
+index 0000000000..2fd0f2ecd2
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.h
 @@ -0,0 +1,190 @@
@@ -21687,7 +21687,7 @@ index 0000000000..d0c4497866
 \ No newline at end of file
 diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
 new file mode 100644
-index 0000000..fa04142
+index 0000000000..fa04142349
 --- /dev/null
 +++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.cc
 @@ -0,0 +1,311 @@
@@ -22004,7 +22004,7 @@ index 0000000..fa04142
 +}  // namespace views
 diff --git a/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
 new file mode 100644
-index 0000000..3ce4e66
+index 0000000000..3ce4e66e42
 --- /dev/null
 +++ b/ui/views/widget/desktop_aura/desktop_window_tree_host_ohos.h
 @@ -0,0 +1,105 @@

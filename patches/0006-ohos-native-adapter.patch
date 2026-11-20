@@ -29655,7 +29655,7 @@ index 0000000000..354500932f
 +#endif  // OHOS_ADAPTER_APP_WINDOW_SYSTEM_FLOATING_WINDOW_ADAPTER_H_
 diff --git a/ohos/adapter/window/window_common.cc b/ohos/adapter/window/window_common.cc
 new file mode 100644
-index 0000000..68821cf
+index 0000000000..68821cf2f2
 --- /dev/null
 +++ b/ohos/adapter/window/window_common.cc
 @@ -0,0 +1,101 @@
@@ -29762,7 +29762,7 @@ index 0000000..68821cf
 +}  // namespace ohos::adapter::window
 diff --git a/ohos/adapter/window/window_common.h b/ohos/adapter/window/window_common.h
 new file mode 100644
-index 0000000..24d6639
+index 0000000000..24d6639f67
 --- /dev/null
 +++ b/ohos/adapter/window/window_common.h
 @@ -0,0 +1,161 @@
@@ -34740,7 +34740,7 @@ index 0000000000..cfbf88cb53
 +#endif  // OHOS_ADAPTER_XCOMPONENT_XCOMPONENT_DELEGATE_H_
 diff --git a/ohos/adapter/xcomponent/xcomponent_manager.cc b/ohos/adapter/xcomponent/xcomponent_manager.cc
 new file mode 100644
-index 0000000..7ffb73e
+index 0000000000..7ffb73e02a
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/xcomponent_manager.cc
 @@ -0,0 +1,752 @@
@@ -35498,7 +35498,7 @@ index 0000000..7ffb73e
 +}  // namespace ohos::adapter::xcomponent
 diff --git a/ohos/adapter/xcomponent/xcomponent_manager.h b/ohos/adapter/xcomponent/xcomponent_manager.h
 new file mode 100644
-index 0000000..7943942
+index 0000000000..794394251f
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/xcomponent_manager.h
 @@ -0,0 +1,156 @@

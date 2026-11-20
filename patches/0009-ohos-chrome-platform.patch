@@ -1677,6 +1677,35 @@ index 884ad2f2f6..253cad90fb 100644
  
  source_set("content_settings") {
    sources = [
+diff --git a/chrome/browser/content_settings/chrome_content_settings_utils.cc b/chrome/browser/content_settings/chrome_content_settings_utils.cc
+index 993e7ee58e..d72aced592 100644
+--- a/chrome/browser/content_settings/chrome_content_settings_utils.cc
++++ b/chrome/browser/content_settings/chrome_content_settings_utils.cc
+@@ -18,6 +18,7 @@
+ #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
+ #include "chrome/browser/ui/views/picture_in_picture/document_pip_host.h"
+ #include "content/public/browser/web_contents.h"
++#include "ui/views/view_utils.h"
+ #endif
+ 
+ namespace content_settings {
+@@ -74,9 +75,13 @@ void UpdateLocationBarUiForWebContents(content::WebContents* web_contents) {
+   // updated too.
+   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_FLOATING) {
+     BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+-    auto* frame_view = static_cast<PictureInPictureBrowserFrameView*>(
+-        browser_view->browser_widget()->GetFrameView());
+-    frame_view->UpdateContentSettingsIcons();
++    // Not every platform gives its floating windows a PiP frame view (the OHOS
++    // port builds a BrowserFrameViewOhos for every window), so the down-cast
++    // has to be validated instead of assumed.
++    if (auto* frame_view = views::AsViewClass<PictureInPictureBrowserFrameView>(
++            browser_view->browser_widget()->GetFrameView())) {
++      frame_view->UpdateContentSettingsIcons();
++    }
+   }
+ #endif
+ }
 diff --git a/chrome/browser/device_reauth/BUILD.gn b/chrome/browser/device_reauth/BUILD.gn
 index 90a4e1e21b..743320b122 100644
 --- a/chrome/browser/device_reauth/BUILD.gn
@@ -10451,6 +10480,37 @@ index 051938521e..9d31647f3b 100644
  
  import("//build/config/ui.gni")
  
+diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.cc b/chrome/browser/ui/views/bubble_anchor_util_views.cc
+index 2d36e44a69..4fe8dd2f21 100644
+--- a/chrome/browser/ui/views/bubble_anchor_util_views.cc
++++ b/chrome/browser/ui/views/bubble_anchor_util_views.cc
+@@ -26,6 +26,7 @@
+ #include "ui/base/interaction/element_highlighter.h"
+ #include "ui/views/bubble/bubble_border.h"
+ #include "ui/views/interaction/element_tracker_views.h"
++#include "ui/views/view_utils.h"
+ 
+ // This file contains the bubble_anchor_util implementation for a Views
+ // browser window (BrowserView).
+@@ -76,10 +77,14 @@ AnchorConfiguration GetPageInfoAnchorConfiguration(
+   }
+ 
+   if (anchor == Anchor::kLocationBar && browser_view->GetIsFloatingType()) {
+-    auto* frame_view = static_cast<PictureInPictureBrowserFrameView*>(
+-        browser_view->browser_widget()->GetFrameView());
+-    return {views::BubbleAnchor(frame_view->GetLocationIconView()),
+-            kLocationIconElementId, views::BubbleBorder::TOP_LEFT};
++    // Not every platform gives its floating windows a PiP frame view (the OHOS
++    // port builds a BrowserFrameViewOhos for every window). When there is none,
++    // fall through to the menu button anchor below.
++    if (auto* frame_view = views::AsViewClass<PictureInPictureBrowserFrameView>(
++            browser_view->browser_widget()->GetFrameView())) {
++      return {views::BubbleAnchor(frame_view->GetLocationIconView()),
++              kLocationIconElementId, views::BubbleBorder::TOP_LEFT};
++    }
+   }
+ 
+   if (anchor == Anchor::kCustomTabBar &&
 diff --git a/chrome/browser/ui/views/chrome_browser_main_extra_parts_views_ohos.cc b/chrome/browser/ui/views/chrome_browser_main_extra_parts_views_ohos.cc
 new file mode 100644
 index 0000000000..64a493e120
@@ -11792,6 +11852,89 @@ index e9a579c112..783f368da1 100644
  
  source_set("mic_preview") {
    public = [
+diff --git a/chrome/browser/ui/views/overlay/BUILD.gn b/chrome/browser/ui/views/overlay/BUILD.gn
+index 0827decae3..d274eef514 100644
+--- a/chrome/browser/ui/views/overlay/BUILD.gn
++++ b/chrome/browser/ui/views/overlay/BUILD.gn
+@@ -84,6 +84,10 @@ source_set("impl") {
+     "//components/live_caption:constants",
+   ]
+ 
++  if (is_ohos) {
++    deps += [ "//ohos/adapter:adapter" ]
++  }
++
+   if (is_mac) {
+     sources += [ "video_overlay_window_native_widget_mac.mm" ]
+     deps += [ "//components/remote_cocoa/common:mojo" ]
+diff --git a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+index 7c2536e4d9..b5fdca7cf2 100644
+--- a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
++++ b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+@@ -79,6 +79,10 @@
+ #include "ui/views/window/frame_view.h"
+ #include "url/origin.h"
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ohos/adapter/xcomponent/adapter/window_adapter.h"
++#endif
++
+ #if BUILDFLAG(IS_CHROMEOS)
+ #include "ash/public/cpp/window_properties.h"  // nogncheck
+ #include "chromeos/ui/base/app_types.h"
+@@ -341,6 +345,13 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
+   params.z_order = ui::ZOrderLevel::kFloatingWindow;
+   params.visible_on_all_workspaces = true;
+   params.remove_standard_frame = true;
++#if BUILDFLAG(IS_OHOS)
++  // Hiding the window decor only hides the title bar on OHOS: the
++  // minimize/maximize/close buttons stay visible and sink into the content
++  // area, overlapping the picture-in-picture controls. Hide them explicitly
++  // for the PiP window.
++  params.caption_button_visible = false;
++#endif
+   params.name = "PictureInPictureWindow";
+   params.layer_type = ui::LAYER_NOT_DRAWN;
+   params.delegate = new OverlayWindowWidgetDelegate();
+@@ -548,15 +559,24 @@ void VideoOverlayWindowViews::OnNativeBlur() {
+ }
+ 
+ gfx::Size VideoOverlayWindowViews::GetMinimumSize() const {
++  gfx::Size minimum_size = min_size_;
++#if BUILDFLAG(IS_OHOS)
++  // The native main window can be larger than the requested PiP minimum.
++  // Use the existing VP/DIP system limits before computing bottom/right
++  // placement, rather than correcting asynchronous resize notifications.
++  const auto limits = ohos::adapter::xcomponent::WindowAdapter::GetInstance()
++                          .GetSystemWindowLimits();
++  minimum_size.SetToMax(gfx::Size(limits.min_width, limits.min_height));
++#endif
+   if (IsOverlayViewShown()) {
+     // Make sure that our minimum is sufficiently large to enclose the bubble,
+     // plus some margin to make it look nicer.
+     gfx::Size overlay_size =
+         overlay_view_->GetBubbleSize() + kOverlayViewPadding;
+-    overlay_size.SetToMax(min_size_);
++    overlay_size.SetToMax(minimum_size);
+     return overlay_size;
+   }
+-  return min_size_;
++  return minimum_size;
+ }
+ 
+ gfx::Size VideoOverlayWindowViews::GetMaximumSize() const {
+@@ -970,7 +990,11 @@ void VideoOverlayWindowViews::UpdateMaxSize(const gfx::Rect& work_area) {
+ 
+   // Ensure |new_max_size| is not smaller than |min_size_|, or else we will
+   // crash.
++#if BUILDFLAG(IS_OHOS)
++  new_max_size.SetToMax(GetMinimumSize());
++#else
+   new_max_size.SetToMax(min_size_);
++#endif
+ 
+   // Make sure we only run the logic to update the current size if the maximum
+   // size actually changes. Running it unconditionally means also running it
 diff --git a/chrome/browser/ui/views/page_info/page_info_permission_content_view.cc b/chrome/browser/ui/views/page_info/page_info_permission_content_view.cc
 index b75d2c22f9..f576bf60c3 100644
 --- a/chrome/browser/ui/views/page_info/page_info_permission_content_view.cc
@@ -16132,146 +16275,3 @@ index 14cdd3f487..3d076c3698 100644
  #if BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
    services.Add(RunRedirectionService);
  #endif  // BUILDFLAG(ENABLE_MEDIA_REMOTING_REDIRECTION)
-diff --git a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
-index 7c2536e4d9..b5fdca7cf2 100644
---- a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
-+++ b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
-@@ -79,6 +79,10 @@
- #include "ui/views/window/frame_view.h"
- #include "url/origin.h"
- 
-+#if BUILDFLAG(IS_OHOS)
-+#include "ohos/adapter/xcomponent/adapter/window_adapter.h"
-+#endif
-+
- #if BUILDFLAG(IS_CHROMEOS)
- #include "ash/public/cpp/window_properties.h"  // nogncheck
- #include "chromeos/ui/base/app_types.h"
-@@ -341,6 +345,13 @@ std::unique_ptr<VideoOverlayWindowViews> VideoOverlayWindowViews::Create(
-   params.z_order = ui::ZOrderLevel::kFloatingWindow;
-   params.visible_on_all_workspaces = true;
-   params.remove_standard_frame = true;
-+#if BUILDFLAG(IS_OHOS)
-+  // Hiding the window decor only hides the title bar on OHOS: the
-+  // minimize/maximize/close buttons stay visible and sink into the content
-+  // area, overlapping the picture-in-picture controls. Hide them explicitly
-+  // for the PiP window.
-+  params.caption_button_visible = false;
-+#endif
-   params.name = "PictureInPictureWindow";
-   params.layer_type = ui::LAYER_NOT_DRAWN;
-   params.delegate = new OverlayWindowWidgetDelegate();
-@@ -548,15 +559,24 @@ void VideoOverlayWindowViews::OnNativeBlur() {
- }
- 
- gfx::Size VideoOverlayWindowViews::GetMinimumSize() const {
-+  gfx::Size minimum_size = min_size_;
-+#if BUILDFLAG(IS_OHOS)
-+  // The native main window can be larger than the requested PiP minimum.
-+  // Use the existing VP/DIP system limits before computing bottom/right
-+  // placement, rather than correcting asynchronous resize notifications.
-+  const auto limits = ohos::adapter::xcomponent::WindowAdapter::GetInstance()
-+                          .GetSystemWindowLimits();
-+  minimum_size.SetToMax(gfx::Size(limits.min_width, limits.min_height));
-+#endif
-   if (IsOverlayViewShown()) {
-     // Make sure that our minimum is sufficiently large to enclose the bubble,
-     // plus some margin to make it look nicer.
-     gfx::Size overlay_size =
-         overlay_view_->GetBubbleSize() + kOverlayViewPadding;
--    overlay_size.SetToMax(min_size_);
-+    overlay_size.SetToMax(minimum_size);
-     return overlay_size;
-   }
--  return min_size_;
-+  return minimum_size;
- }
- 
- gfx::Size VideoOverlayWindowViews::GetMaximumSize() const {
-@@ -970,7 +990,11 @@ void VideoOverlayWindowViews::UpdateMaxSize(const gfx::Rect& work_area) {
- 
-   // Ensure |new_max_size| is not smaller than |min_size_|, or else we will
-   // crash.
-+#if BUILDFLAG(IS_OHOS)
-+  new_max_size.SetToMax(GetMinimumSize());
-+#else
-   new_max_size.SetToMax(min_size_);
-+#endif
- 
-   // Make sure we only run the logic to update the current size if the maximum
-   // size actually changes. Running it unconditionally means also running it
-diff --git a/chrome/browser/content_settings/chrome_content_settings_utils.cc b/chrome/browser/content_settings/chrome_content_settings_utils.cc
-index 993e7ee58e..d72aced592 100644
---- a/chrome/browser/content_settings/chrome_content_settings_utils.cc
-+++ b/chrome/browser/content_settings/chrome_content_settings_utils.cc
-@@ -18,6 +18,7 @@
- #include "chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.h"
- #include "chrome/browser/ui/views/picture_in_picture/document_pip_host.h"
- #include "content/public/browser/web_contents.h"
-+#include "ui/views/view_utils.h"
- #endif
- 
- namespace content_settings {
-@@ -74,9 +75,13 @@ void UpdateLocationBarUiForWebContents(content::WebContents* web_contents) {
-   // updated too.
-   if (browser->GetType() == BrowserWindowInterface::Type::TYPE_FLOATING) {
-     BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
--    auto* frame_view = static_cast<PictureInPictureBrowserFrameView*>(
--        browser_view->browser_widget()->GetFrameView());
--    frame_view->UpdateContentSettingsIcons();
-+    // Not every platform gives its floating windows a PiP frame view (the OHOS
-+    // port builds a BrowserFrameViewOhos for every window), so the down-cast
-+    // has to be validated instead of assumed.
-+    if (auto* frame_view = views::AsViewClass<PictureInPictureBrowserFrameView>(
-+            browser_view->browser_widget()->GetFrameView())) {
-+      frame_view->UpdateContentSettingsIcons();
-+    }
-   }
- #endif
- }
-diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.cc b/chrome/browser/ui/views/bubble_anchor_util_views.cc
-index 2d36e44a69..4fe8dd2f21 100644
---- a/chrome/browser/ui/views/bubble_anchor_util_views.cc
-+++ b/chrome/browser/ui/views/bubble_anchor_util_views.cc
-@@ -26,6 +26,7 @@
- #include "ui/base/interaction/element_highlighter.h"
- #include "ui/views/bubble/bubble_border.h"
- #include "ui/views/interaction/element_tracker_views.h"
-+#include "ui/views/view_utils.h"
- 
- // This file contains the bubble_anchor_util implementation for a Views
- // browser window (BrowserView).
-@@ -76,10 +77,14 @@ AnchorConfiguration GetPageInfoAnchorConfiguration(
-   }
- 
-   if (anchor == Anchor::kLocationBar && browser_view->GetIsFloatingType()) {
--    auto* frame_view = static_cast<PictureInPictureBrowserFrameView*>(
--        browser_view->browser_widget()->GetFrameView());
--    return {views::BubbleAnchor(frame_view->GetLocationIconView()),
--            kLocationIconElementId, views::BubbleBorder::TOP_LEFT};
-+    // Not every platform gives its floating windows a PiP frame view (the OHOS
-+    // port builds a BrowserFrameViewOhos for every window). When there is none,
-+    // fall through to the menu button anchor below.
-+    if (auto* frame_view = views::AsViewClass<PictureInPictureBrowserFrameView>(
-+            browser_view->browser_widget()->GetFrameView())) {
-+      return {views::BubbleAnchor(frame_view->GetLocationIconView()),
-+              kLocationIconElementId, views::BubbleBorder::TOP_LEFT};
-+    }
-   }
- 
-   if (anchor == Anchor::kCustomTabBar &&
-diff --git a/chrome/browser/ui/views/overlay/BUILD.gn b/chrome/browser/ui/views/overlay/BUILD.gn
-index 0827decae3..d274eef514 100644
---- a/chrome/browser/ui/views/overlay/BUILD.gn
-+++ b/chrome/browser/ui/views/overlay/BUILD.gn
-@@ -84,6 +84,10 @@ source_set("impl") {
-     "//components/live_caption:constants",
-   ]
- 
-+  if (is_ohos) {
-+    deps += [ "//ohos/adapter:adapter" ]
-+  }
-+
-   if (is_mac) {
-     sources += [ "video_overlay_window_native_widget_mac.mm" ]
-     deps += [ "//components/remote_cocoa/common:mojo" ]
