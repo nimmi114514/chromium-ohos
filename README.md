@@ -43,6 +43,7 @@
 | USB HID / WebHID | 部分适配：已加入 OHOS USB HID 枚举、授权、报告描述符及输入/输出报告通道；蓝牙 HID 尚未支持，手柄震动尚未验证成功，设备兼容性仍有限 |
 | AVC / HEVC 硬件解码 | 已接入 OHOS 解码器，此前验证过实际出帧、跳转和后台恢复；支持范围取决于设备 |
 | HDR | 已接入 HEVC PQ/HLG 元数据、10bit EGL 与显示能力；本地样本验证过，网站 HDR 选流和面板绝对亮度/色准尚未完整验收 |
+| GPU 进程 | 2in1 保留独立进程路径；平板 API 14 起启用 Native GPU 子进程，旧系统保留进程内 GPU。API 26 平板的电脑/平板模式已验证绘制、视频、WebGPU 和 GPU 崩溃恢复；其他固件仍需验证 |
 | DrDc | 独立 GPU 合成线程，使用 NativeBuffer/fence 共享与同步 |
 | WebGPU | Vulkan/Dawn；支持的驱动上，默认 RGBA 画布通过 NativeBuffer 共享给 GLES/DrDc |
 | WebGPU 图像与视频导入 | 8bit Canvas2D/WebGL/ImageBitmap 和 AVC/HEVC 视频通过 GPU 转换与共享，避免 CPU 像素回读和重新上传；仍可能有 GPU 拷贝 |

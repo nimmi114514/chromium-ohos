@@ -27138,10 +27138,10 @@ index 0000000000..b950929cc8
 +}
 diff --git a/ohos/adapter/web_entry/chrome/chrome_loader.cc b/ohos/adapter/web_entry/chrome/chrome_loader.cc
 new file mode 100644
-index 0000000000..01ad0dbd45
+index 0000000000..4485bb10c6
 --- /dev/null
 +++ b/ohos/adapter/web_entry/chrome/chrome_loader.cc
-@@ -0,0 +1,133 @@
+@@ -0,0 +1,136 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -27257,13 +27257,16 @@ index 0000000000..01ad0dbd45
 +  };
 +  ohos::adapter::device_info::DeviceType device_type =
 +    ohos::adapter::device_info::DeviceInfo::GetInstance().GetDeviceType();
-+  // pad not support gpu process
++  // Native IPC child processes are supported on tablets from API 14.
++  // Keep the older firmware fallback separate from the API 19 JIT policy.
 +  if (device_type == ohos::adapter::device_info::DeviceType::_TABLET) {
 +    if (ohos::adapter::device_info::DeviceInfo::SdkApi() <
 +        ohos::adapter::device_info::SDK_VERSION_19) {
 +          args.emplace_back("--js-flags=--jitless");
 +    }    
-+    args.push_back("--in-process-gpu");
++    if (ohos::adapter::device_info::DeviceInfo::SdkApi() < 14) {
++      args.push_back("--in-process-gpu");
++    }
 +  }
 +  if (ShouldDisableJit()) {
 +    args.emplace_back("--js-flags=--jitless");

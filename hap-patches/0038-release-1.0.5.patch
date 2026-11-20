@@ -1,0 +1,28 @@
+diff --git a/AppScope/app.json5 b/AppScope/app.json5
+index 095e951..31f4d79 100644
+--- a/AppScope/app.json5
++++ b/AppScope/app.json5
+@@ -2,8 +2,8 @@
+   "app": {
+     "bundleName": "com.example.ohos.chromium",
+     "vendor": "openharmony-tpc",
+-    "versionCode": 1000004,
+-    "versionName": "1.0.4",
++    "versionCode": 1000005,
++    "versionName": "1.0.5",
+     "icon": "$media:app_icon",
+     "label": "$string:app_name",
+     "configuration": "$profile:configuration"
+diff --git a/README.md b/README.md
+index ba3b7a4..d3177c8 100644
+--- a/README.md
++++ b/README.md
+@@ -15,7 +15,7 @@
+ 
+ 本仓库需要配套内核编译产生的原生库、ICU、PAK语言/界面资源及V8快照。**只有本HAP仓库无法单独编译出完整浏览器**；应先按配套仓库的[从两个仓库构建完整HAP](https://github.com/nimmi114514/chromium-ohos#从两个仓库构建完整-hap)获取固定Chromium源码和DEPS依赖、应用补丁并编译内核，再打包本工程。无需额外取得作者的私有子仓库。
+ 
+-应用版本当前为 `1.0.4`；它与Chromium内核版本 `158.0.8116.0` 分开管理。更新内核后，需要同步资源并重新生成HAP，设备中的内核才会更新。
++应用版本当前为 `1.0.5`；它与Chromium内核版本 `158.0.8116.0` 分开管理。更新内核后，需要同步资源并重新生成HAP，设备中的内核才会更新。
+ 
+ ## 相对132工程的主要改动
+ 

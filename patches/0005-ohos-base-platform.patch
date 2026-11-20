@@ -1281,10 +1281,10 @@ index 2eb9a4f39a..276c161ee2 100644
  #else
 diff --git a/base/memory/platform_shared_memory_mapper_ohos.cc b/base/memory/platform_shared_memory_mapper_ohos.cc
 new file mode 100644
-index 0000000000..e87edbadcf
+index 0000000000..d1fe6505d4
 --- /dev/null
 +++ b/base/memory/platform_shared_memory_mapper_ohos.cc
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,39 @@
 +// Copyright 2022 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -1309,7 +1309,8 @@ index 0000000000..e87edbadcf
 +           MAP_SHARED, handle, checked_cast<off_t>(offset));
 +
 +  if (address == MAP_FAILED) {
-+    DPLOG(ERROR) << "mmap " << handle << " failed";
++    PLOG(ERROR) << "shared memory mmap failed, fd=" << handle
++                << " size=" << size << " offset=" << offset;
 +    return std::nullopt;
 +  }
 +
@@ -1348,7 +1349,7 @@ index 2208550e76..5d689734f9 100644
    static PlatformSharedMemoryRegion Take(ScopedFD handle,
 diff --git a/base/memory/platform_shared_memory_region_ohos.cc b/base/memory/platform_shared_memory_region_ohos.cc
 new file mode 100644
-index 0000000000..2ff3a50a30
+index 0000000000..6d280a0cff
 --- /dev/null
 +++ b/base/memory/platform_shared_memory_region_ohos.cc
 @@ -0,0 +1,211 @@
@@ -1516,14 +1517,14 @@ index 0000000000..2ff3a50a30
 +  int fd = ashmem_create_region(
 +      SharedMemoryTracker::GetDumpNameForTracing(guid).c_str(), rounded_size);
 +  if (fd < 0) {
-+    DPLOG(ERROR) << "ashmem_create_region failed";
++    PLOG(ERROR) << "ashmem_create_region failed, size=" << rounded_size;
 +    return {};
 +  }
 +
 +  ScopedFD scoped_fd(fd);
 +  int err = ashmem_set_prot_region(scoped_fd.get(), PROT_READ | PROT_WRITE);
 +  if (err < 0) {
-+    DPLOG(ERROR) << "ashmem_set_prot_region failed";
++    PLOG(ERROR) << "ashmem_set_prot_region failed";
 +    return {};
 +  }
 +

@@ -115782,6 +115782,27 @@ index 5efc20926c..ceec709fa8 100644
  #endif  // BUILDFLAG(USE_ZYGOTE)
  
  #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+diff --git a/content/app/initialize_mojo_core.cc b/content/app/initialize_mojo_core.cc
+index f1a2c78d42..a3098dba21 100644
+--- a/content/app/initialize_mojo_core.cc
++++ b/content/app/initialize_mojo_core.cc
+@@ -49,13 +49,14 @@ void InitializeMojoCore() {
+     config.force_direct_shared_memory_allocation = true;
+ #endif
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+     // Renderer and GPU processes create a lot of unsafe regions (data pipes,
+     // large IPC payloads) and their seccomp policies allow the memfd
+     // creation, sizing and sealing that base needs for one, so let them skip
+     // the broker round trip for those. Other sandbox types keep delegating
+     // everything; some of them (e.g. the hardware video decoder) deliberately
+-    // forbid ftruncate().
++    // forbid ftruncate(). OHOS renderer/GPU processes can likewise create
++    // ashmem regions directly; no executable-memory permission is involved.
+     const sandbox::mojom::Sandbox sandbox_type =
+         sandbox::policy::SandboxTypeFromCommandLine(command_line);
+     config.direct_unsafe_shared_memory_allocation =
 diff --git a/content/browser/BUILD.gn b/content/browser/BUILD.gn
 index 4e929a8d7c..9ba9486bc3 100644
 --- a/content/browser/BUILD.gn
@@ -130494,6 +130515,26 @@ index a8fcb73559..9bbd7d3724 100755
 +  'ohos': 'kOsOhos',
    '': 'kOsAny',
  }
+ 
+diff --git a/gpu/ipc/client/command_buffer_proxy_impl.cc b/gpu/ipc/client/command_buffer_proxy_impl.cc
+index f3bf5b9e0e..932ee43bf6 100644
+--- a/gpu/ipc/client/command_buffer_proxy_impl.cc
++++ b/gpu/ipc/client/command_buffer_proxy_impl.cc
+@@ -746,13 +746,13 @@ CommandBufferProxyImpl::AllocateAndMapSharedMemory(
+   base::UnsafeSharedMemoryRegion region =
+       base::UnsafeSharedMemoryRegion::Create(size);
+   if (!region.IsValid()) {
+-    DLOG(ERROR) << "AllocateAndMapSharedMemory: Allocation failed";
++    LOG(ERROR) << "AllocateAndMapSharedMemory: Allocation failed, size=" << size;
+     return {};
+   }
+ 
+   base::WritableSharedMemoryMapping mapping = region.Map(mapper);
+   if (!mapping.IsValid()) {
+-    DLOG(ERROR) << "AllocateAndMapSharedMemory: Map failed";
++    LOG(ERROR) << "AllocateAndMapSharedMemory: Map failed, size=" << size;
+     return {};
+   }
  
 diff --git a/gpu/ipc/common/BUILD.gn b/gpu/ipc/common/BUILD.gn
 index 45b0f51e40..98978a2fea 100644
@@ -150551,7 +150592,7 @@ index 605868fefe..53ccce7fb5 100644
  
    BufferResponseData* response;
 diff --git a/mojo/core/broker_posix.cc b/mojo/core/broker_posix.cc
-index 580a458f55..a7690adabc 100644
+index 580a458f55..737a83f00d 100644
 --- a/mojo/core/broker_posix.cc
 +++ b/mojo/core/broker_posix.cc
 @@ -12,6 +12,7 @@
@@ -150562,7 +150603,17 @@ index 580a458f55..a7690adabc 100644
  #include "mojo/core/broker_messages.h"
  #include "mojo/core/channel.h"
  #include "mojo/public/cpp/platform/socket_utils_posix.h"
-@@ -99,8 +100,12 @@ base::WritableSharedMemoryRegion Broker::GetWritableSharedMemoryRegion(
+@@ -41,7 +42,8 @@ Channel::MessagePtr WaitForBrokerMessage(
+     LOG(ERROR) << "Invalid node channel message";
+     error = true;
+   } else if (incoming_fds.size() != expected_num_handles) {
+-    DLOG(ERROR) << "Received unexpected number of handles";
++    LOG(ERROR) << "Shared memory broker received " << incoming_fds.size()
++               << " handles; expected " << expected_num_handles;
+     error = true;
+   }
+ 
+@@ -99,8 +101,12 @@ base::WritableSharedMemoryRegion Broker::GetWritableSharedMemoryRegion(
      return base::WritableSharedMemoryRegion();
    }
  
@@ -150575,7 +150626,7 @@ index 580a458f55..a7690adabc 100644
  
    std::vector<PlatformHandle> handles;
    Channel::MessagePtr message = WaitForBrokerMessage(
-@@ -118,8 +123,12 @@ base::WritableSharedMemoryRegion Broker::GetWritableSharedMemoryRegion(
+@@ -118,8 +124,12 @@ base::WritableSharedMemoryRegion Broker::GetWritableSharedMemoryRegion(
      }
      return base::WritableSharedMemoryRegion::Deserialize(
          base::subtle::PlatformSharedMemoryRegion::Take(
@@ -150610,6 +150661,79 @@ index f7d034891d..42f5f484fd 100644
    handles[0] = PlatformHandle(std::move(region_handle.fd));
    handles[1] = PlatformHandle(std::move(region_handle.readonly_fd));
  #else
+diff --git a/mojo/core/embedder/configuration.h b/mojo/core/embedder/configuration.h
+index 038b408d34..3d99c2d964 100644
+--- a/mojo/core/embedder/configuration.h
++++ b/mojo/core/embedder/configuration.h
+@@ -33,12 +33,13 @@ struct Configuration {
+   // objects.
+   bool force_direct_shared_memory_allocation = false;
+ 
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   // If `true` and this process delegates shared memory allocation to the
+   // broker, unsafe regions (which never need a read-only handle) are still
+   // created directly in this process. That takes memfd_create(), ftruncate()
+   // and fcntl(F_ADD_SEALS), which must be permitted by the process's sandbox
+   // policy; only set this for process types where that is known to hold.
++  // OHOS uses its ashmem platform implementation for the same fast path.
+   bool direct_unsafe_shared_memory_allocation = false;
+ #endif
+ 
+diff --git a/mojo/core/ipcz_driver/base_shared_memory_service.cc b/mojo/core/ipcz_driver/base_shared_memory_service.cc
+index 98cb0e4033..8810a4c3b5 100644
+--- a/mojo/core/ipcz_driver/base_shared_memory_service.cc
++++ b/mojo/core/ipcz_driver/base_shared_memory_service.cc
+@@ -14,6 +14,7 @@
+ #include "base/memory/shared_memory_mapping.h"
+ #include "base/memory/unsafe_shared_memory_region.h"
+ #include "base/memory/writable_shared_memory_region.h"
++#include "base/trace_event/trace_event.h"
+ #include "build/build_config.h"
+ #include "mojo/core/configuration.h"
+ #include "mojo/core/ipcz_api.h"
+@@ -128,15 +129,23 @@ base::MappedReadOnlyRegion CreateReadOnlySharedMemoryRegion(
+ }
+ 
+ base::UnsafeSharedMemoryRegion CreateUnsafeSharedMemoryRegion(size_t size) {
+-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+   // An unsafe region never needs a read-only descriptor, and a memfd-backed
+   // one needs no filesystem access to create, so allocate it in-process when
+   // the embedder says this process's sandbox allows it (and the kernel
+   // supports memfd) instead of paying for a synchronous round trip to the
+   // broker.
+   if (GetConfiguration().direct_unsafe_shared_memory_allocation) {
++#if BUILDFLAG(IS_OHOS)
++    TRACE_EVENT("ipc", "OHOS.SharedMemory.CreateUnsafeDirect", "size", size);
++    // Use OHOS ashmem rather than Linux memfd. This calls the platform layer
++    // directly, avoiding recursion through the installed shared memory hooks.
++    auto anonymous_region =
++        base::subtle::PlatformSharedMemoryRegion::CreateUnsafe(size);
++#else
+     auto anonymous_region =
+         base::subtle::PlatformSharedMemoryRegion::CreateUnsafeAnonymous(size);
++#endif
+     if (anonymous_region.IsValid()) {
+       return base::UnsafeSharedMemoryRegion::Deserialize(
+           std::move(anonymous_region));
+@@ -144,7 +153,7 @@ base::UnsafeSharedMemoryRegion CreateUnsafeSharedMemoryRegion(size_t size) {
+     // In-process creation failed (no memfd support in the kernel, or out of
+     // descriptors or memory); fall back to asking the broker.
+   }
+-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
++#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_OHOS)
+ 
+   auto writable_region = CreateWritableSharedMemoryRegion(size);
+   if (!writable_region.IsValid()) {
+@@ -194,6 +203,7 @@ base::WritableSharedMemoryRegion BaseSharedMemoryService::CreateWritableRegion(
+     size_t size) {
+ #if SHARED_MEMORY_SERVICE_REQUIRED()
+   if (!g_client) {
++    LOG(ERROR) << "Shared memory broker client unavailable, size=" << size;
+     return {};
+   }
+   return g_client->GetWritableSharedMemoryRegion(size);
 diff --git a/mojo/core/ipcz_driver/shared_buffer.cc b/mojo/core/ipcz_driver/shared_buffer.cc
 index 232760ed39..bbb89a9538 100644
 --- a/mojo/core/ipcz_driver/shared_buffer.cc
