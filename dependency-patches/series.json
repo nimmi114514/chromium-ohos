@@ -75,7 +75,7 @@
       "include/ports/SkFontMgr_ohos.h",
       "src/ports/SkFontMgr_ohos.cpp"
     ],
-    "sha256": "e8b77982b540e6473b0ce192f8b89d3371b01258091bffac795f7f1901132090",
+    "sha256": "8c1b58f9d1009589a2542a1a9fcb093590b8fa0539d5b1378e4fcdbc06e48428",
     "replay_matches_worktree": true
   },
   {

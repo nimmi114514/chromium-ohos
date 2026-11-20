@@ -139,10 +139,10 @@ index 0000000..060cf39
 +#endif  // SkFontMgr_ohos_DEFINED
 diff --git a/src/ports/SkFontMgr_ohos.cpp b/src/ports/SkFontMgr_ohos.cpp
 new file mode 100644
-index 0000000..694d9c4
+index 0000000..b9916ae
 --- /dev/null
 +++ b/src/ports/SkFontMgr_ohos.cpp
-@@ -0,0 +1,499 @@
+@@ -0,0 +1,522 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -191,6 +191,8 @@ index 0000000..694d9c4
 +#include "include/core/SkString.h"
 +#include "include/core/SkTypeface.h"
 +#include "include/private/SkTArray.h"
++#include "include/ports/SkFontScanner_Fontations.h"
++#include "include/ports/SkTypeface_fontations.h"
 +#include "src/ports/SkTypeface_FreeType.h"
 +
 +SkFontStyleSet_OHOS::SkFontStyleSet_OHOS(const SkString familyName) : fFamilyName(familyName) {}
@@ -368,7 +370,15 @@ index 0000000..694d9c4
 +
 +sk_sp<SkTypeface> SkFontMgr_OHOS::onMakeFromStreamArgs(std::unique_ptr<SkStreamAsset> stream,
 +                                                       const SkFontArguments& args) const {
-+    return SkTypeface_FreeType::MakeFromStream(std::move(stream), args);
++    if (!stream) {
++        return nullptr;
++    }
++    auto typeface = SkTypeface_FreeType::MakeFromStream(stream->duplicate(), args);
++    if (typeface) {
++        return typeface;
++    }
++    stream->rewind();
++    return SkTypeface_Make_Fontations(std::move(stream), args);
 +}
 +
 +sk_sp<SkTypeface> SkFontMgr_OHOS::onMakeFromFile(const char path[], int ttcIndex) const {
@@ -593,16 +603,29 @@ index 0000000..694d9c4
 +        SkDebugf("[parse_instance] Failed to parse font file stream, file name:%s", filename);
 +        return;
 +    }
++    std::unique_ptr<SkFontScanner> fallbackScanner;
 +    for (int i = 0; i <= numInstances; ++i) {
 +        bool isFixedPitch;
 +        SkString realname;
 +        SkFontStyle style = SkFontStyle();
 +        SkFontScanner::AxisDefinitions axisDefs;
 +        SkFontScanner::VariationPosition position;
-+        if (!fScanner->scanInstance(
++        SkFontScanner* scanner = fScanner.get();
++        if (!scanner->scanInstance(
 +                    stream.get(), faceIndex, i, &realname, &style, &isFixedPitch, &axisDefs, &position)) {
-+            SkDebugf("[parse_instance] Failed to open file as a font, file name: %s", filename);
-+            continue;
++            // Chromium's reduced FreeType build excludes embedded bitmap fonts,
++            // including the system's CBDT/CBLC emoji. Use the upstream color-font
++            // backend for these, retaining FreeType for existing outline fonts.
++            if (!fallbackScanner) {
++                fallbackScanner = SkFontScanner_Make_Fontations();
++            }
++            scanner = fallbackScanner.get();
++            stream->rewind();
++            if (!scanner->scanInstance(stream.get(), faceIndex, i, &realname, &style,
++                                       &isFixedPitch, &axisDefs, &position)) {
++                SkDebugf("[parse_instance] Failed to open file as a font, file name: %s", filename);
++                continue;
++            }
 +        }
 +        SkFontStyleSet_OHOS* addTo = find_family(*families, realname.c_str());
 +        if (addTo == nullptr) {
@@ -612,7 +635,7 @@ index 0000000..694d9c4
 +        SkFontArguments args;
 +        args.setCollectionIndex(faceIndex).setVariationDesignPosition(
 +                {position.data(), position.size()});
-+        sk_sp<SkTypeface> typeface = fScanner->MakeFromStream(stream->duplicate(), args);
++        sk_sp<SkTypeface> typeface = scanner->MakeFromStream(stream->duplicate(), args);
 +        if (!typeface) {
 +            continue;
 +        }

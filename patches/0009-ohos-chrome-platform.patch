@@ -2332,7 +2332,7 @@ index f1cd111888..e49bf6bb9e 100644
          prefs->SetShouldOpenPdfInSystemReader(!is_checked);
          SetShouldPreferOpeningInBrowser(is_checked);
 diff --git a/chrome/browser/download/download_prefs.cc b/chrome/browser/download/download_prefs.cc
-index 2c70b38cd1..0b907eeef1 100644
+index 2c70b38cd1..8ae46e170b 100644
 --- a/chrome/browser/download/download_prefs.cc
 +++ b/chrome/browser/download/download_prefs.cc
 @@ -64,6 +64,10 @@
@@ -2357,8 +2357,21 @@ index 2c70b38cd1..0b907eeef1 100644
    return false;
  #else
    base::FilePath desktop_dir;
-@@ -116,9 +120,16 @@ class DefaultDownloadDirectory {
-   const base::FilePath& path() const { return path_; }
+@@ -113,12 +117,28 @@ class DefaultDownloadDirectory {
+   DefaultDownloadDirectory(const DefaultDownloadDirectory&) = delete;
+   DefaultDownloadDirectory& operator=(const DefaultDownloadDirectory&) = delete;
+ 
+-  const base::FilePath& path() const { return path_; }
++  const base::FilePath& path() {
++#if BUILDFLAG(IS_OHOS)
++    // A slow or unavailable system picker must not leave the process with a
++    // permanently empty default. The adapter retains late successful results.
++    if (path_.empty()) {
++      Initialize();
++    }
++#endif
++    return path_;
++  }
  
    void Initialize() {
 +#if BUILDFLAG(IS_OHOS)
@@ -2374,7 +2387,7 @@ index 2c70b38cd1..0b907eeef1 100644
      if (DownloadPathIsDangerous(path_)) {
        // This is only useful on platforms that support
        // DIR_DEFAULT_DOWNLOADS_SAFE.
-@@ -251,7 +262,7 @@ DownloadPrefs::DownloadPrefs(Profile* profile) : profile_(profile) {
+@@ -251,7 +271,7 @@ DownloadPrefs::DownloadPrefs(Profile* profile) : profile_(profile) {
  #endif  // BUILDFLAG(IS_CHROMEOS)
  
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
@@ -2383,7 +2396,7 @@ index 2c70b38cd1..0b907eeef1 100644
    should_open_pdf_in_system_reader_ =
        prefs->GetBoolean(prefs::kOpenPdfDownloadInSystemReader);
  #endif
-@@ -378,7 +389,7 @@ void DownloadPrefs::RegisterProfilePrefs(
+@@ -378,7 +398,7 @@ void DownloadPrefs::RegisterProfilePrefs(
    registry->RegisterFilePathPref(prefs::kSaveFileDefaultDirectory,
                                   default_download_path);
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
@@ -2392,7 +2405,7 @@ index 2c70b38cd1..0b907eeef1 100644
    registry->RegisterBooleanPref(prefs::kOpenPdfDownloadInSystemReader, false);
  #endif
  #if BUILDFLAG(IS_ANDROID)
-@@ -567,7 +578,7 @@ void DownloadPrefs::DisableAutoOpenByUserBasedOnExtension(
+@@ -567,7 +587,7 @@ void DownloadPrefs::DisableAutoOpenByUserBasedOnExtension(
  }
  
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
@@ -2401,7 +2414,7 @@ index 2c70b38cd1..0b907eeef1 100644
  void DownloadPrefs::SetShouldOpenPdfInSystemReader(bool should_open) {
    if (should_open_pdf_in_system_reader_ == should_open)
      return;
-@@ -593,7 +604,7 @@ bool DownloadPrefs::ShouldOpenPdfInSystemReader() const {
+@@ -593,7 +613,7 @@ bool DownloadPrefs::ShouldOpenPdfInSystemReader() const {
  
  void DownloadPrefs::ResetAutoOpenByUser() {
  #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
@@ -7263,10 +7276,10 @@ index 437f335e8a..1a1d2a9055 100644
  // different installations do not collide. For example:
 diff --git a/chrome/browser/shell_integration_ohos.cc b/chrome/browser/shell_integration_ohos.cc
 new file mode 100644
-index 0000000000..aee8cca1d1
+index 0000000000..3f30afc644
 --- /dev/null
 +++ b/chrome/browser/shell_integration_ohos.cc
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,115 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -7303,7 +7316,10 @@ index 0000000000..aee8cca1d1
 +#include "base/files/safe_base_name.h"
 +#include "base/notreached.h"
 +#include "base/logging.h"
++#include "base/strings/utf_string_conversions.h"
 +#include "ohos/adapter/default_application/default_application_adapter.h"
++#include "url/gurl.h"
++#include "url/url_constants.h"
 +
 +namespace shell_integration {
 +
@@ -7323,8 +7339,10 @@ index 0000000000..aee8cca1d1
 +}
 +
 +std::u16string GetApplicationNameForScheme(const GURL& url) {
-+  NOTIMPLEMENTED_LOG_ONCE();
-+  return {};
++  // The system resolves the application (or shows its chooser) when the Want is
++  // launched. Use the protocol as the confirmation label, like Linux's
++  // xdg-open fallback; an empty name suppresses ExternalProtocolDialog.
++  return base::UTF8ToUTF16(url.GetScheme());
 +}
 +
 +DefaultWebClientState GetDefaultBrowser() {
@@ -7342,7 +7360,13 @@ index 0000000000..aee8cca1d1
 +}
 +
 +DefaultWebClientState IsDefaultClientForScheme(const std::string& scheme) {
-+  return GetDefaultBrowser();
++  // Being the default browser only makes us the HTTP(S) handler. Reporting
++  // IS_DEFAULT for unrelated protocols makes ExternalProtocolHandler silently
++  // discard links intended for other applications.
++  if (scheme == url::kHttpScheme || scheme == url::kHttpsScheme) {
++    return GetDefaultBrowser();
++  }
++  return UNKNOWN_DEFAULT;
 +}
 +
 +namespace internal {

@@ -1,5 +1,5 @@
 {
-  "created": "2026-11-20T07:23:56.925729+00:00",
+  "created": "2026-11-20T12:04:12.085139+00:00",
   "chromiumVersion": "158.0.8116.0",
   "chromiumRevision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
   "api": 26,
@@ -10,13 +10,13 @@
   "runtimeValidation": "pending",
   "hap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-signed.hap",
-    "size": 201023938,
-    "sha256": "72ec77314f207e141c1f76c1c6485b511d8ac6d01cbc5b9f0d714ea758f8d77f"
+    "size": 201023643,
+    "sha256": "2c8d28d1861506c93d769f7734fa055b1a3b9af8999183a79990abd147b5e0d9"
   },
   "unsignedHap": {
     "path": "chromium-158.0.8116.0-ohos-api26-arm64-release-unsigned.hap",
-    "size": 200970401,
-    "sha256": "cc783f1e5f3e1cc52e5a0eaf7ef6bb29418cf0d2cd94701da9300beb024c5a65"
+    "size": 200971223,
+    "sha256": "1aa3666a089da6574d1c745d7365fe90edc86e71e635f391e86bbec290e123ee"
   },
   "nativeLibraries": [
     {
@@ -31,10 +31,10 @@
     },
     {
       "path": "libs/arm64-v8a/libchrome_main_web.so",
-      "sha256": "889aeb5d412fcf797259fb40fc60488e55e151aeb5e3f35115ec80cf7f5a8979",
+      "sha256": "6d626840fe7f52dc6569591cc4faa6444f5883ad2495386155ac9e92e8e10cf2",
       "sizeBytes": 254041096,
       "zipCompressionMethod": 8,
-      "buildSourceSha256": "018ae82c574660da2fac51b7f9e6240806859370028433c646dd71b1405c6552",
+      "buildSourceSha256": "e843034accda5be9dca9bf48f1aa93da00e2df903f99096ed2e2d3269577ca0c",
       "allocatedSectionsMatchBuild": true,
       "allocatedSectionsChecked": 27,
       "symbolsStripped": true
@@ -42,7 +42,7 @@
   ],
   "nativeBuildIds": {
     "libadapter.so": "a4cc6b109a595cc16deeadafc474f7e4d04d2818",
-    "libchrome_main_web.so": "95ae300d15341f80412b908c9705cc56787a2c68"
+    "libchrome_main_web.so": "2c024e6b033edf824a05054733079e0a2f91763d"
   },
   "resources": [
     {
