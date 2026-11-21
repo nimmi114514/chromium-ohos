@@ -1,6 +1,6 @@
 {
   "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
-  "modified_files": 1093,
+  "modified_files": 1090,
   "added_files": 868,
   "deleted_files": 0,
   "replay_matches_worktree": true,
@@ -33,12 +33,12 @@
     {
       "name": "0006-ohos-native-adapter.patch",
       "files": 411,
-      "sha256": "3e35a54654e9d3bdbb7b2e71ae7cd8d604fa684f9dd5859f5566a54f345a1f48"
+      "sha256": "8c45476d5be47a84d9ae021674599ef6ac70316ff029544ed4b236c3ad412775"
     },
     {
       "name": "0007-ohos-ui-and-ozone.patch",
-      "files": 224,
-      "sha256": "3b15a8606b8b3136b6c6ffa86d00325e7d9327a6ab968d80af78a9121a33b189"
+      "files": 223,
+      "sha256": "8a8dbea0481eed3bf2146cb7f06fff9956e3795fec569bdb437e1a1008e9bd06"
     },
     {
       "name": "0008-ohos-third-party-platforms.patch",
@@ -47,8 +47,8 @@
     },
     {
       "name": "0009-ohos-chrome-platform.patch",
-      "files": 438,
-      "sha256": "e16a311e683cb97bbf1d0fe52e9427ce6a8759b0aabb94b7fc9c9cd431b0f06d"
+      "files": 436,
+      "sha256": "44d99f74550ee764963ce10ad7a7ab4e136b2b6cf9c0a9eeb9c161faa059ac94"
     },
     {
       "name": "0010-ohos-shared-components.patch",
