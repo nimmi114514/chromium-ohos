@@ -17040,7 +17040,7 @@ new file mode 100644
 index 0000000000..af695b4b57
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
-@@ -0,0 +1,756 @@
+@@ -0,0 +1,767 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17122,16 +17122,13 @@ index 0000000000..af695b4b57
 +  OhosWindow::BindNodeHandle();
 +  OhosWindow::Show(inactive);
 +  if (pending_initial_bounds_in_pixels_) {
-+    const gfx::Rect bounds = *pending_initial_bounds_in_pixels_;
 +    pending_initial_bounds_in_pixels_.reset();
-+    auto& context = ohos::adapter::ContextAdapter::GetInstance();
-+    if ((context.IsPcMode() || context.IsFreeWindowsMode()) &&
-+        !is_split_screen_) {
-+      SetBoundsInPixels(bounds);
-+    } else {
-+      // Full-screen tablet and split-screen rectangles belong to WindowKit.
-+      Applied(previous_bounds_in_pixels_, bounds_in_pixels_);
-+    }
++    // WindowKit owns the rect of every window it may restore or place (movable
++    // desktop/free windows, full screen, split screen), so the Views placement
++    // is not pushed back here. Applying it moved the window away from the size
++    // the system restored; windowRectChange reports the real rect instead and
++    // the next save keeps the placement in sync.
++    Applied(previous_bounds_in_pixels_, bounds_in_pixels_);
 +  }
 +}
 +
@@ -17717,10 +17714,24 @@ index 0000000000..af695b4b57
 +}
 +
 +void OhosToplevelWindow::CreateAndShowInternal() {
++  auto& context = ohos::adapter::ContextAdapter::GetInstance();
++  // The ability enables config persistence (setWindowRectAutoSave), so the
++  // rect the system remembered is the one the user last saw. Passing Chromium's
++  // own placement here replaced it with a possibly stale rect.
++  // Only the browser's first window follows the rect WindowKit restored. Every
++  // other window (new windows, picture-in-picture, popups) starts its own
++  // ability and must keep the rect Views calculated for it.
++  const bool system_owned_bounds =
++      GetWidget() == kDefaultWidget &&
++      (context.IsPcMode() || context.IsFreeWindowsMode()) && !is_split_screen_;
++
 +  if (state_ == PlatformWindowState::kMaximized) {
 +    // When bounds is empty, UIAbility will start in OH window saved state.
 +    init_param_.bounds = {0, 0, 0, 0};
 +    init_param_.status = WindowStatusType::MAXIMIZE;
++  } else if (system_owned_bounds) {
++    // Same "start in the OH window saved state" path as the maximized case.
++    init_param_.bounds = {0, 0, 0, 0};
 +  } else {
 +    init_param_.bounds = {bounds_in_pixels_.x(), bounds_in_pixels_.y(),
 +                          bounds_in_pixels_.width(),

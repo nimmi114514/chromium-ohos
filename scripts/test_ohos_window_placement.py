@@ -16,7 +16,9 @@ harness = r'''
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <optional>
+#include <string>
 namespace gfx {
 struct Size {
  int w=0,h=0;
@@ -46,6 +48,20 @@ Rect ToRoundedRect(RectF r){
 }
 }
 struct WindowRect {int left,top,width,height;};
+enum class WindowStatusType{UNDEFINED,MAXIMIZE};
+enum class PlatformWindowState{kNormal,kMaximized,kMinimized,kFullScreen};
+struct WindowInitParameter {
+  WindowRect bounds{0,0,0,0};
+  struct {int a=0,b=0,c=0,d=0;} window_limit;
+  WindowStatusType status=WindowStatusType::UNDEFINED;
+  void SetBackground(uint32_t){}
+  uint32_t background_color_argb=0;
+  bool hide_title_bar=false,use_floating_window=false,use_dark_mode=false;
+  bool caption_button_visible=true;
+  std::string window_id;
+  int ability_type=0;
+  std::string app_id;
+};
 struct WindowAdapter {
  bool initialized=false;
  static WindowAdapter& GetInstance(){static WindowAdapter a;return a;}
@@ -55,12 +71,25 @@ struct AppWindowAdapter {
  int writes=0;
  static AppWindowAdapter& GetInstance(){static AppWindowAdapter a;return a;}
  void SetBounds(int,WindowRect){++writes;}
+ void SetTitle(const std::string&,int){}
 };
 using SystemFloatingWindowAdapter=AppWindowAdapter;
+struct XComponentManager {
+ WindowInitParameter created;
+ bool created_valid=false;
+ static XComponentManager* GetInstance(){static XComponentManager m;return &m;}
+ void CreateAndShowAbility(const WindowInitParameter& param,const std::string&){
+   created=param;created_valid=true;
+ }
+};
+namespace base {
+inline std::string UTF16ToUTF8(const std::u16string&){return {};}
+}
 constexpr int kDefaultWidget=0;
 struct NodeHandleImpl {
+ bool support=false;
  static NodeHandleImpl& GetInstance(){static NodeHandleImpl n;return n;}
- bool IsSupportNodeHandle()const{return false;}
+ bool IsSupportNodeHandle()const{return support;}
 };
 struct OhosWindow {
  void BindNodeHandle(){} void Show(bool){}
@@ -70,12 +99,19 @@ class OhosToplevelWindow : public OhosWindow {
  bool need_create_ability_=false,is_split_screen_=false;
  std::optional<gfx::Rect> pending_initial_bounds_in_pixels_;
  int widget=0,notifications=0;bool use_floating_window_=false;
+ bool hide_title_bar_=false,use_dark_mode_=false;
+ bool caption_button_visible_=true,use_opaque_surface_background_=true;
+ uint32_t init_color_argb_=0;int ability_type_=0;std::string app_id_;
  gfx::Rect bounds_in_pixels_{100,100,900,700},previous_bounds_in_pixels_;
  gfx::Size min_size_in_pixels_{100,100},max_size_in_pixels_;
+ PlatformWindowState state_=PlatformWindowState::kNormal;
+ WindowInitParameter init_param_;
+ std::optional<std::u16string> window_title_;
  int GetWidget()const{return widget;}
+ int GetWindowUniqueId()const{return 3;}
  void UpdateMinAndMaxSize(){}
  void Applied(gfx::Rect,gfx::Rect){++notifications;}
- void CreateAndShowInternal(){}
+ void CreateAndShowInternal();
  void Show(bool);
  bool HasInitDone();
  void SetBoundsInPixels(const gfx::Rect&);
@@ -145,6 +181,7 @@ class BrowserDesktopWindowTreeHostOhos:public views::DesktopWindowTreeHostOhos {
 '''
 for source, signature in [
     (window, "bool OhosToplevelWindow::HasInitDone()"),
+    (window, "void OhosToplevelWindow::CreateAndShowInternal()"),
     (window, "void OhosToplevelWindow::Show(bool inactive)"),
     (window, "void OhosToplevelWindow::SetBoundsInPixels("),
     (browser, "bool BrowserNativeWidgetAuraOhos::ShouldSaveWindowPlacement() const"),
@@ -165,7 +202,8 @@ int main(){
  auto& context=ohos::adapter::ContextAdapter::GetInstance();
  context.pc=true;
  w.Show(false);
- assert((w.bounds_in_pixels_==gfx::Rect{7,8,800,500}) && w.notifications==1);
+ // WindowKit owns the rect, so the deferred placement is published, not applied.
+ assert(w.bounds_in_pixels_==original && w.notifications==1);
  assert(!w.pending_initial_bounds_in_pixels_);
  w.Show(false);assert(w.notifications==1);
  w.SetBoundsInPixels({5,6,700,400});
@@ -215,7 +253,48 @@ int main(){
  }
  h.maximized=true;bounds=h.GetRestoredBounds();
  assert((bounds==gfx::Rect{50,60,800,500}));
-}
+
+ // A movable window must start from the rect the system restored, not from the
+ // placement Chromium saved: passing Chromium's rect as StartOptions replaced it.
+ auto& node_handle=NodeHandleImpl::GetInstance();
+ auto* xcomponent=XComponentManager::GetInstance();
+ node_handle.support=true;
+ OhosToplevelWindow create_window;
+ create_window.need_create_ability_=true;
+ context.pc=false;context.free=true;
+ create_window.Show(false);
+ assert(xcomponent->created_valid);
+ assert((xcomponent->created.bounds.left==0&&xcomponent->created.bounds.top==0&&
+   xcomponent->created.bounds.width==0&&xcomponent->created.bounds.height==0));
+ assert(!create_window.need_create_ability_);
+ // Any other window (picture-in-picture, new window) starts its own ability and
+ // must keep the rect Views calculated for it.
+ OhosToplevelWindow pip_window;
+ pip_window.need_create_ability_=true;
+ pip_window.widget=7;
+ pip_window.Show(false);
+ assert((xcomponent->created.bounds.left==100&&xcomponent->created.bounds.top==100&&
+   xcomponent->created.bounds.width==900&&xcomponent->created.bounds.height==700));
+ OhosToplevelWindow split_window;
+ split_window.need_create_ability_=true;
+ split_window.is_split_screen_=true;
+ split_window.Show(false);
+ assert((xcomponent->created.bounds.left==100&&xcomponent->created.bounds.width==900));
+ OhosToplevelWindow fullscreen_window;
+ fullscreen_window.need_create_ability_=true;
+ context.free=false;context.pc=false;
+ fullscreen_window.Show(false);
+ assert((xcomponent->created.bounds.left==100&&xcomponent->created.bounds.width==900));
+ OhosToplevelWindow maximized_window;
+ maximized_window.need_create_ability_=true;
+ maximized_window.state_=PlatformWindowState::kMaximized;
+ context.free=true;
+ maximized_window.Show(false);
+ assert(xcomponent->created.status==WindowStatusType::MAXIMIZE);
+ assert((xcomponent->created.bounds.width==0));
+ context.free=false;context.pc=false;
+ node_handle.support=false;
+ }
 '''
 with tempfile.TemporaryDirectory(prefix="ohos-window-placement-") as directory:
     p = Path(directory)
