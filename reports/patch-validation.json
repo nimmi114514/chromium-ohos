@@ -38,7 +38,7 @@
     {
       "name": "0007-ohos-ui-and-ozone.patch",
       "files": 224,
-      "sha256": "3b15a8606b8b3136b6c6ffa86d00325e7d9327a6ab968d80af78a9121a33b189"
+      "sha256": "29b12aec8d2f6c4c6117e6cf9d6ac3a7d5c41fcee955c59a48580ed692193fc2"
     },
     {
       "name": "0008-ohos-third-party-platforms.patch",
