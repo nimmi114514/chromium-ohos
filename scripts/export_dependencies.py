@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from patch_export import export_patch, git_paths, path_order
+
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCIES = {
     "v8": "v8-ohos-metagen.patch",
@@ -33,21 +35,12 @@ def export(source):
         assert mode == "160000" and kind == "commit", path
         subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"],
                        cwd=repo, check=True)
-        tracked = subprocess.check_output(["git", "diff", "--no-renames", "--name-only", revision],
-                                        cwd=repo, text=True).splitlines()
-        added = subprocess.check_output(
-            ["git", "ls-files", "--others", "--exclude-standard"], cwd=repo,
-            text=True).splitlines()
-        files = tracked + added
+        tracked = git_paths(repo, "diff", "--no-renames", "--name-only", revision)
+        added = git_paths(repo, "ls-files", "--others", "--exclude-standard")
+        files = path_order(tracked + added)
         if not files:
             continue
-        patch = subprocess.check_output(["git", "diff", "--binary", "--no-renames", revision], cwd=repo)
-        for file in added:
-            diff = subprocess.run(["git", "diff", "--no-index", "--binary", "--",
-                                   "/dev/null", file], cwd=repo, capture_output=True)
-            if diff.returncode != 1:
-                raise RuntimeError(f"Cannot export new dependency file: {path}/{file}")
-            patch += diff.stdout
+        patch = export_patch(repo, revision, files, added)
         (output / name).write_bytes(patch)
         with tempfile.TemporaryDirectory(prefix="ohos-dependency-replay-") as directory:
             clean = Path(directory)

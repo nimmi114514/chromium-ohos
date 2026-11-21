@@ -1,7 +1,8 @@
 {
   "revision": "566635fe3ce2912169a6ca76a00a7ee1d8e400e9",
-  "tracked_files": 1951,
-  "added_files": 7,
+  "modified_files": 1090,
+  "added_files": 868,
+  "deleted_files": 0,
   "replay_matches_worktree": true,
   "patches": [
     {
@@ -52,7 +53,7 @@
     {
       "name": "0010-ohos-shared-components.patch",
       "files": 707,
-      "sha256": "8deee820da940a1aea176de4449b60a2aae2243774a219836e97b670ab4a6b7d"
+      "sha256": "c1205b538d63fefacacdbdaafccb89aef0496c3bba7e2b1a25458f3898d8eb8a"
     }
   ]
 }

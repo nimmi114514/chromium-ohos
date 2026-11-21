@@ -267,19 +267,6 @@ index 0b352f95e..5b6b1f154 100644
  #if DAWN_PLATFORM_IS(FUCHSIA)
      if (CheckZirconHandleSupport(device->GetDeviceInfo())) {
          mServiceImpls[ExternalImageType::OpaqueFD] = CreateZirconHandleService(device);
-diff --git a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
-index 13c748ca1..22d413b66 100644
---- a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
-+++ b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
-@@ -40,7 +40,7 @@
- #include "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementation.h"
- 
- static constexpr VkExternalSemaphoreHandleTypeFlagBits kDefaultHandleType =
--#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS)
-+#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS) || defined(__OHOS__)
-     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
- #else
-     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 diff --git a/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp b/src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp
 new file mode 100644
 index 000000000..45225ae06
@@ -511,3 +498,16 @@ index 000000000..2907a265f
 +}  // namespace external_memory
 +}  // namespace dawn::native::vulkan
 +#endif
+diff --git a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
+index 13c748ca1..22d413b66 100644
+--- a/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
++++ b/src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp
+@@ -40,7 +40,7 @@
+ #include "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementation.h"
+ 
+ static constexpr VkExternalSemaphoreHandleTypeFlagBits kDefaultHandleType =
+-#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS)
++#if DAWN_PLATFORM_IS(ANDROID) || DAWN_PLATFORM_IS(CHROMEOS) || defined(__OHOS__)
+     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
+ #else
+     VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
