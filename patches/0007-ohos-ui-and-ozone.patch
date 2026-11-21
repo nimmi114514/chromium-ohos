@@ -3907,10 +3907,10 @@ index 0000000000..e2dad8bdbf
 \ No newline at end of file
 diff --git a/ui/base/ime/ohos/input_method_ohos.cc b/ui/base/ime/ohos/input_method_ohos.cc
 new file mode 100644
-index 0000000000..e67aa40202
+index 0000000000..63c00cf96c
 --- /dev/null
 +++ b/ui/base/ime/ohos/input_method_ohos.cc
-@@ -0,0 +1,1314 @@
+@@ -0,0 +1,1769 @@
 +// Copyright (c) 2024 Huawei Device Co., Ltd. All rights reserved.
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -3956,6 +3956,11 @@ index 0000000000..e67aa40202
 +const float kDefaultRatio = 1.0f;
 +const gfx::PointF kInvalidPoint(-1.0f, -1.0f);
 +const int kAttachVirtualKeyboardDelay = 100;
++
++InputMethod_TextInputType InputTypeChromiumToOH(TextInputType ctype,
++                                               TextInputMode cmode);
++InputMethod_EnterKeyType EnterKeyTypeChromiumToOH(TextInputType ctype,
++                                                 TextInputMode cmode);
 +
 +InputMethodOHOS::InputMethodOHOS(
 +    ImeKeyEventDispatcher* ime_key_event_dispatcher,
@@ -4017,25 +4022,81 @@ index 0000000000..e67aa40202
 +  text_input_type_ = GetTextInputType();
 +  TRACE_EVENT2("ui", "UpdateContextFocusState", "old_type", old_text_input_type,
 +               "new_type", text_input_type_);
-+  if (old_text_input_type != TEXT_INPUT_TYPE_NONE &&
-+      text_input_type_ == TEXT_INPUT_TYPE_NONE) {
-+    delayed_attach_timer_.Stop();
-+    delayed_attach_timer_.Start(
-+        FROM_HERE, base::Milliseconds(kAttachVirtualKeyboardDelay),
-+        base::BindOnce(&InputMethodOHOS::DetachTextInputTask, GetWeakPtr()));
-+  } else if (text_input_type_ != TEXT_INPUT_TYPE_NONE) {
-+    if (GetTextInputClient() != nullptr) {
-+      ui::RequestKeyboardReason reason =
-+          GetTextInputClient()->GetRequestKeyboardReason();
++  if (text_input_type_ == TEXT_INPUT_TYPE_NONE) {
++    // Focus left every editable node. Keep the debounce so that a focus switch
++    // between two editable nodes (typical on OTP style forms) collapses into a
++    // single re-attach instead of a detach followed by an attach.
++    if (old_text_input_type != TEXT_INPUT_TYPE_NONE) {
 +      delayed_attach_timer_.Stop();
 +      delayed_attach_timer_.Start(
 +          FROM_HERE, base::Milliseconds(kAttachVirtualKeyboardDelay),
-+          base::BindOnce(&InputMethodOHOS::AttachTextInputTask, GetWeakPtr(),
-+                         reason));
-+    } else {
-+      LOG(ERROR) << "[GetTextInputClient] is nullptr";
++          base::BindOnce(&InputMethodOHOS::DetachTextInputTask, GetWeakPtr()));
 +    }
++    return;
 +  }
++
++  TextInputClient* client = GetTextInputClient();
++  if (client == nullptr) {
++    LOG(ERROR) << "[GetTextInputClient] is nullptr";
++    return;
++  }
++
++  delayed_attach_timer_.Stop();
++  if (!HasAttachConfigChanged() && is_keyboard_shown_) {
++    // ArkWeb keeps the attached session and never re-attaches when only the
++    // caret/text moved (see NWebInputMethodHandler::Reattach). This is only
++    // safe while the panel is actually on screen: when it was hidden by the
++    // user, by the system, or because another window stole the IME session,
++    // doing nothing would leave the keyboard impossible to raise. In that case
++    // fall through and re-attach / re-show.
++    return;
++  }
++
++  ui::RequestKeyboardReason reason = client->GetRequestKeyboardReason();
++  if (is_attach_) {
++    delayed_attach_timer_.Start(
++        FROM_HERE, base::Milliseconds(kAttachVirtualKeyboardDelay),
++        base::BindOnce(&InputMethodOHOS::UpdateTextInputTask, GetWeakPtr(),
++                       reason));
++  } else {
++    delayed_attach_timer_.Start(
++        FROM_HERE, base::Milliseconds(kAttachVirtualKeyboardDelay),
++        base::BindOnce(&InputMethodOHOS::AttachTextInputTask, GetWeakPtr(),
++                       reason));
++  }
++}
++
++bool InputMethodOHOS::HasAttachConfigChanged() const {
++  if (!is_attach_) {
++    return true;
++  }
++  if (attached_text_input_type_ != text_input_type_) {
++    return true;
++  }
++  return attached_text_input_mode_ != GetCurrentTextInputMode();
++}
++
++TextInputMode InputMethodOHOS::GetCurrentTextInputMode() const {
++  TextInputClient* client = GetTextInputClient();
++  return client ? client->GetTextInputMode() : TEXT_INPUT_MODE_DEFAULT;
++}
++
++void InputMethodOHOS::MarkAttachConfigSynced() {
++  attached_text_input_type_ = text_input_type_;
++  attached_text_input_mode_ = GetCurrentTextInputMode();
++}
++
++void InputMethodOHOS::OnKeyboardStatusChanged(bool shown) {
++  if (is_keyboard_shown_ == shown) {
++    return;
++  }
++  is_keyboard_shown_ = shown;
++  LOG(INFO) << "[InputMethodOHOS] keyboard shown: " << shown;
++}
++
++void InputMethodOHOS::ResetAttachConfig() {
++  attached_text_input_type_ = TEXT_INPUT_TYPE_NONE;
++  attached_text_input_mode_ = TEXT_INPUT_MODE_DEFAULT;
 +}
 +
 +void InputMethodOHOS::SetVirtualKeyboardVisibilityIfEnabled(bool should_show) {
@@ -4056,6 +4117,13 @@ index 0000000000..e67aa40202
 +
 +void InputMethodOHOS::OnDidChangeFocusedClient(TextInputClient* focused_before,
 +                                               TextInputClient* focused) {
++  if (focused_before != focused) {
++    // Composition edits belong to one editor. Reusing the IME session must not
++    // carry an old editor's incremental preview into the newly focused client.
++    preview_text_.clear();
++    preview_cursor_ = 0;
++    last_keyboard_height_ = -1;
++  }
 +  UpdateContextFocusState();
 +  if (text_input_type_ != ui::TEXT_INPUT_TYPE_NONE) {
 +    OnCaretBoundsChanged(GetTextInputClient());
@@ -4063,7 +4131,14 @@ index 0000000000..e67aa40202
 +  InputMethodBase::OnDidChangeFocusedClient(focused_before, focused);
 +}
 +
-+void InputMethodOHOS::CancelComposition(const TextInputClient* client) {}
++void InputMethodOHOS::CancelComposition(const TextInputClient* client) {
++  if (!IsTextInputClientFocused(client)) {
++    return;
++  }
++  preview_text_.clear();
++  preview_cursor_ = 0;
++  GetTextInputClient()->ClearCompositionText();
++}
 +
 +void InputMethodOHOS::OnTextInputTypeChanged(TextInputClient* client) {
 +  UpdateContextFocusState();
@@ -4107,6 +4182,109 @@ index 0000000000..e67aa40202
 +                            ui::DomCode::NONE,       ui::EF_IS_SYNTHESIZED,
 +                            ui::DomKey::PROCESS,     ui::EventTimeForNow()};
 +  DispatchKeyEvent(&key_up_event);
++
++  // The commit replaced the composition, keep the cache in sync.
++  preview_text_.clear();
++  preview_cursor_ = 0;
++}
++
++namespace {
++
++// Offsets coming from the input method are document based, translate them into
++// an offset inside the current preview string and clamp to its length.
++size_t ClampToPreview(int32_t offset, size_t preview_length) {
++  if (offset <= 0) {
++    return 0;
++  }
++  const size_t value = static_cast<size_t>(offset);
++  return value > preview_length ? preview_length : value;
++}
++
++}  // namespace
++
++void InputMethodOHOS::SetPreviewText(const std::u16string& text,
++                                     int32_t start,
++                                     int32_t end) {
++  TRACE_EVENT0("ui", "InputMethodOHOS::SetPreviewText");
++  TextInputClient* client = GetTextInputClient();
++  if (!client || GetTextInputType() == TEXT_INPUT_TYPE_NONE) {
++    preview_text_.clear();
++    preview_cursor_ = 0;
++    return;
++  }
++
++  // The SDK reports an edit of the ongoing composition (same contract ArkWeb
++  // implements in NWebInputMethodHandler::UpdateCompositionInfo):
++  //   start == -1 && end == -1 : replace the whole preview with |text|
++  //   start == end             : insert |text| at |start|
++  //   start <  end             : replace [start, end) with |text|
++  int32_t composition_start = 0;
++  gfx::Range composition_range;
++  if (client->GetCompositionTextRange(&composition_range) &&
++      !composition_range.is_empty()) {
++    composition_start = static_cast<int32_t>(composition_range.start());
++  }
++
++  if (start == -1 && end == -1) {
++    if (text.empty()) {
++      CancelPreviewText();
++      return;
++    }
++    preview_text_ = text;
++    preview_cursor_ = preview_text_.length();
++  } else if (start == end) {
++    const size_t position =
++        ClampToPreview(start - composition_start, preview_text_.length());
++    preview_text_.insert(position, text);
++    preview_cursor_ = position + text.length();
++  } else if (start < end) {
++    size_t from = ClampToPreview(start - composition_start, preview_text_.length());
++    size_t to = ClampToPreview(end - composition_start, preview_text_.length());
++    if (to < from) {
++      std::swap(from, to);
++    }
++    preview_text_.replace(from, to - from, text);
++    preview_cursor_ = from + text.length();
++  } else {
++    LOG(WARNING) << "[InputMethodOHOS] invalid preview range, start: " << start
++                 << ", end: " << end;
++    return;
++  }
++
++  if (preview_text_.empty()) {
++    CancelPreviewText();
++    return;
++  }
++
++  ui::CompositionText composition;
++  composition.text = preview_text_;
++  composition.selection = gfx::Range(preview_cursor_, preview_cursor_);
++  composition.ime_text_spans.emplace_back(
++      ui::ImeTextSpan::Type::kComposition, 0, preview_text_.length());
++  client->SetCompositionText(composition);
++}
++
++void InputMethodOHOS::FinishTextPreview() {
++  TRACE_EVENT0("ui", "InputMethodOHOS::FinishTextPreview");
++  preview_text_.clear();
++  preview_cursor_ = 0;
++  TextInputClient* client = GetTextInputClient();
++  if (!client) {
++    return;
++  }
++  // Matches ArkWeb calling CefBrowserHost::ImeFinishComposingText(false):
++  // commit the existing preview without inserting a second copy.
++  client->ConfirmCompositionText(false);
++}
++
++void InputMethodOHOS::CancelPreviewText() {
++  preview_text_.clear();
++  preview_cursor_ = 0;
++  TextInputClient* client = GetTextInputClient();
++  if (client) {
++    // Matches ArkWeb calling CefBrowserHost::ImeCancelComposition().
++    client->ClearCompositionText();
++  }
 +}
 +
 +void InputMethodOHOS::InsertText(const std::string& text) {
@@ -4214,6 +4392,13 @@ index 0000000000..e67aa40202
 +                  "GetTextInputClient is nullptr";
 +    return;
 +  }
++  // ArkUI reports the same height several times while the panel animates, and
++  // every report ends up in EnsureCaretNotInRect(). Replaying it scrolls the
++  // page, which produces a new TextInputState and re-enters the IME.
++  if (keyboard_height == last_keyboard_height_) {
++    return;
++  }
++  last_keyboard_height_ = keyboard_height;
 +
 +  gfx::Rect window_bounds = GetTextInputClient()->GetToplevelWindowBounds();
 +  if (window_bounds.IsEmpty()) {
@@ -4286,12 +4471,19 @@ index 0000000000..e67aa40202
 +  CheckAndReleaseApiResources();
 +}
 +
++// Snapshot of the text input configuration handed to the SDK GetTextConfig
++// callback. It is written on the UI thread and only read from the callback.
++struct TextConfigSnapshot {
++  TextInputType input_type = TEXT_INPUT_TYPE_NONE;
++  TextInputMode input_mode = TEXT_INPUT_MODE_DEFAULT;
++  gfx::Rect cursor_rect;
++};
++
 +class InputRelationSingleton {
 + private:
 +  std::unordered_map<InputMethod_TextEditorProxy*,
 +                     base::WeakPtr<InputMethodOHOSCAPI>>
 +      editor_proxy_to_input_method_ohos_map_;
-+  using TextConfigSnapshot = std::pair<TextInputType, gfx::Rect>;
 +  std::unordered_map<InputMethod_TextEditorProxy*, TextConfigSnapshot>
 +      text_config_snapshots_;
 +  InputRelationSingleton() = default;
@@ -4309,20 +4501,23 @@ index 0000000000..e67aa40202
 +      InputMethod_TextEditorProxy* text_editor_proxy,
 +      base::WeakPtr<InputMethodOHOSCAPI> input_method_ohos,
 +      TextInputType input_type,
++      TextInputMode input_mode,
 +      const gfx::Rect& cursor_rect) {
 +    base::AutoLock auto_lock(lock_);
 +    editor_proxy_to_input_method_ohos_map_[text_editor_proxy] =
 +        std::move(input_method_ohos);
-+    text_config_snapshots_[text_editor_proxy] = {input_type, cursor_rect};
++    text_config_snapshots_[text_editor_proxy] =
++        TextConfigSnapshot{input_type, input_mode, cursor_rect};
 +  }
 +
 +  void UpdateTextConfigSnapshot(InputMethod_TextEditorProxy* proxy,
 +                                TextInputType type,
++                                TextInputMode mode,
 +                                const gfx::Rect& rect) {
 +    base::AutoLock auto_lock(lock_);
 +    auto it = text_config_snapshots_.find(proxy);
 +    if (it != text_config_snapshots_.end()) {
-+      it->second = {type, rect};
++      it->second = TextConfigSnapshot{type, mode, rect};
 +    }
 +  }
 +
@@ -4379,11 +4574,15 @@ index 0000000000..e67aa40202
 +  if (!snapshot) {
 +    return;
 +  }
-+  OH_TextConfig_SetInputType(config, InputTypeChromiumToOH(snapshot->first));
-+  OH_TextConfig_SetEnterKeyType(config, IME_ENTER_KEY_DONE);
++  OH_TextConfig_SetInputType(
++      config,
++      InputTypeChromiumToOH(snapshot->input_type, snapshot->input_mode));
++  OH_TextConfig_SetEnterKeyType(
++      config,
++      EnterKeyTypeChromiumToOH(snapshot->input_type, snapshot->input_mode));
 +  InputMethod_CursorInfo* cursor = nullptr;
 +  if (OH_TextConfig_GetCursorInfo(config, &cursor) == IME_ERR_OK && cursor) {
-+    const auto& rect = snapshot->second;
++    const auto& rect = snapshot->cursor_rect;
 +    OH_CursorInfo_SetRect(cursor, rect.x(), rect.y(), rect.width(), rect.height());
 +  }
 +}
@@ -4489,7 +4688,20 @@ index 0000000000..e67aa40202
 +
 +void SendKeyboardStatusFunc(InputMethod_TextEditorProxy* proxy,
 +                            InputMethod_KeyboardStatus status) {
-+  NOTIMPLEMENTED_LOG_ONCE();
++  if (!proxy) {
++    LOG(ERROR) << "[InputMethodOHOSCAPI] " << __FUNCTION__
++               << " text_editor_proxy nullptr error";
++    return;
++  }
++
++  const bool shown = status == IME_KEYBOARD_STATUS_SHOW;
++  auto input_method_ohos =
++      InputRelationSingleton::GetInstance()
++          .GetInputMethodOHOSCAPIByTextEditorProxy(proxy);
++  auto task = base::BindOnce(&InputMethodOHOS::OnKeyboardStatusChanged,
++                             input_method_ohos, shown);
++  InputMethodOHOSManager::GetInstance().GetTaskRunner()->PostTask(
++      FROM_HERE, std::move(task));
 +}
 +
 +void HandleSetSelection(InputMethod_TextEditorProxy* proxy,
@@ -4534,12 +4746,40 @@ index 0000000000..e67aa40202
 +                       size_t length,
 +                       int32_t start,
 +                       int32_t end) {
-+  NOTIMPLEMENTED_LOG_ONCE();
++  if (!proxy || (!text && length > 0)) {
++    LOG(ERROR) << "[InputMethodOHOSCAPI] " << __FUNCTION__
++               << " invalid parameter";
++    return -1;
++  }
++
++  // Copy the SDK owned buffer here, it is only valid during the callback. The
++  // actual composition update runs on the UI thread, like every other callback
++  // of this proxy.
++  std::u16string preview(text ? text : u"", length);
++  auto input_method_ohos =
++      InputRelationSingleton::GetInstance()
++          .GetInputMethodOHOSCAPIByTextEditorProxy(proxy);
++  auto task = base::BindOnce(&InputMethodOHOS::SetPreviewText,
++                             input_method_ohos, preview, start, end);
++  InputMethodOHOSManager::GetInstance().GetTaskRunner()->PostTask(
++      FROM_HERE, std::move(task));
 +  return 0;
 +}
 +
 +void FinishTextPreview(InputMethod_TextEditorProxy* proxy) {
-+  NOTIMPLEMENTED_LOG_ONCE();
++  if (!proxy) {
++    LOG(ERROR) << "[InputMethodOHOSCAPI] " << __FUNCTION__
++               << " text_editor_proxy nullptr error";
++    return;
++  }
++
++  auto input_method_ohos =
++      InputRelationSingleton::GetInstance()
++          .GetInputMethodOHOSCAPIByTextEditorProxy(proxy);
++  auto task = base::BindOnce(&InputMethodOHOS::FinishTextPreview,
++                             input_method_ohos);
++  InputMethodOHOSManager::GetInstance().GetTaskRunner()->PostTask(
++      FROM_HERE, std::move(task));
 +}
 +
 +InputMethod_ErrorCode RegisterNotImplementedFuncs(
@@ -4733,6 +4973,52 @@ index 0000000000..e67aa40202
 +  }
 +}
 +
++InputMethod_TextInputType InputTypeChromiumToOH(TextInputType ctype,
++                                               TextInputMode cmode) {
++  // ArkWeb prefers the DOM inputmode over the element type unless the field is
++  // a password box (NWebInputMethodHandler::ComputeEditorInfo). This is what
++  // makes <input type="text" inputmode="numeric"> - the usual OTP markup - get
++  // the numeric keypad.
++  if (ctype != TextInputType::TEXT_INPUT_TYPE_PASSWORD) {
++    switch (cmode) {
++      case TextInputMode::TEXT_INPUT_MODE_NUMERIC:
++        return InputMethod_TextInputType::IME_TEXT_INPUT_TYPE_NUMBER;
++      case TextInputMode::TEXT_INPUT_MODE_DECIMAL:
++        return InputMethod_TextInputType::IME_TEXT_INPUT_TYPE_NUMBER_DECIMAL;
++      case TextInputMode::TEXT_INPUT_MODE_TEL:
++        return InputMethod_TextInputType::IME_TEXT_INPUT_TYPE_PHONE;
++      case TextInputMode::TEXT_INPUT_MODE_URL:
++        return InputMethod_TextInputType::IME_TEXT_INPUT_TYPE_URL;
++      case TextInputMode::TEXT_INPUT_MODE_EMAIL:
++        return InputMethod_TextInputType::IME_TEXT_INPUT_TYPE_EMAIL_ADDRESS;
++      default:
++        break;
++    }
++  }
++  return InputTypeChromiumToOH(ctype);
++}
++
++InputMethod_EnterKeyType EnterKeyTypeChromiumToOH(TextInputType ctype,
++                                                 TextInputMode cmode) {
++  // ui::TextInputClient does not expose TextInputAction, so only the cases that
++  // can be derived from the type/mode pair are mirrored from ArkWeb.
++  if (ctype == TextInputType::TEXT_INPUT_TYPE_TEXT_AREA ||
++      ctype == TextInputType::TEXT_INPUT_TYPE_CONTENT_EDITABLE) {
++    return InputMethod_EnterKeyType::IME_ENTER_KEY_NEWLINE;
++  }
++  if (ctype == TextInputType::TEXT_INPUT_TYPE_SEARCH ||
++      cmode == TextInputMode::TEXT_INPUT_MODE_SEARCH) {
++    return InputMethod_EnterKeyType::IME_ENTER_KEY_SEARCH;
++  }
++  if (ctype == TextInputType::TEXT_INPUT_TYPE_URL ||
++      ctype == TextInputType::TEXT_INPUT_TYPE_EMAIL ||
++      cmode == TextInputMode::TEXT_INPUT_MODE_URL ||
++      cmode == TextInputMode::TEXT_INPUT_MODE_EMAIL) {
++    return InputMethod_EnterKeyType::IME_ENTER_KEY_GO;
++  }
++  return InputMethod_EnterKeyType::IME_ENTER_KEY_DONE;
++}
++
 +InputMethod_RequestKeyboardReason RequestKeyboardReasonChromiumToOH(
 +    ui::RequestKeyboardReason reason) {
 +  switch (reason) {
@@ -4784,15 +5070,16 @@ index 0000000000..e67aa40202
 +
 +InputMethod_TextConfig* InputMethodOHOSCAPI::SetTextConfig(
 +    InputMethod_TextConfig* text_config) {
++  const TextInputMode input_mode = GetCurrentTextInputMode();
 +  auto res = OH_TextConfig_SetInputType(
-+      text_config, InputTypeChromiumToOH(text_input_type_));
++      text_config, InputTypeChromiumToOH(text_input_type_, input_mode));
 +  if (res != IME_ERR_OK) {
 +    LOG(ERROR) << "[InputMethodOHOSCAPI] OH_TextConfig_SetInputType error: "
 +               << res;
 +    return nullptr;
 +  }
 +  res = OH_TextConfig_SetEnterKeyType(
-+      text_config, InputMethod_EnterKeyType::IME_ENTER_KEY_DONE);
++      text_config, EnterKeyTypeChromiumToOH(text_input_type_, input_mode));
 +  if (res != IME_ERR_OK) {
 +    LOG(ERROR) << "[InputMethodOHOSCAPI] OH_TextConfig_SetEnterKeyType error: "
 +               << res;
@@ -4844,6 +5131,9 @@ index 0000000000..e67aa40202
 +    cursor_info_ = nullptr;
 +    is_create_cursor_info_ = false;
 +  }
++
++  is_attach_ = false;
++  ResetAttachConfig();
 +}
 +
 +InputMethod_AttachOptions* InputMethodOHOSCAPI::UpdateAttachOptions(
@@ -4892,39 +5182,66 @@ index 0000000000..e67aa40202
 +      weak_ptr_factory_.GetWeakPtr())) {
 +    CheckAndReleaseApiResources();
 +  }
++  is_attach_ = false;
++  is_keyboard_shown_ = false;
++  ResetAttachConfig();
++  preview_text_.clear();
++  preview_cursor_ = 0;
 +  SetSoftKeyboardForWidget(widget_id_, false);
 +}
 +
 +void InputMethodOHOSCAPI::AttachTextInputTask(
 +    ui::RequestKeyboardReason reason) {
 +  SetSoftKeyboardForWidget(widget_id_, true);
-+  CheckAndReleaseApiResources();
 +
-+  text_editor_proxy_ = CreateTextEditorProxy();
-+  if (!text_editor_proxy_) {
++  // ArkWeb never detaches the previous session before attaching a new one (see
++  // IMFAdapterImpl::Attach*): the text editor proxy is created once and reused,
++  // so a re-attach does not tear the IME panel down and back up.
++  if (input_method_proxy_ && !is_attach_) {
++    // A session left over from a previous owner (multi window). It was never
++    // released because another instance became the active one, drop it first.
++    LOG(INFO) << "[InputMethodOHOSCAPI] release stale IME session";
++    CheckAndReleaseApiResources();
++  }
++  if (!EnsureTextEditorProxy()) {
 +    LOG(ERROR) << "[InputMethodOHOSCAPI] AttachTextInputTask fail, "
 +                  "text_editor_proxy_ is null";
 +    return;
 +  }
-+  InputRelationSingleton::GetInstance()
-+      .AddTextEditorProxyToInputMethodOHOSCAPIMapping(
-+          text_editor_proxy_, weak_ptr_factory_.GetWeakPtr(), text_input_type_,
-+          GetRectPixel());
 +  if (!UpdateAttachOptions(reason)) {
 +    LOG(ERROR) << "[InputMethodOHOSCAPI] UpdateAttachOptions fail, "
 +                  "attach_option is null";
 +    return;
 +  }
 +
++  // Always (re)attach, like ArkWeb's IMFAdapterImpl::Attach*: the IMF service
++  // is the single owner of the IME session, so a local proxy handle says
++  // nothing about whether the session is still alive. Skipping the call when
++  // |input_method_proxy_| is set left the window permanently unable to raise
++  // the keyboard after another window attached or the IME service restarted.
 +  InputMethod_ErrorCode res = OH_InputMethodController_Attach(
 +      text_editor_proxy_, attach_options_, &input_method_proxy_);
 +  if (res != IME_ERR_OK) {
-+    LOG(ERROR) << "[InputMethodOHOSCAPI] Attach "
-+                  "OH_InputMethodController_Attach  fail, code: "
-+               << res;
-+    return;
++    LOG(WARNING) << "[InputMethodOHOSCAPI] Attach fail, code: " << res
++                 << ", retry with a fresh proxy";
++    // The service may still hold a binding that makes every attach fail, start
++    // from a clean slate once.
++    CheckAndReleaseApiResources();
++    if (!EnsureTextEditorProxy() || !UpdateAttachOptions(reason)) {
++      return;
++    }
++    res = OH_InputMethodController_Attach(text_editor_proxy_, attach_options_,
++                                          &input_method_proxy_);
++    if (res != IME_ERR_OK) {
++      LOG(ERROR) << "[InputMethodOHOSCAPI] Attach retry fail, code: " << res;
++      return;
++    }
 +  }
 +  LOG(INFO) << "[InputMethodOHOSCAPI] OH_InputMethodController_Attach success";
++
++  // The SDK asks for the text config through GetTextConfigFunc, feed it the
++  // values of the node that is focused right now.
++  SyncTextConfigSnapshot();
 +
 +  if (!CreateCursorInfo()) {
 +    LOG(INFO) << "[InputMethodOHOSCAPI] CreateCursorInfo fail";
@@ -4937,19 +5254,128 @@ index 0000000000..e67aa40202
 +    LOG(ERROR) << "[InputMethodOHOSCAPI] UpdateCursorInfo "
 +                  "OH_InputMethodProxy_NotifyCursorUpdate fail, code: "
 +               << res;
-+    return;
++  } else {
++    LOG(INFO) << "[InputMethodOHOSCAPI] "
++                 "OH_InputMethodProxy_NotifyCursorUpdate success";
 +  }
-+  LOG(INFO)
-+      << "[InputMethodOHOSCAPI] OH_InputMethodProxy_NotifyCursorUpdate success";
 +
 +  InputMethodOHOSManager::GetInstance().SetActiveInstance(
 +      weak_ptr_factory_.GetWeakPtr());
 +  is_attach_ = true;
++  MarkAttachConfigSynced();
++}
++
++void InputMethodOHOSCAPI::UpdateTextInputTask(
++    ui::RequestKeyboardReason reason) {
++  if (!is_attach_ || !input_method_proxy_ || !text_editor_proxy_) {
++    AttachTextInputTask(reason);
++    return;
++  }
++  if (!UpdateAttachOptions(reason)) {
++    LOG(ERROR) << "[InputMethodOHOSCAPI] UpdateAttachOptions fail, "
++                  "attach_option is null";
++    return;
++  }
++
++  SyncTextConfigSnapshot();
++  const InputMethod_ErrorCode configuration_result =
++      NotifyConfigurationChanged();
++  if (configuration_result == IME_ERR_DETACHED) {
++    // The IME service dropped this session; start a fresh one.
++    LOG(WARNING) << "[InputMethodOHOSCAPI] session is detached, re-attach";
++    input_method_proxy_ = nullptr;
++    is_attach_ = false;
++    AttachTextInputTask(reason);
++    return;
++  }
++  if (configuration_result != IME_ERR_OK) {
++    // Leave the cached configuration unsynchronized so a later update retries
++    // rather than permanently skipping a rejected keyboard-type change.
++    return;
++  }
++
++  if (!CreateCursorInfo()) {
++    LOG(ERROR) << "[InputMethodOHOSCAPI] UpdateTextInputTask CreateCursorInfo "
++                  "fail";
++  } else if (OH_InputMethodProxy_NotifyCursorUpdate(input_method_proxy_,
++                                                   cursor_info_) != IME_ERR_OK) {
++    LOG(WARNING) << "[InputMethodOHOSCAPI] NotifyCursorUpdate fail";
++  }
++
++  // Updating the configuration does not raise the panel, so ask for it
++  // explicitly whenever it is not on screen.
++  if (!is_keyboard_shown_ && attach_options_) {
++    InputMethod_ErrorCode show = ohos::adapter::OhInputMethodProxyShowTextInput(
++        input_method_proxy_, attach_options_);
++    if (show == IME_ERR_DETACHED) {
++      LOG(WARNING) << "[InputMethodOHOSCAPI] show fail, session detached";
++      input_method_proxy_ = nullptr;
++      is_attach_ = false;
++      AttachTextInputTask(reason);
++      return;
++    }
++    if (show != IME_ERR_OK) {
++      LOG(WARNING) << "[InputMethodOHOSCAPI] ShowTextInput fail, code: " << show;
++    }
++  }
++
++  is_attach_ = true;
++  MarkAttachConfigSynced();
++}
++
++bool InputMethodOHOSCAPI::EnsureTextEditorProxy() {
++  if (!text_editor_proxy_) {
++    text_editor_proxy_ = CreateTextEditorProxy();
++    if (!text_editor_proxy_) {
++      return false;
++    }
++  }
++  InputRelationSingleton::GetInstance()
++      .AddTextEditorProxyToInputMethodOHOSCAPIMapping(
++          text_editor_proxy_, weak_ptr_factory_.GetWeakPtr(), text_input_type_,
++          GetCurrentTextInputMode(), GetRectPixel());
++  return true;
++}
++
++void InputMethodOHOSCAPI::SyncTextConfigSnapshot() {
++  if (!text_editor_proxy_) {
++    return;
++  }
++  InputRelationSingleton::GetInstance().UpdateTextConfigSnapshot(
++      text_editor_proxy_, text_input_type_, GetCurrentTextInputMode(),
++      GetRectPixel());
++}
++
++InputMethod_ErrorCode InputMethodOHOSCAPI::NotifyConfigurationChanged() {
++  if (!input_method_proxy_) {
++    return IME_ERR_NULL_POINTER;
++  }
++  const TextInputMode input_mode = GetCurrentTextInputMode();
++  InputMethod_ErrorCode res = OH_InputMethodProxy_NotifyConfigurationChange(
++      input_method_proxy_,
++      EnterKeyTypeChromiumToOH(text_input_type_, input_mode),
++      InputTypeChromiumToOH(text_input_type_, input_mode));
++  if (res != IME_ERR_OK && res != IME_ERR_DETACHED) {
++    LOG(WARNING) << "[InputMethodOHOSCAPI] "
++                    "OH_InputMethodProxy_NotifyConfigurationChange fail, code: "
++                 << res;
++  }
++  return res;
 +}
 +
 +void InputMethodOHOSCAPI::SetVirtualKeyboardVisibilityTask(
 +    bool should_show,
 +    ui::RequestKeyboardReason reason) {
++  if (should_show && !is_attach_) {
++    // Nothing is bound (attach failed earlier, or the session was dropped by
++    // the IME service). An explicit show request is the last chance to get the
++    // keyboard back, so bootstrap the session instead of silently doing
++    // nothing.
++    LOG(INFO) << "[InputMethodOHOSCAPI] not attached, attach on show request";
++    AttachTextInputTask(reason);
++    InputMethodBase::SetVirtualKeyboardVisibilityIfEnabled(should_show);
++    return;
++  }
 +  if (should_show && is_attach_) {
 +    if (!UpdateAttachOptions(reason)) {
 +      LOG(ERROR) << "[InputMethodOHOSCAPI] UpdateAttachOptions fail, "
@@ -4962,6 +5388,14 @@ index 0000000000..e67aa40202
 +      LOG(ERROR)
 +          << "[InputMethodOHOSCAPI] OhInputMethodProxyShowTextInput error: "
 +          << res;
++      if (res == IME_ERR_DETACHED) {
++        // The session died behind our back, rebuild it so the next request can
++        // actually raise the panel.
++        LOG(WARNING) << "[InputMethodOHOSCAPI] session detached, re-attach";
++        input_method_proxy_ = nullptr;
++        is_attach_ = false;
++        AttachTextInputTask(reason);
++      }
 +      return;
 +    }
 +    LOG(INFO)
@@ -5051,7 +5485,8 @@ index 0000000000..e67aa40202
 +  }
 +  focus_rect_ = rect;
 +  InputRelationSingleton::GetInstance().UpdateTextConfigSnapshot(
-+      text_editor_proxy_, text_input_type_, GetRectPixel());
++      text_editor_proxy_, text_input_type_, GetCurrentTextInputMode(),
++      GetRectPixel());
 +  LOG(INFO) << "[InputMethodOHOSCAPI] UpdateCursorTask change focus_rect, x: "
 +            << focus_rect_.x() << " , y:" << focus_rect_.y()
 +            << " , width:" << focus_rect_.width()
@@ -5153,9 +5588,12 @@ index 0000000000..e67aa40202
 +          weak_ptr_factory_.GetWeakPtr())) {
 +    auto& ime_instance = ohos::adapter::InputMethodOHOSAdapter::GetInstance();
 +    ime_instance.DetachTextInput();
-+    is_attach_ = false;
 +  }
-+
++  is_attach_ = false;
++  is_keyboard_shown_ = false;
++  ResetAttachConfig();
++  preview_text_.clear();
++  preview_cursor_ = 0;
 +  SetSoftKeyboardForWidget(widget_id_, false);
 +}
 +
@@ -5170,6 +5608,19 @@ index 0000000000..e67aa40202
 +  InputMethodOHOSManager::GetInstance().SetActiveInstance(
 +      weak_ptr_factory_.GetWeakPtr());
 +  is_attach_ = true;
++  MarkAttachConfigSynced();
++}
++
++void InputMethodOHOSJSAPI::UpdateTextInputTask(
++    ui::RequestKeyboardReason reason) {
++  if (!is_attach_) {
++    AttachTextInputTask(reason);
++    return;
++  }
++  UpdateAttributeTask();
++  MarkAttachConfigSynced();
++  UpdateCursorTask(GetTextInputClient() ? GetTextInputClient()->GetCaretBounds()
++                                        : gfx::Rect());
 +}
 +
 +void InputMethodOHOSJSAPI::SetVirtualKeyboardVisibilityTask(
@@ -5204,12 +5655,16 @@ index 0000000000..e67aa40202
 +}
 +
 +ohos::adapter::IMFAdapterInputAttribute InputMethodOHOSJSAPI::GetInputAttribute() {
++  const ui::TextInputMode cmode = GetCurrentTextInputMode();
 +  int32_t input_mode = ohos::adapter::IMFAdapterTextInputType::NONE_INPUT;
-+  if (text_input_type_ == ui::TEXT_INPUT_TYPE_NUMBER ||
-+      text_input_type_ == ui::TEXT_INPUT_TYPE_TELEPHONE) {
-+    input_mode = ohos::adapter::IMFAdapterTextInputType::NUMBER;
-+  } else if (text_input_type_ == ui::TEXT_INPUT_TYPE_PASSWORD) {
++  if (text_input_type_ == ui::TEXT_INPUT_TYPE_PASSWORD) {
 +    input_mode = ohos::adapter::IMFAdapterTextInputType::VISIBLE_PASSWORD;
++  } else if (cmode == ui::TEXT_INPUT_MODE_NUMERIC ||
++             cmode == ui::TEXT_INPUT_MODE_DECIMAL) {
++    input_mode = ohos::adapter::IMFAdapterTextInputType::NUMBER;
++  } else if (text_input_type_ == ui::TEXT_INPUT_TYPE_NUMBER ||
++             text_input_type_ == ui::TEXT_INPUT_TYPE_TELEPHONE) {
++    input_mode = ohos::adapter::IMFAdapterTextInputType::NUMBER;
 +  } else {
 +    input_mode = ohos::adapter::IMFAdapterTextInputType::TEXT;
 +  }
@@ -5227,10 +5682,10 @@ index 0000000000..e67aa40202
 +}  // namespace ui
 diff --git a/ui/base/ime/ohos/input_method_ohos.h b/ui/base/ime/ohos/input_method_ohos.h
 new file mode 100644
-index 0000000000..bc9c587abc
+index 0000000000..75b69375b7
 --- /dev/null
 +++ b/ui/base/ime/ohos/input_method_ohos.h
-@@ -0,0 +1,175 @@
+@@ -0,0 +1,213 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -5300,6 +5755,10 @@ index 0000000000..bc9c587abc
 +  virtual void MoveCursor(int direction) = 0;
 +  virtual void DetachTextInputTask() = 0;
 +  virtual void AttachTextInputTask(ui::RequestKeyboardReason reason) = 0;
++  // Aligns with ArkWeb: when the IME session is already attached and the input
++  // attributes did not change, refresh the session in place instead of
++  // detaching and attaching again (which hides and re-shows the panel).
++  virtual void UpdateTextInputTask(ui::RequestKeyboardReason reason) = 0;
 +  virtual void SetVirtualKeyboardVisibilityTask(bool should_show, ui::RequestKeyboardReason reason) = 0;
 +  virtual void UpdateCursorTask(const gfx::Rect& rect) = 0;
 +  virtual base::WeakPtr<InputMethodOHOS> GetWeakPtr() = 0;
@@ -5314,8 +5773,14 @@ index 0000000000..bc9c587abc
 +                                TextInputClient* focused) override;
 +  void CancelComposition(const TextInputClient* client) override;
 +  void UpdateContextFocusState();
++  void OnKeyboardStatusChanged(bool shown);
 +  void InsertText(const std::string& text);
 +  void InsertU16Text(const std::u16string& inputText);
++  // Preview (composition) text support. Mirrors ArkWeb's
++  // NWebInputMethodHandler::PreviewTextHandlerOnUI / FinishPreviewTextOnUI.
++  void SetPreviewText(const std::u16string& text, int32_t start, int32_t end);
++  void FinishTextPreview();
++  void CancelPreviewText();
 +  void DeleteBackward(int32_t length);
 +  void DeleteForward(int32_t length);
 +  void SendEnterKeyEvent();
@@ -5337,6 +5802,29 @@ index 0000000000..bc9c587abc
 +  bool is_attach_ = false;
 +  gfx::AcceleratedWidget widget_id_;
 +  base::OneShotTimer delayed_attach_timer_;
++
++  // Input attributes the current IME session was attached with. Used to skip
++  // redundant detach/attach cycles, see UpdateContextFocusState().
++  TextInputType attached_text_input_type_ = ui::TEXT_INPUT_TYPE_NONE;
++  TextInputMode attached_text_input_mode_ = ui::TEXT_INPUT_MODE_DEFAULT;
++  // Preview (composition) text currently handed to Blink, plus the caret offset
++  // inside it. The SDK reports preview updates as edits of this string.
++  std::u16string preview_text_;
++  size_t preview_cursor_ = 0;
++  // Last keyboard height reported by ArkUI, in physical pixels. Duplicated
++  // reports are ignored so the caret is not scrolled twice.
++  int32_t last_keyboard_height_ = -1;
++
++  // Whether the IME panel is currently shown, fed by
++  // OH_TextEditorProxy_SetSendKeyboardStatusFunc. It defaults to false on
++  // purpose: a missing callback then only costs one redundant ShowTextInput,
++  // while a stale true would leave the keyboard impossible to raise.
++  bool is_keyboard_shown_ = false;
++
++  bool HasAttachConfigChanged() const;
++  TextInputMode GetCurrentTextInputMode() const;
++  void MarkAttachConfigSynced();
++  void ResetAttachConfig();
 +};
 +
 +class COMPONENT_EXPORT(UI_BASE_IME_OHOS) InputMethodOHOSCAPI
@@ -5352,6 +5840,7 @@ index 0000000000..bc9c587abc
 +  void MoveCursor(int direction) override;
 +  void DetachTextInputTask() override;
 +  void AttachTextInputTask(ui::RequestKeyboardReason reason) override;
++  void UpdateTextInputTask(ui::RequestKeyboardReason reason) override;
 +  void SetVirtualKeyboardVisibilityTask(
 +      bool should_show,
 +      ui::RequestKeyboardReason reason) override;
@@ -5363,6 +5852,9 @@ index 0000000000..bc9c587abc
 +
 + private:
 +  void CheckAndReleaseApiResources();
++  bool EnsureTextEditorProxy();
++  void SyncTextConfigSnapshot();
++  InputMethod_ErrorCode NotifyConfigurationChanged();
 +  InputMethod_AttachOptions* UpdateAttachOptions(
 +      ui::RequestKeyboardReason reason);
 +  InputMethod_CursorInfo* CreateCursorInfo();
@@ -5389,6 +5881,7 @@ index 0000000000..bc9c587abc
 +  void MoveCursor(int direction) override;
 +  void DetachTextInputTask() override;
 +  void AttachTextInputTask(ui::RequestKeyboardReason reason) override;
++  void UpdateTextInputTask(ui::RequestKeyboardReason reason) override;
 +  void SetVirtualKeyboardVisibilityTask(
 +      bool should_show,
 +      ui::RequestKeyboardReason reason) override;
@@ -7807,6 +8300,48 @@ index 0ed7d1443d..8bdf88fed4 100644
        }
        *out_dom_key = DomKey::FromCharacter(ch);
        *out_key_code = DomCodeToUsLayoutNonLocatedKeyboardCode(dom_code);
+diff --git a/ui/events/platform/platform_event_source.h b/ui/events/platform/platform_event_source.h
+index e7ab8f8883..1acf7659b7 100644
+--- a/ui/events/platform/platform_event_source.h
++++ b/ui/events/platform/platform_event_source.h
+@@ -14,6 +14,7 @@
+ #include "base/observer_list.h"
+ #include "ui/events/events_export.h"
+ #include "ui/events/platform_event.h"
++#include "ui/gfx/native_ui_types.h"
+ 
+ namespace ui {
+ 
+@@ -67,6 +68,29 @@ class EVENTS_EXPORT PlatformEventSource {
+   void AddPlatformEventObserver(PlatformEventObserver* observer);
+   void RemovePlatformEventObserver(PlatformEventObserver* observer);
+ 
++  // OHOS: the tab strip of `widget` started a tab drag. The platform uses
++  // this to filter mouse events and keep delivering them to the dragging
++  // window. No-op on other platforms.
++  virtual void StartTabDragging(gfx::AcceleratedWidget widget) {}
++
++  // Start a touch drag using the platform's active touch contact. Return false
++  // when there is no contact to migrate; never fall back to mouse migration.
++  virtual bool StartTabDraggingByTouch(gfx::AcceleratedWidget widget) {
++    return false;
++  }
++
++  // OHOS: migrates the active tab-drag pointer stream from `source` to
++  // `target` (window.shiftAppWindowPointerEvent). Returns false when the
++  // platform rejected the transfer. No-op on other platforms.
++  virtual bool ShiftWindowEvent(gfx::AcceleratedWidget source,
++                                gfx::AcceleratedWidget target) {
++    return true;
++  }
++
++  // OHOS: clears the tab-drag state set by StartTabDragging/ShiftWindowEvent.
++  // No-op on other platforms.
++  virtual void EndTabDragging() {}
++
+   // Creates PlatformEventSource and sets it as a thread-local singleton.
+   static std::unique_ptr<PlatformEventSource> CreateDefault();
+ 
 diff --git a/ui/events/velocity_tracker/motion_event.cc b/ui/events/velocity_tracker/motion_event.cc
 index 4fe1918a86..1c61fdaa48 100644
 --- a/ui/events/velocity_tracker/motion_event.cc
@@ -10412,10 +10947,10 @@ index 0000000000..49fa5eef8f
 +#endif  // UI_OZONE_PLATFORM_OHOS_DRAG_OHOS_MOVE_LOOP_DELEGATE_H
 diff --git a/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc
 new file mode 100644
-index 0000000000..c838444a74
+index 0000000000..5ba6678e26
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,162 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10472,12 +11007,13 @@ index 0000000000..c838444a74
 +}
 +
 +bool OhosWholeScreenMoveLoop::RunMoveLoop(
-+    [[maybe_unused]] bool can_grab_pointer,
++    bool can_grab_pointer,
 +    scoped_refptr<ui::PlatformCursor> old_cursor,
 +    scoped_refptr<ui::PlatformCursor> new_cursor) {
 +  LOG(INFO) << "[OhosTabDrag] " << __FUNCTION__
 +            << ", can_grab_pointer:" << can_grab_pointer;
 +  initial_cursor_ = old_cursor;
++  grabbed_pointer_ = can_grab_pointer;
 +  std::unique_ptr<ui::ScopedEventDispatcher> old_dispatcher =
 +      std::move(nested_dispatcher_);
 +  nested_dispatcher_ =
@@ -10497,7 +11033,6 @@ index 0000000000..c838444a74
 +}
 +
 +bool OhosWholeScreenMoveLoop::CanDispatchEvent(const ui::PlatformEvent& event) {
-+  NOTIMPLEMENTED();
 +  return in_move_loop_;
 +}
 +
@@ -10509,26 +11044,42 @@ index 0000000000..c838444a74
 +  switch (event->type()) {
 +    case ui::EventType::kMouseMoved:
 +    case ui::EventType::kMouseDragged: {
-+      delegate_->OnTabMoveForStartMoving();
++      // window.startMoving() never moves the window here: our own
++      // OH_NativeWindowManager mouse filter consumes the pointer stream, so the
++      // system drag never advances. Position the window from the cursor instead,
++      // the same way the touch path does.
++      delegate_->OnTouchMove();
 +      // Do not intercepted. The mouse event needs to be transparently
 +      // transmitted to the TabDragController.
 +      return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +    }
 +    case ui::EventType::kTouchMoved: {
++      // window.startMoving() does not advance while our own touch filter keeps
++      // consuming the pointer stream, so position the window from the touch
++      // point ourselves, like the mouse path does.
++      delegate_->OnTouchMove();
 +      if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
 +              .CanShiftTouchEvent()) {
-+        delegate_->OnTabMoveForStartMoving();
 +        // The touch event needs to be transparently transmitted to the
 +        // TabDragController.
 +        return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +      }
-+      delegate_->OnTouchMove();
 +      return ui::POST_DISPATCH_NONE;
 +    }
 +    case ui::EventType::kMouseReleased:
 +    case ui::EventType::kTouchReleased:
 +    case ui::EventType::kTouchCancelled: {
 +      delegate_->OnMoveEnd();
++      // Disarm the drag filter even when the release event was swallowed by
++      // the filter and never came back to the UI: after a pointer shift its
++      // widget no longer matches the dragging window, so
++      // NeedSendWindowEventToUi() drops it and EndTabDragging() never runs.
++      // Without this every later touch is still consumed and the window stays
++      // unresponsive until the next tap. Idempotent with
++      // TabDragController::ResetOhosTabDragging().
++      if (auto* event_source = ui::PlatformEventSource::GetInstance()) {
++        event_source->EndTabDragging();
++      }
 +      if (!grabbed_pointer_) {
 +        return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +      }
@@ -10564,7 +11115,7 @@ index 0000000000..c838444a74
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h
 new file mode 100644
-index 0000000000..a899027738
+index 0000000000..8c3e5fb149
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h
 @@ -0,0 +1,75 @@
@@ -10630,12 +11181,12 @@ index 0000000000..a899027738
 +
 + private:
 +  raw_ptr<OhosMoveLoopDelegate> delegate_;
-+  bool in_move_loop_;
++  bool in_move_loop_ = false;
 +  scoped_refptr<ui::PlatformCursor> initial_cursor_;
-+  bool canceled_;
++  bool canceled_ = false;
 +  base::OnceClosure quit_closure_;
 +  std::unique_ptr<ui::ScopedEventDispatcher> nested_dispatcher_;
-+  bool grabbed_pointer_;
++  bool grabbed_pointer_ = false;
 +
 +  base::WeakPtrFactory<OhosWholeScreenMoveLoop> weak_factory_{this};
 +};
@@ -10645,10 +11196,10 @@ index 0000000000..a899027738
 +#endif  // UI_OZONE_PLATFORM_OHOS_DRAG_OHOS_WHOLE_SCREEN_MOVE_LOOP_H
 diff --git a/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc
 new file mode 100644
-index 0000000000..49b66ca831
+index 0000000000..d317959bde
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,190 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10693,6 +11244,8 @@ index 0000000000..49b66ca831
 +
 +void OhosWindowDragManager::StartTabDragging(int32_t window_id) {
 +  RefreshEventAction();
++  // Drop any mapping left over from a previous drag before arming the filter.
++  WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
 +  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(window_id);
 +}
 +
@@ -10703,12 +11256,8 @@ index 0000000000..49b66ca831
 +  StartTabDragging(window_id);
 +}
 +
-+void OhosWindowDragManager::ShiftWindowEvent(const int32_t source_id,
++bool OhosWindowDragManager::ShiftWindowEvent(const int32_t source_id,
 +                                             const int32_t target_id) {
-+  shift_event_source_window_id_ = source_id;
-+  shift_event_target_window_id_ = target_id;
-+  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(target_id);
-+  WindowEventFilterAdapter::GetInstance().CacheShiftEventWindowIds(source_id, target_id);
 +  bool result = false;
 +  if (IsTouchingDragTab()) {
 +    result = AppWindowAdapter::GetInstance().ShiftWindowTouchEvent(
@@ -10718,16 +11267,31 @@ index 0000000000..49b66ca831
 +                                                                   target_id);
 +  }
 +  if (!result) {
++    // Keep the drag on the source window. Without a shift mapping the filter
++    // falls back to GetDraggingTabWidgetId(), so input keeps flowing instead
++    // of disabling the filter and going silent.
 +    LOG(ERROR) << "[OhosTabDrag] " << __FUNCTION__
-+               << ", " << GetTabDragMethod() << " fail, clear tab dragging params";
-+    ClearDraggingTabParams();
++               << ", " << GetTabDragMethod() << " fail, keep source window "
++               << source_id;
++    WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
++    return false;
 +  }
++  // Publish the new owner only after the system accepted the transfer: the
++  // shift is asynchronous, and moving the filter target first dropped events
++  // from both windows for the duration of the transition.
++  shift_event_source_window_id_ = source_id;
++  shift_event_target_window_id_ = target_id;
++  WindowEventFilterAdapter::GetInstance().CacheShiftEventWindowIds(source_id,
++                                                                  target_id);
++  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(target_id);
++  return true;
 +}
 +
 +void OhosWindowDragManager::ClearDraggingTabParams() {
 +  shift_event_source_window_id_ = -1;
 +  shift_event_target_window_id_ = -1;
 +  touch_drag_tab_finger_id_ = -1;
++  WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
 +  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(-1);
 +}
 +
@@ -10765,6 +11329,10 @@ index 0000000000..49b66ca831
 +  // When the event transfer fails, the previous event is not intercepted
 +  if (!WindowEventFilterAdapter::GetInstance().IsTabDragging()) {
 +    return true;
++  }
++  if (IsTouchingDragTab() && event_id >= 0 &&
++      !IsDraggingTouch(event_id)) {
++    return false;
 +  }
 +  // When tab is dragging, after the touch event is transferred,
 +  // the events in the source window need to be intercepted,
@@ -10824,10 +11392,10 @@ index 0000000000..49b66ca831
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h
 new file mode 100644
-index 0000000000..7dd61c7db5
+index 0000000000..6a94099210
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,87 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10883,7 +11451,7 @@ index 0000000000..7dd61c7db5
 +  ~OhosWindowDragManager() = default;
 +
 +  void StartTabDragging(int32_t window_id);
-+  void ShiftWindowEvent(const int32_t source_id, const int32_t target_id);
++  bool ShiftWindowEvent(const int32_t source_id, const int32_t target_id);
 +  void ClearDraggingTabParams();
 +  bool IsSimulateEventWhenEventShift(int32_t origin_window_id,
 +                                     int32_t event_action);
@@ -10893,6 +11461,10 @@ index 0000000000..7dd61c7db5
 +                               int32_t event_id = -1);
 +  void StartTabDraggingByTouch(int32_t window_id,
 +                               const int32_t finger_id);
++  bool IsDraggingTouch(int32_t finger_id) const {
++    return touch_drag_tab_finger_id_ >= 0 &&
++           touch_drag_tab_finger_id_ == finger_id;
++  }
 +
 + private:
 +  // window ids before and after event transfer
@@ -12045,10 +12617,10 @@ index 0000000000..2d492bfbc0
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_CURSOR_UTILS_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_filter.cc b/ui/ozone/platform/ohos/host/ohos_event_filter.cc
 new file mode 100644
-index 0000000000..e6c065bfb6
+index 0000000000..447a689c5f
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_filter.cc
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,135 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -12088,9 +12660,7 @@ index 0000000000..e6c065bfb6
 +namespace ui {
 +
 +// Interval: microseconds
-+constexpr int64_t kDragTabMouseFilterTime = 15 * 1000 * 1000;
 +constexpr int64_t kMouseEventFilterTime = 5 * 1000 * 1000;
-+constexpr int64_t kDragTabTouchFilterTime = 15 * 1000 * 1000;
 +
 +OhosEventFilter& OhosEventFilter::GetInstance() {
 +  static OhosEventFilter event_filter;
@@ -12116,18 +12686,19 @@ index 0000000000..e6c065bfb6
 +    const gfx::AcceleratedWidget widget_id,
 +    EventTimeStamp timestamp,
 +    EventAction mouse_action) {
-+  if (CheckMouseEventInfoForFilter(widget_id, mouse_action)) {
-+    // When dragging tab,  the mouse event
-+     // filtering condition is within kDragTabMouseFilterTime ms
-+     // In other cases, the mouse event filtering condition is within kMouseEventFilterTime ms
-+    if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
-+            .IsTabDragging()) {
-+      if ((timestamp - pre_timestamp_ < kDragTabMouseFilterTime)) {
-+        return true;
-+      }
-+    } else if (timestamp - pre_timestamp_ < kMouseEventFilterTime) {
-+      return true;
-+    }
++  // A tab drag needs every move event. The events that arrive through the
++  // window mouse filter carry a different time base than the xcomponent
++  // callbacks (millisecond action time scaled to microseconds versus the
++  // nanosecond event time), so comparing them against the shared
++  // pre_timestamp_ rejects every move for the whole drag and the dragged tab
++  // stops following the cursor. Dedup outside of a drag only.
++  if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
++          .IsTabDragging()) {
++    return false;
++  }
++  if (CheckMouseEventInfoForFilter(widget_id, mouse_action) &&
++      timestamp - pre_timestamp_ < kMouseEventFilterTime) {
++    return true;
 +  }
 +  return false;
 +}
@@ -12156,17 +12727,9 @@ index 0000000000..e6c065bfb6
 +    EventTimeStamp timestamp,
 +    EventAction touch_action,
 +    TouchEventFinger finger_id) {
-+  if (CheckTouchEventInfoForFilter(widget_id, touch_action, finger_id)) {
-+    // When dragging tab,  the touch event
-+     // filtering condition is within kDragTabMouseFilterTime ms
-+     // In other cases, the touch event filtering condition is within kTouchEventFilterTime ms
-+    if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
-+            .IsTabDragging()) {
-+      if ((timestamp - pre_timestamp_ < kDragTabTouchFilterTime)) {
-+        return true;
-+      }
-+    }
-+  }
++  // Same reason as CheckFilterMouseEvent(): a touch drag is driven by the move
++  // events and they must never be dropped. Outside of a drag this filter never
++  // filtered anything, which stays unchanged.
 +  return false;
 +}
 +
@@ -13402,10 +13965,10 @@ index 0000000000..118b7dd373
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_EVENT_SOURCE_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_base.cc b/ui/ozone/platform/ohos/host/ohos_event_source_base.cc
 new file mode 100644
-index 0000000000..046e982481
+index 0000000000..2b29aca044
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_base.cc
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,283 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without
@@ -13518,6 +14081,16 @@ index 0000000000..046e982481
 +  if (target == nullptr) {
 +    LOG(WARNING) << "[multiinput]Event target nullptr";
 +    return;
++  }
++  if (event.IsTouchEvent()) {
++    const int32_t touch_id = event.AsTouchEvent()->pointer_details().id;
++    if (event.type() == EventType::kTouchPressed && active_touch_id_ < 0) {
++      active_touch_id_ = touch_id;
++    } else if ((event.type() == EventType::kTouchReleased ||
++                event.type() == EventType::kTouchCancelled) &&
++               active_touch_id_ == touch_id) {
++      active_touch_id_ = -1;
++    }
 +  }
 +  Event::DispatcherApi(&event).set_target(target);
 +  DispatchEvent(&event);
@@ -13638,10 +14211,11 @@ index 0000000000..046e982481
 +  return (std::fabs(num) < 1e-10);
 +}
 +
-+void OhosEventSourceBase::ShiftWindowEvent(
++bool OhosEventSourceBase::ShiftWindowEvent(
 +    const gfx::AcceleratedWidget source_widget_id,
 +    const gfx::AcceleratedWidget target_widget_id) {
-+  window_drag_manager_->ShiftWindowEvent(source_widget_id, target_widget_id);
++  return window_drag_manager_->ShiftWindowEvent(source_widget_id,
++                                                target_widget_id);
 +}
 +
 +void OhosEventSourceBase::StartTabDragging(
@@ -13658,6 +14232,15 @@ index 0000000000..046e982481
 +  window_drag_manager_->ClearDraggingTabParams();
 +}
 +
++bool OhosEventSourceBase::StartTabDraggingByTouch(
++    const gfx::AcceleratedWidget widget_id) {
++  if (active_touch_id_ < 0 || widget_id <= 0) {
++    return false;
++  }
++  StartTabDraggingByTouch(widget_id, active_touch_id_);
++  return true;
++}
++
 +void OhosEventSourceBase::StartTabDraggingByTouch(
 +    const gfx::AcceleratedWidget widget_id,
 +    const int32_t finger_id) {
@@ -13671,10 +14254,10 @@ index 0000000000..046e982481
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_base.h b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
 new file mode 100644
-index 0000000000..f2683ae0d1
+index 0000000000..77067a15c3
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,114 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -13763,10 +14346,11 @@ index 0000000000..f2683ae0d1
 +
 +  gfx::Point GetCursorScreenPoint();
 +  virtual void SimulateTouchUp(const gfx::AcceleratedWidget widget_id) {} // NOT_IMPLEMENTED
-+  void ShiftWindowEvent(const gfx::AcceleratedWidget source_widget_id,
-+                        const gfx::AcceleratedWidget target_widget_id);
-+  void StartTabDragging(const gfx::AcceleratedWidget widget_id);
-+  void EndTabDragging();
++  bool ShiftWindowEvent(const gfx::AcceleratedWidget source_widget_id,
++                        const gfx::AcceleratedWidget target_widget_id) override;
++  void StartTabDragging(const gfx::AcceleratedWidget widget_id) override;
++  bool StartTabDraggingByTouch(gfx::AcceleratedWidget widget_id) override;
++  void EndTabDragging() override;
 +  void StartTabDraggingByTouch(const gfx::AcceleratedWidget widget_id,
 +                               const int32_t finger_id);
 +
@@ -13782,6 +14366,7 @@ index 0000000000..f2683ae0d1
 +  EventFlags key_flags_{EF_NONE};
 +  gfx::PointF pointer_location_;
 +  gfx::PointF cursor_screen_point_;
++  int32_t active_touch_id_ = -1;
 +  const raw_ptr<OhosWindowManager> window_manager_;
 +  const raw_ptr<OhosWindowDragManager> window_drag_manager_;
 +};
@@ -13789,10 +14374,10 @@ index 0000000000..f2683ae0d1
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_EVENT_SOURCE_BASE_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc b/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc
 new file mode 100644
-index 0000000000..7e69ef423c
+index 0000000000..26de384466
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc
-@@ -0,0 +1,893 @@
+@@ -0,0 +1,902 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without
@@ -14267,24 +14852,33 @@ index 0000000000..7e69ef423c
 +void OhosEventSourceNodeHandle::SendWindowTouchEventForTabDragNodeHandle(
 +    const gfx::AcceleratedWidget widget_id,
 +    NodeHandleTouchEventData& touch_event_data) {
-+  if (window_drag_manager_->NeedSendWindowEventToUi(
-+          widget_id, touch_event_data.touch_action, touch_event_data.id)) {
-+    // Initialize internal coordinates of the component
-+    PrepareXcomponentPointForTouchEvent(widget_id, touch_event_data,
-+                                        touch_event_data.display_x,
-+                                        touch_event_data.display_y);
-+    // When the tab page drag is complete, the tab page drag parameter is
-+    // cleared
-+    if (touch_event_data.touch_action == UI_TOUCH_EVENT_ACTION_UP) {
-+      LOG(WARNING) << "[OhosTabDragNodeHandle] " << __FUNCTION__
-+                   << " tab dragging is ended"
-+                      ", widget_id:"
-+                   << widget_id;
-+      EndTabDragging();
-+    }
-+    int32_t display_id = touch_event_data.display_id;
-+    OnTouchEvent(widget_id, touch_event_data, display_id);
++  const bool send_to_ui = window_drag_manager_->NeedSendWindowEventToUi(
++      widget_id, touch_event_data.touch_action, touch_event_data.id);
++  // A successful shift synthesizes UP in the source window. Only the real
++  // dragged contact may end the session; synthetic and secondary-finger UPs
++  // must not disarm a drag that is still in progress in the target window.
++  const bool terminal =
++      touch_event_data.touch_action == UI_TOUCH_EVENT_ACTION_UP ||
++      touch_event_data.touch_action == UI_TOUCH_EVENT_ACTION_CANCEL;
++  if (terminal &&
++      window_drag_manager_->IsDraggingTouch(touch_event_data.id) &&
++      !window_drag_manager_->IsSimulateEventWhenEventShift(
++          widget_id, touch_event_data.touch_action)) {
++    LOG(WARNING) << "[OhosTabDragNodeHandle] " << __FUNCTION__
++                 << " tab dragging is ended"
++                    ", widget_id:"
++                 << widget_id << ", send_to_ui:" << send_to_ui;
++    EndTabDragging();
 +  }
++  if (!send_to_ui) {
++    return;
++  }
++  // Initialize internal coordinates of the component
++  PrepareXcomponentPointForTouchEvent(widget_id, touch_event_data,
++                                      touch_event_data.display_x,
++                                      touch_event_data.display_y);
++  int32_t display_id = touch_event_data.display_id;
++  OnTouchEvent(widget_id, touch_event_data, display_id);
 +}
 +
 +void OhosEventSourceNodeHandle::PrepareXcomponentPointForTouchEvent(

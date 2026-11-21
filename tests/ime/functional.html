@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chromium 输入法回归验证</title>
+<style>
+body{margin:28px;background:#f5f7fa;color:#202124;font:20px sans-serif}h1{font-size:28px}label{display:block;margin:16px 0 6px}input,textarea{font:24px sans-serif;border:1px solid #747775;border-radius:8px;padding:12px;box-sizing:border-box}input{width:560px}#otp{display:flex;gap:12px}#otp input{width:64px;text-align:center}textarea{width:560px;height:100px}p{font-size:16px}#status{position:fixed;right:24px;top:24px;max-width:600px;font:16px monospace;white-space:pre-wrap;background:white;padding:12px}
+</style>
+<h1>输入法回归验证</h1>
+<p>测试数据仅保存在本页内存中。</p>
+<label>验证码（输入后自动切换）</label><div id="otp"></div>
+<label for="text">中文与组合输入</label><input id="text" type="text" autocomplete="off">
+<label for="decimal">小数输入</label><input id="decimal" inputmode="decimal" autocomplete="off">
+<label for="password">数字密码</label><input id="password" type="password" inputmode="numeric" autocomplete="off">
+<label for="multiline">多行输入</label><textarea id="multiline"></textarea>
+<pre id="status"></pre>
+<script>
+window.imeEvents=[];
+for(let i=0;i<6;i++){
+ const input=document.createElement('input');input.id='otp'+i;input.inputMode='numeric';input.maxLength=1;input.autocomplete='off';input.ariaLabel='验证码第'+(i+1)+'位';
+ input.addEventListener('input',()=>{if(input.value&&i<5)document.querySelector('#otp'+(i+1)).focus();});document.querySelector('#otp').append(input);
+}
+window.imeSnapshot=()=>({active:document.activeElement?.id,otp:[...document.querySelectorAll('#otp input')].map(x=>x.value).join(''),text:document.querySelector('#text').value,decimal:document.querySelector('#decimal').value,passwordLength:document.querySelector('#password').value.length,multiline:document.querySelector('#multiline').value,events:imeEvents.slice(-100),rects:Object.fromEntries([...document.querySelectorAll('input,textarea')].map(x=>{const r=x.getBoundingClientRect();return[x.id,{x:r.x,y:r.y,width:r.width,height:r.height}];})),metrics:{devicePixelRatio,innerWidth,innerHeight,outerWidth,outerHeight,screenX,screenY,screenWidth:screen.width,screenHeight:screen.height}});
+for(const type of ['focusin','focusout','beforeinput','input','compositionstart','compositionupdate','compositionend'])document.addEventListener(type,e=>{
+ if(!e.target.matches('input,textarea'))return;
+ imeEvents.push({type,id:e.target.id,data:e.target.type==='password'?null:e.data,inputType:e.inputType,isComposing:e.isComposing,trusted:e.isTrusted,time:performance.now()});
+ document.querySelector('#status').textContent=JSON.stringify({active:document.activeElement?.id,otp:[...document.querySelectorAll('#otp input')].map(x=>x.value).join(''),event:type,composition:e.isComposing},null,2);
+});
+</script>

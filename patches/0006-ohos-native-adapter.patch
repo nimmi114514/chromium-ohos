@@ -28242,7 +28242,7 @@ index 0000000000..67a6b73e4b
 +}
 diff --git a/ohos/adapter/window/app_window_adapter.cc b/ohos/adapter/window/app_window_adapter.cc
 new file mode 100644
-index 0000000000..8215b68c51
+index 0000000000..c722d6a7ea
 --- /dev/null
 +++ b/ohos/adapter/window/app_window_adapter.cc
 @@ -0,0 +1,327 @@
@@ -28460,7 +28460,7 @@ index 0000000000..8215b68c51
 +      promise->set_value(result);
 +    };
 +    jsFunc->Invoke<void>(source_id, target_id, callback);
-+    auto status = future.wait_for(std::chrono::seconds(3));
++    auto status = future.wait_for(std::chrono::milliseconds(500));
 +    if (status == std::future_status::timeout) {
 +      LOGE("[OhosTabDrag] %{public}s Wait timeout", __FUNCTION__);
 +      return false;
@@ -28486,7 +28486,7 @@ index 0000000000..8215b68c51
 +      promise->set_value(result);
 +    };
 +    jsFunc->Invoke<void>(source_id, target_id, finger_id, callback);
-+    auto status = future.wait_for(std::chrono::seconds(3));
++    auto status = future.wait_for(std::chrono::milliseconds(500));
 +    if (status == std::future_status::timeout) {
 +      LOGE("[OhosTabDrag] %{public}s Wait timeout", __FUNCTION__);
 +      return false;
@@ -31563,10 +31563,10 @@ index 0000000000..31fdca1b1c
 +#endif  // OHOS_ADAPTER_XCOMPONENT_EVENT_WINDOW_EVENT_COMMON_H_
 diff --git a/ohos/adapter/xcomponent/event/window_event_filter_adapter.cc b/ohos/adapter/xcomponent/event/window_event_filter_adapter.cc
 new file mode 100644
-index 0000000000..506c459b93
+index 0000000000..f827bb9b9f
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/event/window_event_filter_adapter.cc
-@@ -0,0 +1,738 @@
+@@ -0,0 +1,751 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -31780,6 +31780,14 @@ index 0000000000..506c459b93
 +  return tab_dragging_widget_id_.load(std::memory_order_acquire);
 +}
 +
++void WindowEventFilterAdapter::ClearShiftEventWindowIds() {
++  std::unique_lock<std::shared_mutex> lock(window_event_mutext_);
++  source_window_id_ = -1;
++  tartget_window_id_ = -1;
++  source_origin_window_id_ = -1;
++  target_origin_window_id_ = -1;
++}
++
 +int32_t WindowEventFilterAdapter::GetTargetWindowIdAfterShiftEvent(
 +    int32_t origin_window_id) {
 +  std::shared_lock<std::shared_mutex> lock(window_event_mutext_);
@@ -31805,6 +31813,11 @@ index 0000000000..506c459b93
 +        "GetOriginWindowIds fail, "
 +        "origin_window_ids size:%{public}lu",
 +        origin_window_ids.size());
++    std::unique_lock<std::shared_mutex> lock(window_event_mutext_);
++    source_window_id_ = -1;
++    tartget_window_id_ = -1;
++    source_origin_window_id_ = -1;
++    target_origin_window_id_ = -1;
 +    return;
 +  }
 +  LOGI(
@@ -32307,10 +32320,10 @@ index 0000000000..506c459b93
 +} // namespace ohos::adapter::window
 diff --git a/ohos/adapter/xcomponent/event/window_event_filter_adapter.h b/ohos/adapter/xcomponent/event/window_event_filter_adapter.h
 new file mode 100644
-index 0000000000..5187837fb6
+index 0000000000..20a2c0e128
 --- /dev/null
 +++ b/ohos/adapter/xcomponent/event/window_event_filter_adapter.h
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,160 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -32401,6 +32414,10 @@ index 0000000000..5187837fb6
 +  void SetDraggingTabWidgetId(int32_t widget_id);
 +  int32_t GetDraggingTabWidgetId() const;
 +  bool IsTabDragging() const;
++  // Clears the window ids cached by CacheShiftEventWindowIds(). Called when a
++  // drag starts/ends and when the platform rejects a transfer, so stale ids
++  // cannot retarget events to a dead window.
++  void ClearShiftEventWindowIds();
 +  void CacheShiftEventWindowIds(const int32_t source_id,
 +                                const int32_t target_id);
 +  int32_t GetTargetWindowIdAfterShiftEvent(int32_t origin_window_id);
@@ -32437,10 +32454,10 @@ index 0000000000..5187837fb6
 +  // Check whether all touch filter functions required for tab dragging are parsed.
 +  bool can_filter_window_touch_event_ = false;
 +  // Saves the window id and origin window id after the event is transferred.
-+  int32_t source_window_id_;
-+  int32_t tartget_window_id_;
-+  int32_t source_origin_window_id_;
-+  int32_t target_origin_window_id_;
++  int32_t source_window_id_ = -1;
++  int32_t tartget_window_id_ = -1;
++  int32_t source_origin_window_id_ = -1;
++  int32_t target_origin_window_id_ = -1;
 +  std::shared_mutex window_event_mutext_;
 +  common::SharedLibrary window_manager_lib_;
 +
