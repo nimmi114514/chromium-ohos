@@ -211,6 +211,8 @@ python3 scripts/export_port.py
 
 脚本核对固定版本，导出主仓库与依赖改动，并在原始 Git 文件上重放比较。需将更新后的补丁一同提交到本仓库；HAP 源码改动另外提交到配套应用仓库。
 
+新增源码无需先在 `src` 或 DEPS 仓库执行 `git add`、`git add -N` 或创建 checkpoint commit。导出统一按文件路径排序，不依赖新增文件是否已暂存或提交，也不修改这些源码仓库的暂存区。更新到此导出方式后，旧补丁可能发生一次文件块重排，不代表文件内部代码被调整。可用 `python3 scripts/test_patch_export.py` 检查不同 Git 状态下的导出一致性。
+
 ## 来源与致谢
 
 本项目沿用并参考成熟的 Chromium 132 OHOS 移植工作，将相应平台实现适配到 Chromium 158：

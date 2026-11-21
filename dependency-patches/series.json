@@ -31,11 +31,11 @@
       "src/dawn/native/vulkan/VulkanExtensions.h",
       "src/dawn/native/vulkan/external_memory/MemoryImportParams.h",
       "src/dawn/native/vulkan/external_memory/MemoryService.cpp",
-      "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp",
       "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.cpp",
-      "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h"
+      "src/dawn/native/vulkan/external_memory/MemoryServiceImplementationOHOSNativeBuffer.h",
+      "src/dawn/native/vulkan/external_semaphore/SemaphoreServiceImplementationFD.cpp"
     ],
-    "sha256": "81cfcd20d7a02d21b3af29cb3324e5e46148c6ec47bacf222cf8386200f78373",
+    "sha256": "dcda955628156c87f35a9c942b45b1b3449de7490c095dfe1b0627d06bf68513",
     "replay_matches_worktree": true
   },
   {

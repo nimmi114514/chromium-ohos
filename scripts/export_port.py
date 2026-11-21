@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 
 from export_dependencies import export as export_dependencies
+from patch_export import change_counts, export_patch, git_paths, path_order
 
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = {
@@ -68,36 +69,24 @@ def main():
     source = (ROOT / "src").resolve()
     lock = json.loads((ROOT / "versions.json").read_text())["chromium"]
 
-    def git(*args, **kwargs):
-        return subprocess.check_output(["git", *args], cwd=source, **kwargs)
-
     revision = lock["revision"]
     subprocess.run(["git", "merge-base", "--is-ancestor", revision, "HEAD"],
                    cwd=source, check=True)
-    # Export from the upstream pin, including port changes already committed
-    # locally. HEAD is a checkpoint, not necessarily the pristine source.
-    tracked = git("diff", "--ignore-submodules=all", "--no-renames",
-                  "--name-only", revision, text=True).splitlines()
-    added = git("ls-files", "--others", "--exclude-standard", text=True).splitlines()
+    # Compare against the upstream pin even when HEAD contains local commits.
+    # New files need not be staged or committed for a reproducible export.
+    tracked = git_paths(source, "diff", "--ignore-submodules=all", "--no-renames",
+                        "--name-only", revision)
+    added = git_paths(source, "ls-files", "--others", "--exclude-standard")
+    files = path_order(tracked + added)
     buckets = collections.defaultdict(list)
-    for path in tracked + added:
+    for path in files:
         buckets[group(path)].append(path)
     for key, name in GROUPS.items():
-        paths = sorted(buckets[key])
-        common = [p for p in paths if p in tracked]
-        patch = git("diff", "--binary", "--no-renames", revision, "--", *common) if common else b""
-        for path in paths:
-            if path not in added:
-                continue
-            diff = subprocess.run(["git", "diff", "--no-index", "--binary", "--",
-                                   "/dev/null", path], cwd=source, capture_output=True)
-            if diff.returncode != 1:
-                raise RuntimeError(f"Cannot export {path}: {diff.stderr.decode()}")
-            patch += diff.stdout
+        patch = export_patch(source, revision, buckets[key], added)
         (ROOT / "patches" / name).write_bytes(patch)
     (ROOT / "patches/series").write_text("\n".join(GROUPS.values()) + "\n")
     # Keep the readable overlay aligned with the actual new build files.
-    for path in tracked + added:
+    for path in files:
         if path.startswith(("build/config/ohos/", "build/toolchain/ohos/", "ohos/bringup/")):
             dest = ROOT / "overlay" / path
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -120,18 +109,22 @@ def main():
             patch = ROOT / "patches" / name
             subprocess.run(["git", "apply", "--check", patch], cwd=clean, check=True)
             subprocess.run(["git", "apply", patch], cwd=clean, check=True)
-        for path in tracked + added:
+        for path in files:
             actual, expected = clean / path, source / path
             if actual.exists() != expected.exists() or (
                     actual.exists() and actual.read_bytes() != expected.read_bytes()):
                 raise RuntimeError(f"Patch replay differs: {path}")
-    report = {"revision": lock["revision"], "tracked_files": len(tracked),
-              "added_files": len(added), "replay_matches_worktree": True,
+    counts = change_counts((ROOT / "patches" / name).read_bytes()
+                           for name in GROUPS.values())
+    report = {"revision": lock["revision"], **counts,
+              "replay_matches_worktree": True,
               "patches": [{"name": name, "files": len(buckets[key]),
                            "sha256": hashlib.sha256((ROOT / "patches" / name).read_bytes()).hexdigest()}
                           for key, name in GROUPS.items()]}
     (ROOT / "reports/patch-validation.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Exported/replayed {len(tracked)} modified and {len(added)} new files", flush=True)
+    print(f"Exported/replayed {counts['modified_files']} modified, "
+          f"{counts['added_files']} new and {counts['deleted_files']} deleted files",
+          flush=True)
     export_dependencies(source)
 
 
