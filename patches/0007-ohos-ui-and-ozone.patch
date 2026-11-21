@@ -7808,7 +7808,7 @@ index 0ed7d1443d..8bdf88fed4 100644
        *out_dom_key = DomKey::FromCharacter(ch);
        *out_key_code = DomCodeToUsLayoutNonLocatedKeyboardCode(dom_code);
 diff --git a/ui/events/platform/platform_event_source.h b/ui/events/platform/platform_event_source.h
-index e7ab8f8883..6d9c0608ed 100644
+index e7ab8f8883..9dbfe79d39 100644
 --- a/ui/events/platform/platform_event_source.h
 +++ b/ui/events/platform/platform_event_source.h
 @@ -14,6 +14,7 @@
@@ -7819,7 +7819,7 @@ index e7ab8f8883..6d9c0608ed 100644
  
  namespace ui {
  
-@@ -67,6 +68,20 @@ class EVENTS_EXPORT PlatformEventSource {
+@@ -67,6 +68,23 @@ class EVENTS_EXPORT PlatformEventSource {
    void AddPlatformEventObserver(PlatformEventObserver* observer);
    void RemovePlatformEventObserver(PlatformEventObserver* observer);
  
@@ -7829,9 +7829,12 @@ index e7ab8f8883..6d9c0608ed 100644
 +  virtual void StartTabDragging(gfx::AcceleratedWidget widget) {}
 +
 +  // OHOS: migrates the active tab-drag pointer stream from `source` to
-+  // `target` (window.shiftAppWindowPointerEvent). No-op on other platforms.
-+  virtual void ShiftWindowEvent(gfx::AcceleratedWidget source,
-+                                gfx::AcceleratedWidget target) {}
++  // `target` (window.shiftAppWindowPointerEvent). Returns false when the
++  // platform rejected the transfer. No-op on other platforms.
++  virtual bool ShiftWindowEvent(gfx::AcceleratedWidget source,
++                                gfx::AcceleratedWidget target) {
++    return true;
++  }
 +
 +  // OHOS: clears the tab-drag state set by StartTabDragging/ShiftWindowEvent.
 +  // No-op on other platforms.
@@ -10445,10 +10448,10 @@ index 0000000000..49fa5eef8f
 +#endif  // UI_OZONE_PLATFORM_OHOS_DRAG_OHOS_MOVE_LOOP_DELEGATE_H
 diff --git a/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc
 new file mode 100644
-index 0000000000..c838444a74
+index 0000000000..5ba6678e26
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.cc
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,162 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10505,12 +10508,13 @@ index 0000000000..c838444a74
 +}
 +
 +bool OhosWholeScreenMoveLoop::RunMoveLoop(
-+    [[maybe_unused]] bool can_grab_pointer,
++    bool can_grab_pointer,
 +    scoped_refptr<ui::PlatformCursor> old_cursor,
 +    scoped_refptr<ui::PlatformCursor> new_cursor) {
 +  LOG(INFO) << "[OhosTabDrag] " << __FUNCTION__
 +            << ", can_grab_pointer:" << can_grab_pointer;
 +  initial_cursor_ = old_cursor;
++  grabbed_pointer_ = can_grab_pointer;
 +  std::unique_ptr<ui::ScopedEventDispatcher> old_dispatcher =
 +      std::move(nested_dispatcher_);
 +  nested_dispatcher_ =
@@ -10530,7 +10534,6 @@ index 0000000000..c838444a74
 +}
 +
 +bool OhosWholeScreenMoveLoop::CanDispatchEvent(const ui::PlatformEvent& event) {
-+  NOTIMPLEMENTED();
 +  return in_move_loop_;
 +}
 +
@@ -10542,26 +10545,42 @@ index 0000000000..c838444a74
 +  switch (event->type()) {
 +    case ui::EventType::kMouseMoved:
 +    case ui::EventType::kMouseDragged: {
-+      delegate_->OnTabMoveForStartMoving();
++      // window.startMoving() never moves the window here: our own
++      // OH_NativeWindowManager mouse filter consumes the pointer stream, so the
++      // system drag never advances. Position the window from the cursor instead,
++      // the same way the touch path does.
++      delegate_->OnTouchMove();
 +      // Do not intercepted. The mouse event needs to be transparently
 +      // transmitted to the TabDragController.
 +      return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +    }
 +    case ui::EventType::kTouchMoved: {
++      // window.startMoving() does not advance while our own touch filter keeps
++      // consuming the pointer stream, so position the window from the touch
++      // point ourselves, like the mouse path does.
++      delegate_->OnTouchMove();
 +      if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
 +              .CanShiftTouchEvent()) {
-+        delegate_->OnTabMoveForStartMoving();
 +        // The touch event needs to be transparently transmitted to the
 +        // TabDragController.
 +        return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +      }
-+      delegate_->OnTouchMove();
 +      return ui::POST_DISPATCH_NONE;
 +    }
 +    case ui::EventType::kMouseReleased:
 +    case ui::EventType::kTouchReleased:
 +    case ui::EventType::kTouchCancelled: {
 +      delegate_->OnMoveEnd();
++      // Disarm the drag filter even when the release event was swallowed by
++      // the filter and never came back to the UI: after a pointer shift its
++      // widget no longer matches the dragging window, so
++      // NeedSendWindowEventToUi() drops it and EndTabDragging() never runs.
++      // Without this every later touch is still consumed and the window stays
++      // unresponsive until the next tap. Idempotent with
++      // TabDragController::ResetOhosTabDragging().
++      if (auto* event_source = ui::PlatformEventSource::GetInstance()) {
++        event_source->EndTabDragging();
++      }
 +      if (!grabbed_pointer_) {
 +        return ui::POST_DISPATCH_PERFORM_DEFAULT;
 +      }
@@ -10597,7 +10616,7 @@ index 0000000000..c838444a74
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h
 new file mode 100644
-index 0000000000..a899027738
+index 0000000000..8c3e5fb149
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_whole_screen_move_loop.h
 @@ -0,0 +1,75 @@
@@ -10663,12 +10682,12 @@ index 0000000000..a899027738
 +
 + private:
 +  raw_ptr<OhosMoveLoopDelegate> delegate_;
-+  bool in_move_loop_;
++  bool in_move_loop_ = false;
 +  scoped_refptr<ui::PlatformCursor> initial_cursor_;
-+  bool canceled_;
++  bool canceled_ = false;
 +  base::OnceClosure quit_closure_;
 +  std::unique_ptr<ui::ScopedEventDispatcher> nested_dispatcher_;
-+  bool grabbed_pointer_;
++  bool grabbed_pointer_ = false;
 +
 +  base::WeakPtrFactory<OhosWholeScreenMoveLoop> weak_factory_{this};
 +};
@@ -10678,10 +10697,10 @@ index 0000000000..a899027738
 +#endif  // UI_OZONE_PLATFORM_OHOS_DRAG_OHOS_WHOLE_SCREEN_MOVE_LOOP_H
 diff --git a/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc
 new file mode 100644
-index 0000000000..49b66ca831
+index 0000000000..7eed05a4ae
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.cc
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,186 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10726,6 +10745,8 @@ index 0000000000..49b66ca831
 +
 +void OhosWindowDragManager::StartTabDragging(int32_t window_id) {
 +  RefreshEventAction();
++  // Drop any mapping left over from a previous drag before arming the filter.
++  WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
 +  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(window_id);
 +}
 +
@@ -10736,12 +10757,8 @@ index 0000000000..49b66ca831
 +  StartTabDragging(window_id);
 +}
 +
-+void OhosWindowDragManager::ShiftWindowEvent(const int32_t source_id,
++bool OhosWindowDragManager::ShiftWindowEvent(const int32_t source_id,
 +                                             const int32_t target_id) {
-+  shift_event_source_window_id_ = source_id;
-+  shift_event_target_window_id_ = target_id;
-+  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(target_id);
-+  WindowEventFilterAdapter::GetInstance().CacheShiftEventWindowIds(source_id, target_id);
 +  bool result = false;
 +  if (IsTouchingDragTab()) {
 +    result = AppWindowAdapter::GetInstance().ShiftWindowTouchEvent(
@@ -10751,16 +10768,31 @@ index 0000000000..49b66ca831
 +                                                                   target_id);
 +  }
 +  if (!result) {
++    // Keep the drag on the source window. Without a shift mapping the filter
++    // falls back to GetDraggingTabWidgetId(), so input keeps flowing instead
++    // of disabling the filter and going silent.
 +    LOG(ERROR) << "[OhosTabDrag] " << __FUNCTION__
-+               << ", " << GetTabDragMethod() << " fail, clear tab dragging params";
-+    ClearDraggingTabParams();
++               << ", " << GetTabDragMethod() << " fail, keep source window "
++               << source_id;
++    WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
++    return false;
 +  }
++  // Publish the new owner only after the system accepted the transfer: the
++  // shift is asynchronous, and moving the filter target first dropped events
++  // from both windows for the duration of the transition.
++  shift_event_source_window_id_ = source_id;
++  shift_event_target_window_id_ = target_id;
++  WindowEventFilterAdapter::GetInstance().CacheShiftEventWindowIds(source_id,
++                                                                  target_id);
++  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(target_id);
++  return true;
 +}
 +
 +void OhosWindowDragManager::ClearDraggingTabParams() {
 +  shift_event_source_window_id_ = -1;
 +  shift_event_target_window_id_ = -1;
 +  touch_drag_tab_finger_id_ = -1;
++  WindowEventFilterAdapter::GetInstance().ClearShiftEventWindowIds();
 +  WindowEventFilterAdapter::GetInstance().SetDraggingTabWidgetId(-1);
 +}
 +
@@ -10857,7 +10889,7 @@ index 0000000000..49b66ca831
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h
 new file mode 100644
-index 0000000000..7dd61c7db5
+index 0000000000..e70e6b16da
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_window_drag_manager.h
 @@ -0,0 +1,83 @@
@@ -10916,7 +10948,7 @@ index 0000000000..7dd61c7db5
 +  ~OhosWindowDragManager() = default;
 +
 +  void StartTabDragging(int32_t window_id);
-+  void ShiftWindowEvent(const int32_t source_id, const int32_t target_id);
++  bool ShiftWindowEvent(const int32_t source_id, const int32_t target_id);
 +  void ClearDraggingTabParams();
 +  bool IsSimulateEventWhenEventShift(int32_t origin_window_id,
 +                                     int32_t event_action);
@@ -12078,10 +12110,10 @@ index 0000000000..2d492bfbc0
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_CURSOR_UTILS_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_filter.cc b/ui/ozone/platform/ohos/host/ohos_event_filter.cc
 new file mode 100644
-index 0000000000..e6c065bfb6
+index 0000000000..447a689c5f
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_filter.cc
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,135 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -12121,9 +12153,7 @@ index 0000000000..e6c065bfb6
 +namespace ui {
 +
 +// Interval: microseconds
-+constexpr int64_t kDragTabMouseFilterTime = 15 * 1000 * 1000;
 +constexpr int64_t kMouseEventFilterTime = 5 * 1000 * 1000;
-+constexpr int64_t kDragTabTouchFilterTime = 15 * 1000 * 1000;
 +
 +OhosEventFilter& OhosEventFilter::GetInstance() {
 +  static OhosEventFilter event_filter;
@@ -12149,18 +12179,19 @@ index 0000000000..e6c065bfb6
 +    const gfx::AcceleratedWidget widget_id,
 +    EventTimeStamp timestamp,
 +    EventAction mouse_action) {
-+  if (CheckMouseEventInfoForFilter(widget_id, mouse_action)) {
-+    // When dragging tab,  the mouse event
-+     // filtering condition is within kDragTabMouseFilterTime ms
-+     // In other cases, the mouse event filtering condition is within kMouseEventFilterTime ms
-+    if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
-+            .IsTabDragging()) {
-+      if ((timestamp - pre_timestamp_ < kDragTabMouseFilterTime)) {
-+        return true;
-+      }
-+    } else if (timestamp - pre_timestamp_ < kMouseEventFilterTime) {
-+      return true;
-+    }
++  // A tab drag needs every move event. The events that arrive through the
++  // window mouse filter carry a different time base than the xcomponent
++  // callbacks (millisecond action time scaled to microseconds versus the
++  // nanosecond event time), so comparing them against the shared
++  // pre_timestamp_ rejects every move for the whole drag and the dragged tab
++  // stops following the cursor. Dedup outside of a drag only.
++  if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
++          .IsTabDragging()) {
++    return false;
++  }
++  if (CheckMouseEventInfoForFilter(widget_id, mouse_action) &&
++      timestamp - pre_timestamp_ < kMouseEventFilterTime) {
++    return true;
 +  }
 +  return false;
 +}
@@ -12189,17 +12220,9 @@ index 0000000000..e6c065bfb6
 +    EventTimeStamp timestamp,
 +    EventAction touch_action,
 +    TouchEventFinger finger_id) {
-+  if (CheckTouchEventInfoForFilter(widget_id, touch_action, finger_id)) {
-+    // When dragging tab,  the touch event
-+     // filtering condition is within kDragTabMouseFilterTime ms
-+     // In other cases, the touch event filtering condition is within kTouchEventFilterTime ms
-+    if (ohos::adapter::window::WindowEventFilterAdapter::GetInstance()
-+            .IsTabDragging()) {
-+      if ((timestamp - pre_timestamp_ < kDragTabTouchFilterTime)) {
-+        return true;
-+      }
-+    }
-+  }
++  // Same reason as CheckFilterMouseEvent(): a touch drag is driven by the move
++  // events and they must never be dropped. Outside of a drag this filter never
++  // filtered anything, which stays unchanged.
 +  return false;
 +}
 +
@@ -13435,10 +13458,10 @@ index 0000000000..118b7dd373
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_EVENT_SOURCE_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_base.cc b/ui/ozone/platform/ohos/host/ohos_event_source_base.cc
 new file mode 100644
-index 0000000000..046e982481
+index 0000000000..1b2c4aa513
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_base.cc
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,264 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without
@@ -13671,10 +13694,11 @@ index 0000000000..046e982481
 +  return (std::fabs(num) < 1e-10);
 +}
 +
-+void OhosEventSourceBase::ShiftWindowEvent(
++bool OhosEventSourceBase::ShiftWindowEvent(
 +    const gfx::AcceleratedWidget source_widget_id,
 +    const gfx::AcceleratedWidget target_widget_id) {
-+  window_drag_manager_->ShiftWindowEvent(source_widget_id, target_widget_id);
++  return window_drag_manager_->ShiftWindowEvent(source_widget_id,
++                                                target_widget_id);
 +}
 +
 +void OhosEventSourceBase::StartTabDragging(
@@ -13704,7 +13728,7 @@ index 0000000000..046e982481
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_base.h b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
 new file mode 100644
-index 0000000000..11d7de6981
+index 0000000000..4b292c0385
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
 @@ -0,0 +1,112 @@
@@ -13796,7 +13820,7 @@ index 0000000000..11d7de6981
 +
 +  gfx::Point GetCursorScreenPoint();
 +  virtual void SimulateTouchUp(const gfx::AcceleratedWidget widget_id) {} // NOT_IMPLEMENTED
-+  void ShiftWindowEvent(const gfx::AcceleratedWidget source_widget_id,
++  bool ShiftWindowEvent(const gfx::AcceleratedWidget source_widget_id,
 +                        const gfx::AcceleratedWidget target_widget_id) override;
 +  void StartTabDragging(const gfx::AcceleratedWidget widget_id) override;
 +  void EndTabDragging() override;
@@ -13822,10 +13846,10 @@ index 0000000000..11d7de6981
 +#endif  // UI_OZONE_PLATFORM_OHOS_HOST_OHOS_EVENT_SOURCE_BASE_H_
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc b/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc
 new file mode 100644
-index 0000000000..7e69ef423c
+index 0000000000..75a14b1645
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_node_handle.cc
-@@ -0,0 +1,893 @@
+@@ -0,0 +1,897 @@
 +/*
 + * Copyright (c) 2023-2025 Huawei Device Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without
@@ -14300,24 +14324,28 @@ index 0000000000..7e69ef423c
 +void OhosEventSourceNodeHandle::SendWindowTouchEventForTabDragNodeHandle(
 +    const gfx::AcceleratedWidget widget_id,
 +    NodeHandleTouchEventData& touch_event_data) {
-+  if (window_drag_manager_->NeedSendWindowEventToUi(
-+          widget_id, touch_event_data.touch_action, touch_event_data.id)) {
-+    // Initialize internal coordinates of the component
-+    PrepareXcomponentPointForTouchEvent(widget_id, touch_event_data,
-+                                        touch_event_data.display_x,
-+                                        touch_event_data.display_y);
-+    // When the tab page drag is complete, the tab page drag parameter is
-+    // cleared
-+    if (touch_event_data.touch_action == UI_TOUCH_EVENT_ACTION_UP) {
-+      LOG(WARNING) << "[OhosTabDragNodeHandle] " << __FUNCTION__
-+                   << " tab dragging is ended"
-+                      ", widget_id:"
-+                   << widget_id;
-+      EndTabDragging();
-+    }
-+    int32_t display_id = touch_event_data.display_id;
-+    OnTouchEvent(widget_id, touch_event_data, display_id);
++  const bool send_to_ui = window_drag_manager_->NeedSendWindowEventToUi(
++      widget_id, touch_event_data.touch_action, touch_event_data.id);
++  // When the tab page drag is complete, the tab page drag parameter is
++  // cleared even if this UP is dropped by the filter: after a pointer shift its
++  // widget no longer matches the dragging window, but the drag is over all the
++  // same. Keeping the filter armed leaves every later touch consumed.
++  if (touch_event_data.touch_action == UI_TOUCH_EVENT_ACTION_UP) {
++    LOG(WARNING) << "[OhosTabDragNodeHandle] " << __FUNCTION__
++                 << " tab dragging is ended"
++                    ", widget_id:"
++                 << widget_id << ", send_to_ui:" << send_to_ui;
++    EndTabDragging();
 +  }
++  if (!send_to_ui) {
++    return;
++  }
++  // Initialize internal coordinates of the component
++  PrepareXcomponentPointForTouchEvent(widget_id, touch_event_data,
++                                      touch_event_data.display_x,
++                                      touch_event_data.display_y);
++  int32_t display_id = touch_event_data.display_id;
++  OnTouchEvent(widget_id, touch_event_data, display_id);
 +}
 +
 +void OhosEventSourceNodeHandle::PrepareXcomponentPointForTouchEvent(
