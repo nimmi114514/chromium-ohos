@@ -7807,6 +7807,39 @@ index 0ed7d1443d..8bdf88fed4 100644
        }
        *out_dom_key = DomKey::FromCharacter(ch);
        *out_key_code = DomCodeToUsLayoutNonLocatedKeyboardCode(dom_code);
+diff --git a/ui/events/platform/platform_event_source.h b/ui/events/platform/platform_event_source.h
+index e7ab8f8883..6d9c0608ed 100644
+--- a/ui/events/platform/platform_event_source.h
++++ b/ui/events/platform/platform_event_source.h
+@@ -14,6 +14,7 @@
+ #include "base/observer_list.h"
+ #include "ui/events/events_export.h"
+ #include "ui/events/platform_event.h"
++#include "ui/gfx/native_ui_types.h"
+ 
+ namespace ui {
+ 
+@@ -67,6 +68,20 @@ class EVENTS_EXPORT PlatformEventSource {
+   void AddPlatformEventObserver(PlatformEventObserver* observer);
+   void RemovePlatformEventObserver(PlatformEventObserver* observer);
+ 
++  // OHOS: the tab strip of `widget` started a tab drag. The platform uses
++  // this to filter mouse events and keep delivering them to the dragging
++  // window. No-op on other platforms.
++  virtual void StartTabDragging(gfx::AcceleratedWidget widget) {}
++
++  // OHOS: migrates the active tab-drag pointer stream from `source` to
++  // `target` (window.shiftAppWindowPointerEvent). No-op on other platforms.
++  virtual void ShiftWindowEvent(gfx::AcceleratedWidget source,
++                                gfx::AcceleratedWidget target) {}
++
++  // OHOS: clears the tab-drag state set by StartTabDragging/ShiftWindowEvent.
++  // No-op on other platforms.
++  virtual void EndTabDragging() {}
++
+   // Creates PlatformEventSource and sets it as a thread-local singleton.
+   static std::unique_ptr<PlatformEventSource> CreateDefault();
+ 
 diff --git a/ui/events/velocity_tracker/motion_event.cc b/ui/events/velocity_tracker/motion_event.cc
 index 4fe1918a86..1c61fdaa48 100644
 --- a/ui/events/velocity_tracker/motion_event.cc
@@ -13671,7 +13704,7 @@ index 0000000000..046e982481
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/host/ohos_event_source_base.h b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
 new file mode 100644
-index 0000000000..f2683ae0d1
+index 0000000000..11d7de6981
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_event_source_base.h
 @@ -0,0 +1,112 @@
@@ -13764,9 +13797,9 @@ index 0000000000..f2683ae0d1
 +  gfx::Point GetCursorScreenPoint();
 +  virtual void SimulateTouchUp(const gfx::AcceleratedWidget widget_id) {} // NOT_IMPLEMENTED
 +  void ShiftWindowEvent(const gfx::AcceleratedWidget source_widget_id,
-+                        const gfx::AcceleratedWidget target_widget_id);
-+  void StartTabDragging(const gfx::AcceleratedWidget widget_id);
-+  void EndTabDragging();
++                        const gfx::AcceleratedWidget target_widget_id) override;
++  void StartTabDragging(const gfx::AcceleratedWidget widget_id) override;
++  void EndTabDragging() override;
 +  void StartTabDraggingByTouch(const gfx::AcceleratedWidget widget_id,
 +                               const int32_t finger_id);
 +

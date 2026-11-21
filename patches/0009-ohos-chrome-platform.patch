@@ -12300,6 +12300,145 @@ index 49c1fc958a..5cdfe6e8f2 100644
  #include "base/feature_list.h"
  #include "base/functional/bind.h"
  #include "base/functional/callback.h"
+diff --git a/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h b/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h
+index a962420a7f..e00482415e 100644
+--- a/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h
++++ b/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h
+@@ -13,6 +13,7 @@
+ #include <vector>
+ 
+ #include "base/callback_list.h"
++#include "build/build_config.h"
+ #include "base/functional/callback.h"
+ #include "base/memory/raw_ptr.h"
+ #include "base/memory/weak_ptr.h"
+@@ -488,6 +489,14 @@ class TabDragController : public views::WidgetObserver,
+ 
+   [[nodiscard]] Liveness SetCapture(TabDragContext* context);
+ 
++#if BUILDFLAG(IS_OHOS)
++  // Starts the platform tab drag for `context`'s window, or migrates an
++  // in-progress one when the drag moves to another window.
++  void UpdateOhosTabDraggingWindow(TabDragContext* context);
++  // Clears the platform tab-drag pointer stream state.
++  void ResetOhosTabDragging();
++#endif
++
+   // Returns true if currently dragging a tab with `contents`.
+   bool IsDraggingTab(content::WebContents* contents) const;
+ 
+@@ -619,6 +628,11 @@ class TabDragController : public views::WidgetObserver,
+   // session. Used to calculate the dragged window size.
+   gfx::Size initial_window_size_;
+ 
++#if BUILDFLAG(IS_OHOS)
++  // Window that currently owns the platform tab-drag pointer stream.
++  gfx::AcceleratedWidget ohos_tab_drag_widget_ = gfx::kNullAcceleratedWidget;
++#endif
++
+   // Used to track the view that had focus in the window containing
+   // `source_view_`. This is saved so that focus can be restored properly when
+   // a drag begins and ends within this same window.
+diff --git a/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc b/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
+index 31c468370b..960e98cad9 100644
+--- a/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
++++ b/chrome/browser/ui/views/tabs/dragging/tab_drag_controller.cc
+@@ -74,6 +74,7 @@
+ #include "ui/display/display.h"
+ #include "ui/display/screen.h"
+ #include "ui/events/event_observer.h"
++#include "ui/events/platform/platform_event_source.h"
+ #include "ui/events/gestures/gesture_recognizer.h"
+ #include "ui/events/types/event_type.h"
+ #include "ui/gfx/geometry/rect.h"
+@@ -115,6 +116,11 @@
+ #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone.h"
+ #endif
+ 
++#if BUILDFLAG(IS_OHOS)
++#include "ui/aura/window.h"              // nogncheck
++#include "ui/aura/window_tree_host.h"    // nogncheck
++#endif
++
+ using content::OpenURLParams;
+ using content::WebContents;
+ 
+@@ -423,6 +429,10 @@ TabDragController::~TabDragController() {
+ 
+   widget_observation_.Reset();
+ 
++#if BUILDFLAG(IS_OHOS)
++  ResetOhosTabDragging();
++#endif
++
+   if (current_state_ == DragState::kDraggingWindow) {
+     VLOG(1) << "EndMoveLoop in TabDragController dtor";
+     GetAttachedBrowserWidget()->EndMoveLoop();
+@@ -2090,6 +2100,9 @@ void TabDragController::EndDragImpl(EndDragType type) {
+   base::WeakPtr<TabDragController> ref(weak_factory_.GetWeakPtr());
+   DragState previous_state = current_state_;
+   current_state_ = DragState::kStopped;
++#if BUILDFLAG(IS_OHOS)
++  ResetOhosTabDragging();
++#endif
+   attached_context_tabs_closed_tracker_.reset();
+ 
+   bring_to_front_timer_.Stop();
+@@ -2732,9 +2745,54 @@ TabDragController::Liveness TabDragController::SetCapture(
+     TabDragContext* context) {
+   auto ref = weak_factory_.GetWeakPtr();
+   context->GetWidget()->SetCapture(context);
++#if BUILDFLAG(IS_OHOS)
++  if (ref) {
++    UpdateOhosTabDraggingWindow(context);
++  }
++#endif
+   return ref ? Liveness::kAlive : Liveness::kDeleted;
+ }
+ 
++#if BUILDFLAG(IS_OHOS)
++void TabDragController::UpdateOhosTabDraggingWindow(TabDragContext* context) {
++  ui::PlatformEventSource* event_source = ui::PlatformEventSource::GetInstance();
++  if (!event_source || !context || !context->GetWidget()) {
++    return;
++  }
++  aura::Window* window = context->GetWidget()->GetNativeWindow();
++  aura::WindowTreeHost* host = window ? window->GetHost() : nullptr;
++  if (!host) {
++    return;
++  }
++  const gfx::AcceleratedWidget widget = host->GetAcceleratedWidget();
++  if (widget == gfx::kNullAcceleratedWidget) {
++    return;
++  }
++  if (ohos_tab_drag_widget_ == gfx::kNullAcceleratedWidget) {
++    event_source->StartTabDragging(widget);
++  } else if (ohos_tab_drag_widget_ != widget) {
++    // The drag moved to another browser window (tear-off or merge). Ask the
++    // system to migrate the pointer stream, including the implicit press that
++    // the new window never saw.
++    event_source->ShiftWindowEvent(ohos_tab_drag_widget_, widget);
++  } else {
++    return;
++  }
++  VLOG(1) << "[OhosTabDrag] dragging window -> " << widget;
++  ohos_tab_drag_widget_ = widget;
++}
++
++void TabDragController::ResetOhosTabDragging() {
++  if (ohos_tab_drag_widget_ == gfx::kNullAcceleratedWidget) {
++    return;
++  }
++  if (auto* event_source = ui::PlatformEventSource::GetInstance()) {
++    event_source->EndTabDragging();
++  }
++  ohos_tab_drag_widget_ = gfx::kNullAcceleratedWidget;
++}
++#endif  // BUILDFLAG(IS_OHOS)
++
+ bool TabDragController::IsDraggingTab(content::WebContents* contents) const {
+   for (auto& drag_data : drag_data_.tab_drag_data_) {
+     if (drag_data.contents == contents) {
 diff --git a/chrome/browser/ui/views/tabs/tab_container_impl.cc b/chrome/browser/ui/views/tabs/tab_container_impl.cc
 index bad8d11ed3..e77d0bc9f8 100644
 --- a/chrome/browser/ui/views/tabs/tab_container_impl.cc
