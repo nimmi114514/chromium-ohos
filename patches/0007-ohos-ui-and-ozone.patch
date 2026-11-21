@@ -9985,10 +9985,10 @@ index 0000000000..b1007cd18b
 +#endif  // UI_OZONE_PLATFORM_OHOS_COMMON_OHOS_UTIL_H_
 diff --git a/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.cc b/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.cc
 new file mode 100644
-index 0000000000..5a08ff75ac
+index 0000000000..5cec815324
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.cc
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,124 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10036,6 +10036,12 @@ index 0000000000..5a08ff75ac
 +OhosDesktopWindowMoveClient::~OhosDesktopWindowMoveClient() = default;
 +
 +void OhosDesktopWindowMoveClient::OnMoveEnd() {
++  // Apply the last position that was coalesced away so the window does not stop
++  // short of the pointer. window_size_ is cleared by EndMoveLoop().
++  if (has_pending_bounds_) {
++    window_delegate_->SetBoundsOnMove(pending_bounds_);
++    has_pending_bounds_ = false;
++  }
 +  EndMoveLoop();
 +}
 +
@@ -10063,12 +10069,29 @@ index 0000000000..5a08ff75ac
 +  if (window_size_.IsZero()) {
 +    window_size_ =  window_delegate_->GetSize();
 +  }
-+  window_delegate_->SetBoundsOnMove(
-+      gfx::Rect(system_loc, window_size_));
++  const gfx::Rect bounds(system_loc, window_size_);
++  if (bounds == pending_bounds_) {
++    // The pointer did not move since the last request.
++    return;
++  }
++  pending_bounds_ = bounds;
++  has_pending_bounds_ = true;
++
++  const base::TimeTicks now = base::TimeTicks::Now();
++  if (!last_bounds_request_.is_null() &&
++      now - last_bounds_request_ < kBoundsRequestInterval) {
++    return;
++  }
++  last_bounds_request_ = now;
++  has_pending_bounds_ = false;
++  window_delegate_->SetBoundsOnMove(bounds);
 +}
 +
 +void OhosDesktopWindowMoveClient::OnMoveLoopEnded() {
 +  tab_start_moving_ = false;
++  last_bounds_request_ = base::TimeTicks();
++  pending_bounds_ = gfx::Rect();
++  has_pending_bounds_ = false;
 +}
 +
 +bool OhosDesktopWindowMoveClient::RunMoveLoop(
@@ -10092,10 +10115,10 @@ index 0000000000..5a08ff75ac
 +}  // namespace ui
 diff --git a/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.h b/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.h
 new file mode 100644
-index 0000000000..24ed1d139b
+index 0000000000..1426682326
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/drag/ohos_desktop_window_move_client.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,107 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -10131,6 +10154,7 @@ index 0000000000..24ed1d139b
 +#include "base/component_export.h"
 +#include "base/functional/callback.h"
 +#include "base/memory/raw_ptr.h"
++#include "base/time/time.h"
 +#include "ui/display/display.h"
 +#include "ui/gfx/geometry/point.h"
 +#include "ui/gfx/geometry/point_f.h"
@@ -10188,6 +10212,15 @@ index 0000000000..24ed1d139b
 +  gfx::Vector2d window_offset_;
 +  gfx::Size window_size_;
 +  bool tab_start_moving_ = false;
++
++  // A pointer stream can be much faster than the compositor, and every bounds
++  // request costs a cross-language call plus a window-manager IPC. Coalesce
++  // them to at most one per interval and replay the last one on release.
++  static constexpr base::TimeDelta kBoundsRequestInterval =
++      base::Milliseconds(16);
++  base::TimeTicks last_bounds_request_;
++  gfx::Rect pending_bounds_;
++  bool has_pending_bounds_ = false;
 +};
 +
 +}  // namespace ui
@@ -17631,10 +17664,10 @@ index 0000000000..796bad4760
 \ No newline at end of file
 diff --git a/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
 new file mode 100644
-index 0000000000..af695b4b57
+index 0000000..27c4c26
 --- /dev/null
 +++ b/ui/ozone/platform/ohos/host/ohos_toplevel_window.cc
-@@ -0,0 +1,756 @@
+@@ -0,0 +1,763 @@
 +/*
 + * Copyright (c) 2023-2025 Haitai FangYuan Co., Ltd.
 + * Redistribution and use in source and binary forms, with or without modification,
@@ -17827,6 +17860,13 @@ index 0000000000..af695b4b57
 +}
 +
 +void OhosToplevelWindow::SetBoundsInPixels(const gfx::Rect& bounds) {
++
++  if (HasInitDone() && bounds_in_pixels_ == bounds) {
++    // Dragging a window asks for the same bounds on every pointer event that
++    // does not move it; skip the cross-language call and the bounds
++    // notification in that case.
++    return;
++  }
 +  // Update the minimum and maximum sizes in case they have changed.
 +  UpdateMinAndMaxSize();
 +
